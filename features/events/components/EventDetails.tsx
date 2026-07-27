@@ -95,6 +95,7 @@ function localizedError(error: unknown, language: string, fallback: string) {
     error as {
       response?: {
         data?: {
+          msg?: string;
           message_en?: string;
           message_ar?: string;
           errors?: Record<string, string | Record<string, string> | string[]>;
@@ -103,7 +104,8 @@ function localizedError(error: unknown, language: string, fallback: string) {
     }
   )?.response?.data;
 
-  const localizedMessage = language === "ar" ? response?.message_ar : response?.message_en;
+  const localizedMessage =
+    response?.msg || (language === "ar" ? response?.message_ar : response?.message_en);
   if (localizedMessage) return localizedMessage;
 
   const firstError = response?.errors && Object.values(response.errors)[0];

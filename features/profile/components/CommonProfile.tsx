@@ -129,10 +129,10 @@ function badgeImage(name?: string) {
 function localizedError(error: unknown, language: string, fallback: string) {
   const payload = (
     error as {
-      response?: { data?: { message_en?: string; message_ar?: string } };
+      response?: { data?: { msg?: string; message_en?: string; message_ar?: string } };
     }
   )?.response?.data;
-  return (language === "ar" ? payload?.message_ar : payload?.message_en) || fallback;
+  return payload?.msg || (language === "ar" ? payload?.message_ar : payload?.message_en) || fallback;
 }
 
 function ProfileHeader({

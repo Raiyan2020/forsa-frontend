@@ -270,8 +270,8 @@ export default function OpportunitiesListCard({
       setIsLoading(true);
       try {
         const endpoint = isLearnServe
-          ? "/api/learn-serve-opportunities/"
-          : "/api/list-volunteer-opportunities/";
+          ? "/learn-serve-opportunities/"
+          : "/list-volunteer-opportunities/";
 
         const params = isLearnServe
           ? {

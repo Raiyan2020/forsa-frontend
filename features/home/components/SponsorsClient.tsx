@@ -22,7 +22,7 @@ interface Sponsor {
 }
 
 async function fetchSponsors() {
-  const { data } = await apiClient.get("/api/sponsors/");
+  const { data } = await apiClient.get("/sponsors/");
   return (data?.data as Sponsor[]) ?? [];
 }
 

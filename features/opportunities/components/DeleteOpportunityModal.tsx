@@ -33,7 +33,7 @@ export default function DeleteOpportunityModal({
     setDeleteLoading(true);
     try {
       const response = await requestOpportunityDeletion({ id: opportunityId, type });
-      const successMessage = response?.message_en || response?.message_ar;
+      const successMessage = response?.msg || response?.message_en || response?.message_ar;
       toast.success(successMessage || t("COMMON.TOAST.DELETE_OPPORTUNITY_SUCCESS"));
       setOpenModal();
       refetch();
@@ -46,9 +46,10 @@ export default function DeleteOpportunityModal({
             errors[key][selectedLanguage] || t("COMMON.TOAST.DELETE_OPPORTUNITY_FAILED");
           toast.error(errorMessage);
         });
-      } else if (responseData?.message_en || responseData?.message_ar) {
+      } else if (responseData?.msg || responseData?.message_en || responseData?.message_ar) {
         toast.error(
-          responseData?.[`message_${selectedLanguage}`] ||
+          responseData?.msg ||
+            responseData?.[`message_${selectedLanguage}`] ||
             t("COMMON.TOAST.DELETE_OPPORTUNITY_FAILED")
         );
       } else {

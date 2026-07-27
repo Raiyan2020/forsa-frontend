@@ -79,7 +79,7 @@ const nextConfig: NextConfig = {
       {
         // Build CSP from the project's known domains.
         // unsafe-inline is required for Tailwind/inline styles; eval is avoided.
-        // Third-party: Google OAuth, Google Maps, Google Fonts, api.joinforsa.net
+        // Third-party: Google OAuth, Google Maps, Google Fonts, Fursa API
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
@@ -94,7 +94,7 @@ const nextConfig: NextConfig = {
           // Fonts: self + Google Fonts CDN
           "font-src 'self' https://fonts.gstatic.com",
           // Connections: self + backend API + Google services
-          "connect-src 'self' https://api.joinforsa.net https://accounts.google.com https://maps.googleapis.com",
+          "connect-src 'self' https://portal.fursa.raiyan.cc https://accounts.google.com https://maps.googleapis.com",
           // Frames: Google OAuth popup
           "frame-src https://accounts.google.com",
           // Media
@@ -119,7 +119,7 @@ const nextConfig: NextConfig = {
           // Preconnect to the API origin — browser opens TCP before first fetch
           {
             key: "Link",
-            value: "<https://api.joinforsa.net>; rel=preconnect, <https://api.joinforsa.net>; rel=dns-prefetch",
+            value: "<https://portal.fursa.raiyan.cc>; rel=preconnect, <https://portal.fursa.raiyan.cc>; rel=dns-prefetch",
           },
         ],
       },

@@ -39,7 +39,7 @@ const LanguageSelection = () => {
       try {
         const formData = new FormData();
         formData.append("preferred_language", languageCode);
-        await apiClient.patch("/api/v1/users/account-info/", formData);
+        await apiClient.patch("/v1/users/account-info/", formData);
       } catch {
         // Silently ignore — language still switches locally
       }
@@ -118,4 +118,3 @@ const LanguageSelection = () => {
 };
 
 export default memo(LanguageSelection);
-

@@ -6,14 +6,7 @@ import Title from "@/components/shared/Title";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import Image from "next/image";
-
-interface FAQData {
-  id: number;
-  question_en: string;
-  question_ar: string;
-  answer_en: string;
-  answer_ar: string;
-}
+import type { FaqItem } from "@/lib/api/types";
 
 const containsHTML = (str: string): boolean => {
   return /<[a-z][\s\S]*>/i.test(str);
@@ -29,7 +22,7 @@ const listStyles = `
   .rtl.answer-content ul, .rtl.answer-content ol { padding-right: 2rem !important; padding-left: 0 !important; text-align: right !important; }
 `;
 
-export default function Faq({ initialFaqs = [] }: { initialFaqs?: FAQData[] }) {
+export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
   const { t } = useTranslation();
   const selectedLanguage = useLanguageStore((s) => s.language);
   const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -67,7 +60,7 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FAQData[] }) {
 
   return sectionContent(
     <div>
-      {initialFaqs.map((item: FAQData, index: number) => {
+      {initialFaqs.map((item, index) => {
         const questionNumber = index + 1;
         return (
           <div key={item.id} className="bg-[#f2f2f2] overflow-hidden">

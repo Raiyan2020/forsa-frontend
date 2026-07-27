@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/helpers";
+import { API_BASE_URL } from "@/lib/api/config";
 
 interface UploadInputProps {
   className?: string;
@@ -44,10 +45,8 @@ interface CropModalProps {
 }
 
 const loadImageWithCORS = async (imageUrl: string): Promise<string> => {
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
   const tryWithProxy = async (): Promise<string> => {
-    const proxyUrl = `${BACKEND_URL}/api/proxy-image/?url=${encodeURIComponent(imageUrl)}`;
+    const proxyUrl = `${API_BASE_URL}/proxy-image/?url=${encodeURIComponent(imageUrl)}`;
     console.debug('Attempting to load image via proxy:', proxyUrl);
 
     const response = await fetch(proxyUrl, {

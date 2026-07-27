@@ -150,7 +150,7 @@ export default function CommunityCard({
     }
 
     try {
-      await apiClient.delete(`/api/posts/${postId}/`);
+      await apiClient.delete(`/posts/${postId}/`);
       toast.success(t("COMMON.TOAST.POST_DELETED_SUCCESSFULLY") || "Post deleted successfully");
       refetch?.();
     } catch (err: any) {
@@ -349,4 +349,3 @@ function PostCard({ post, onDelete, router, selectedLanguage, t }: PostCardProps
     </div>
   );
 }
-

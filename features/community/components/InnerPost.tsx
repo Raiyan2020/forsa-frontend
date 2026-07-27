@@ -221,9 +221,10 @@ function InnerPost({ data, refetch }: PostData) {
             t("COMMON.TOAST.DELETE_POST_FAILED");
           toast.error(errorMessage);
         });
-      } else if (errorData?.message_en || errorData?.message_ar) {
+      } else if (errorData?.msg || errorData?.message_en || errorData?.message_ar) {
         toast.error(
-          errorData?.[`message_${selectedLanguage}`] ||
+          errorData?.msg ||
+            errorData?.[`message_${selectedLanguage}`] ||
             t("COMMON.TOAST.DELETE_POST_FAILED")
         );
       } else {

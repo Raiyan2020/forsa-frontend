@@ -219,7 +219,7 @@ export default function VolunteerCard({
   const { data: volunteerResponse, isLoading: volunteerLoading } = useQuery({
     queryKey: ["volunteer-opportunities", queryParamsForOpportunity],
     queryFn: async () => {
-      const { data } = await apiClient.get("/api/list-volunteer-opportunities/", {
+      const { data } = await apiClient.get("/list-volunteer-opportunities/", {
         params: queryParamsForOpportunity,
       });
       return data;
@@ -235,7 +235,7 @@ export default function VolunteerCard({
   const { data: learnServeResponse, isLoading: learnServeLoading } = useQuery({
     queryKey: ["learn-serve-opportunities", queryParamsForLearnServe],
     queryFn: async () => {
-      const { data } = await apiClient.get("/api/learn-serve-opportunities/", {
+      const { data } = await apiClient.get("/learn-serve-opportunities/", {
         params: queryParamsForLearnServe,
       });
       return data;

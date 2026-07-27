@@ -25,7 +25,7 @@ export default function VolunteerContributions({
   const { data: postsData, refetch } = useQuery({
     queryKey: ["community-posts-homepage"],
     queryFn: async () => {
-      const { data } = await apiClient.get("/api/posts/", {
+      const { data } = await apiClient.get("/posts/", {
         params: { page: 1, limit: 6 },
       });
       return data;

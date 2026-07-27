@@ -16,6 +16,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { loginRequest, checkUserRequest, passSocialInfoRequest } from "@/features/auth/api/authApi";
+import { API_BASE_URL } from "@/lib/api/config";
 import { YupEmail, YupRequiredString } from "@/lib/schema";
 import * as Yup from "yup";
 import { handleGoogleLogin } from "@/lib/helpers";
@@ -213,7 +214,7 @@ function LoginPageComponent() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/linkedin/callback/`,
+        `${API_BASE_URL}/linkedin/callback/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -222,7 +223,7 @@ function LoginPageComponent() {
       );
       const data = await response.json();
 
-      if (data?.status === "success" && data?.data?.access_token) {
+      if (data?.key === "success" && data?.data?.access_token) {
         localStorage.setItem("access_token", data.data.access_token);
 
         const userData = data.data;

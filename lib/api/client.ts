@@ -1,9 +1,10 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import { API_BASE_URL } from "@/lib/api/config";
 
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL,
+  baseURL: API_BASE_URL,
 });
 
 apiClient.interceptors.request.use(

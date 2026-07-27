@@ -28,7 +28,7 @@ function DeleteEventModal({
   const { mutate: performDelete, isPending: deleteLoading } = useMutation({
     mutationFn: () => requestEventDeletion(eventId),
     onSuccess: (response) => {
-      const successMessage = response?.message_en || response?.message_ar;
+      const successMessage = response?.msg || response?.message_en || response?.message_ar;
       toast.success(successMessage || t("COMMON.TOAST.DELETE_EVENT_SUCCESS"));
       setOpenModal();
       refetch();
@@ -41,8 +41,12 @@ function DeleteEventModal({
           const errorMessage = errors[key][selectedLanguage] || t("COMMON.TOAST.DELETE_EVENT_FAILED");
           toast.error(errorMessage);
         });
-      } else if (errorData?.message_en || errorData?.message_ar) {
-        toast.error(errorData[`message_${selectedLanguage}`] || t("COMMON.TOAST.DELETE_EVENT_FAILED"));
+      } else if (errorData?.msg || errorData?.message_en || errorData?.message_ar) {
+        toast.error(
+          errorData?.msg ||
+            errorData[`message_${selectedLanguage}`] ||
+            t("COMMON.TOAST.DELETE_EVENT_FAILED")
+        );
       } else {
         toast.error(t("COMMON.TOAST.DELETE_EVENT_FAILED"));
       }

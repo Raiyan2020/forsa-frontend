@@ -22,7 +22,7 @@ export default function HomepageBannerClient() {
   const { data } = useQuery({
     queryKey: ["banner-images"],
     queryFn: async () => {
-      const { data } = await apiClient.get("/api/banner-images/");
+      const { data } = await apiClient.get("/banner-images/");
       return data;
     },
     staleTime: 60 * 1000,

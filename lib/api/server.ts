@@ -4,8 +4,7 @@
  * They do NOT import Zustand or axios — safe to call in Server Components.
  */
 import { cache } from "react";
-
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+import { API_BASE_URL } from "@/lib/api/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +109,7 @@ export interface CommunityPost {
  */
 export const fetchBannerData = cache(async (): Promise<BannerData | null> => {
   try {
-    const res = await fetch(`${BASE_URL}/api/banner-images/`, {
+    const res = await fetch(`${API_BASE_URL}/banner-images/`, {
       next: { revalidate: 60 },
       headers: { "x-lang": "en", Accept: "application/json" },
     });
@@ -128,7 +127,7 @@ export const fetchBannerData = cache(async (): Promise<BannerData | null> => {
  */
 export const fetchSponsors = cache(async (): Promise<SponsorItem[]> => {
   try {
-    const res = await fetch(`${BASE_URL}/api/sponsors/`, {
+    const res = await fetch(`${API_BASE_URL}/sponsors/`, {
       next: { revalidate: 300 },
       headers: { "x-lang": "en", Accept: "application/json" },
     });
@@ -148,7 +147,7 @@ export const fetchHomeVolunteerOpportunities = cache(
   async (): Promise<HomeOpportunity[]> => {
     try {
       const res = await fetch(
-        `${BASE_URL}/api/list-volunteer-opportunities/?page=1&limit=6`,
+        `${API_BASE_URL}/list-volunteer-opportunities/?page=1&limit=6`,
         {
           next: { revalidate: 120 },
           headers: { "x-lang": "en", Accept: "application/json" },
@@ -171,7 +170,7 @@ export const fetchHomeLearnServeOpportunities = cache(
   async (): Promise<HomeOpportunity[]> => {
     try {
       const res = await fetch(
-        `${BASE_URL}/api/learn-serve-opportunities/?page=1&limit=6`,
+        `${API_BASE_URL}/learn-serve-opportunities/?page=1&limit=6`,
         {
           next: { revalidate: 120 },
           headers: { "x-lang": "en", Accept: "application/json" },
@@ -192,7 +191,7 @@ export const fetchHomeLearnServeOpportunities = cache(
  */
 export const fetchHomeEvents = cache(async (): Promise<HomeEvent[]> => {
   try {
-    const res = await fetch(`${BASE_URL}/api/events/?page=1&limit=6`, {
+    const res = await fetch(`${API_BASE_URL}/events/?page=1&limit=6`, {
       next: { revalidate: 120 },
       headers: { "x-lang": "en", Accept: "application/json" },
     });
@@ -211,7 +210,7 @@ export const fetchHomeEvents = cache(async (): Promise<HomeEvent[]> => {
 export const fetchHomeCommunityPosts = cache(
   async (): Promise<CommunityPost[]> => {
     try {
-      const res = await fetch(`${BASE_URL}/api/posts/?page=1&limit=6`, {
+      const res = await fetch(`${API_BASE_URL}/posts/?page=1&limit=6`, {
         next: { revalidate: 120 },
         headers: { "x-lang": "en", Accept: "application/json" },
       });

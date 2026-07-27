@@ -33,12 +33,12 @@ export default function VerifyReport({ uuid }: VerifyReportProps) {
       try {
         const response = await verifyMutation.mutateAsync({ uuid });
         setStatus("success");
-        setMessage(response.message || t("VERIFY_REPORT.SUCCESS"));
+        setMessage(response.msg || response.message || t("VERIFY_REPORT.SUCCESS"));
         toast.success(t("VERIFY_REPORT.SUCCESS"));
       } catch (error: any) {
         setStatus("error");
-        if (error?.response?.data?.message) {
-          setMessage(error.response.data.message);
+        if (error?.response?.data?.msg || error?.response?.data?.message) {
+          setMessage(error.response.data.msg || error.response.data.message);
         } else {
           setMessage(t("VERIFY_REPORT.ERROR"));
         }

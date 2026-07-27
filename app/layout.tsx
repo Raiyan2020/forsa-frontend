@@ -41,8 +41,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning={true}>
       <head>
         {/* Preconnect to the API origin so image/data fetches start earlier */}
-        <link rel="preconnect" href="https://api.joinforsa.net" />
-        <link rel="dns-prefetch" href="https://api.joinforsa.net" />
+        <link rel="preconnect" href="https://portal.fursa.raiyan.cc" />
+        <link rel="dns-prefetch" href="https://portal.fursa.raiyan.cc" />
       </head>
       <body suppressHydrationWarning={true}>
         <GoogleOAuthProvider clientId={googleClientId}>
@@ -57,5 +57,4 @@ export default function RootLayout({
     </html>
   );
 }
-
 
