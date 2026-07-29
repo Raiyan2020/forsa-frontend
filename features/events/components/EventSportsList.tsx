@@ -1,5 +1,12 @@
 "use client";
 
+import EventCategoryList from "./EventCategoryList";
+
 export default function EventSportsList() {
-  return <div className="py-20 text-center text-gray-500">Loading EventSportsList...</div>;
+  return (
+    <EventCategoryList
+      eventType="Sports Activities"
+      titleKey="COMMON.SPORTS.ACTTIVITIES"
+    />
+  );
 }

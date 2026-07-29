@@ -1,5 +1,9 @@
 "use client";
 
+import EventCategoryList from "./EventCategoryList";
+
 export default function EventSeminarList() {
-  return <div className="py-20 text-center text-gray-500">Loading EventSeminarList...</div>;
+  return (
+    <EventCategoryList eventType="Hub" titleKey="COMMON.SEMINAR.CONFERENCES" />
+  );
 }

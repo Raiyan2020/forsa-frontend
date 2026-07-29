@@ -1,5 +1,7 @@
 "use client";
 
+import EventCategoryList from "./EventCategoryList";
+
 export default function EventCampsList() {
-  return <div className="py-20 text-center text-gray-500">Loading EventCampsList...</div>;
+  return <EventCategoryList eventType="Camps" titleKey="COMMON.CAMPS" />;
 }

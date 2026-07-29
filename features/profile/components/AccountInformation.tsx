@@ -1,5 +1,15 @@
 "use client";
 
+import { useAuthStore } from "@/store/authStore";
+import OrganizerAccountInformation from "./OrganizerAccountInformation";
+import VolunteerAccountInformation from "./VolunteerAccountInformation";
+
 export default function AccountInformation() {
-  return <div className="py-20 text-center text-gray-500">Loading AccountInformation...</div>;
+  const userType = useAuthStore((s) => s.user?.user_type);
+
+  return userType === "volunteer" ? (
+    <VolunteerAccountInformation />
+  ) : (
+    <OrganizerAccountInformation />
+  );
 }

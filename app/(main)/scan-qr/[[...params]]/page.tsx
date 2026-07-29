@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import Loader from "@/components/ui/Loader";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import ScanQR from "@/features/profile/components/ScanQR";
 
@@ -11,7 +13,9 @@ export default async function Page({
   const eventId = routeParams?.[1];
   return (
     <ProtectedRoute userType={["volunteer", "organization"]}>
-      <ScanQR opportunityId={opportunityId} eventId={eventId} />
+      <Suspense fallback={<Loader />}>
+        <ScanQR opportunityId={opportunityId} eventId={eventId} />
+      </Suspense>
     </ProtectedRoute>
   );
 }

@@ -144,6 +144,35 @@ export const unregisterFromVolunteerOpportunity = (id: string) =>
 export const deleteOpportunityImage = (data: any) =>
   apiClient.delete("/delete-opportunity-image/", { data }).then((r) => r.data);
 
+/**
+ * Streams an uploaded opportunity/event image back as a file. Unlike the
+ * registration "download" endpoints (which return a JSON `downloadUrl`), this
+ * one returns the bytes, so the caller saves the blob itself.
+ */
+export const downloadOpportunityImage = ({
+  image_id,
+  fallbackName = "opportunity_image",
+}: {
+  image_id: number;
+  fallbackName?: string;
+}) =>
+  apiClient
+    .get("/download-url/", {
+      params: { image_id },
+      responseType: "blob",
+    })
+    .then((response) => {
+      // Prefer the server-supplied filename when Content-Disposition carries one
+      const disposition = response.headers["content-disposition"] as
+        | string
+        | undefined;
+      const match = disposition?.match(/filename="(.+)"/);
+      return {
+        blob: response.data as Blob,
+        filename: match?.[1] || `${fallbackName}_${Date.now()}.jpg`,
+      };
+    });
+
 export const requestOpportunityDeletion = ({ id, type }: { id: string; type: "volunteer" | "learnserve" }) =>
   apiClient.post(`/opportunities/${id}/request-deletion/`, { type: type.toLowerCase() }).then((r) => r.data);
 
@@ -172,11 +201,74 @@ export const deleteAllRoles = (opportunityId: number) =>
 export const updateVolunteerRegistration = ({ id, data }: { id: string; data: any }) =>
   apiClient.patch(`/volunteer-opportunity-registrations/`, data).then((r) => r.data);
 
-export const getVolunteerRegistrations = (params?: any) =>
-  apiClient.get("/volunteer-opportunity-registrations/", { params }).then((r) => r.data);
+/**
+ * Team and role filters go over the wire as repeated `team_id` / `role_id`
+ * params, so they're built by hand rather than left to axios' array encoding.
+ */
+export const getVolunteerRegistrations = ({
+  opportunity_id,
+  page = 1,
+  limit = 10,
+  teams,
+  roles,
+  search,
+}: {
+  opportunity_id?: string;
+  page?: number;
+  limit?: number;
+  teams?: number[];
+  roles?: number[];
+  search?: string;
+}) => {
+  const params = new URLSearchParams();
+  params.append("opportunity_id", String(opportunity_id ?? ""));
+  params.append("page", String(page));
+  params.append("limit", String(limit));
+  teams?.forEach((team) => params.append("team_id", String(team)));
+  roles?.forEach((role) => params.append("role_id", String(role)));
+  if (search) params.append("search", search);
 
-export const downloadVolunteerRegistrations = (params?: any) =>
-  apiClient.get("/volunteer-opportunity-registrations/", { params, responseType: "blob" }).then((r) => r.data);
+  return apiClient
+    .get("/volunteer-opportunity-registrations/", { params })
+    .then((r) => r.data);
+};
+
+/**
+ * The registration endpoints answer `download=true` with JSON containing a
+ * pre-signed `downloadUrl` rather than the file itself.
+ */
+export interface RegistrationsDownload {
+  downloadUrl: string;
+}
+
+export const downloadVolunteerRegistrations = ({
+  opportunity_id,
+  teams,
+  roles,
+  search,
+  mark_attendance,
+  date,
+}: {
+  opportunity_id: string;
+  teams?: number[];
+  roles?: number[];
+  search?: string;
+  mark_attendance?: boolean;
+  date?: string;
+}): Promise<RegistrationsDownload> => {
+  const params = new URLSearchParams();
+  params.append("opportunity_id", opportunity_id);
+  params.append("download", "true");
+  teams?.forEach((team) => params.append("team_id", String(team)));
+  roles?.forEach((role) => params.append("role_id", String(role)));
+  if (search) params.append("search", search);
+  if (mark_attendance) params.append("mark_attendance", "true");
+  if (date) params.append("date", date);
+
+  return apiClient
+    .get("/volunteer-opportunity-registrations/", { params })
+    .then((r) => r.data);
+};
 
 export const directRegisterVolunteer = (data: any) =>
   apiClient.post("/volunteer-opportunity-registrations/direct-register/", data).then((r) => r.data);
@@ -230,8 +322,29 @@ export const deleteLearnServeRegistrationByOpportunity = ({ opportunity_id, user
 export const getLearnServeRegistrations = ({ opportunity_id, ...params }: { opportunity_id: string;[key: string]: any }) =>
   apiClient.get(`/learn-serve-opportunities/${opportunity_id}/registrations/`, { params }).then((r) => r.data);
 
-export const downloadLearnServeRegistrations = ({ opportunity_id, ...params }: { opportunity_id: string;[key: string]: any }) =>
-  apiClient.get(`/learn-serve-opportunities/${opportunity_id}/registrations/`, { params, responseType: "blob" }).then((r) => r.data);
+export const downloadLearnServeRegistrations = ({
+  opportunity_id,
+  search,
+  attended,
+  all_data,
+}: {
+  opportunity_id: string;
+  search?: string;
+  attended?: boolean;
+  all_data?: boolean;
+}): Promise<RegistrationsDownload> => {
+  const params = new URLSearchParams();
+  params.append("download", "true");
+  if (search) params.append("search", search);
+  if (attended !== undefined) params.append("attended", String(attended));
+  if (all_data) params.append("all_data", "true");
+
+  return apiClient
+    .get(`/learn-serve-opportunities/${opportunity_id}/registrations/`, {
+      params,
+    })
+    .then((r) => r.data);
+};
 
 export const updateLearnServeRegistration = ({ registration_id, data }: { registration_id: string; data: any }) =>
   apiClient.patch(`/learn-serve-opportunity-registrations/${registration_id}/`, data).then((r) => r.data);
@@ -314,8 +427,25 @@ export const requestEventDeletion = (eventId: string) =>
 export const getEventRegistrations = (params?: any) =>
   apiClient.get("/event-registrations/", { params }).then((r) => r.data);
 
-export const downloadEventRegistrations = (params?: any) =>
-  apiClient.get("/event-registrations/", { params, responseType: "blob" }).then((r) => r.data);
+export const downloadEventRegistrations = ({
+  event_id,
+  search,
+  mark_attendance,
+}: {
+  event_id: string;
+  search?: string;
+  mark_attendance?: boolean;
+}): Promise<RegistrationsDownload> => {
+  const params = new URLSearchParams();
+  params.append("event_id", event_id);
+  params.append("download", "true");
+  if (search) params.append("search", search);
+  if (mark_attendance) params.append("mark_attendance", "true");
+
+  return apiClient
+    .get("/event-registrations/", { params })
+    .then((r) => r.data);
+};
 
 // ─── Event Feedbacks ─────────────────────────────────────────────────────────
 
@@ -355,6 +485,13 @@ export const createContactUs = (data: any) =>
 export const getCalendar = (params?: any) =>
   apiClient.get("/my-calendar/", { params }).then((r) => r.data);
 
+/**
+ * iPadOS refuses to open a locally-generated blob in Calendar, so the .ics is
+ * uploaded and the returned URL is opened instead.
+ */
+export const uploadICSFile = (formData: FormData) =>
+  apiClient.post("/upload-ics/", formData).then((r) => r.data);
+
 export const saveToCalendar = (data: any) =>
   apiClient.post("/my-calendar/save/", data).then((r) => r.data);
 
@@ -378,6 +515,19 @@ export const getBannerImages = () =>
 
 export const getCommunityPosts = (params?: any) =>
   apiClient.get("/posts/", { params }).then((r) => r.data);
+
+export const getCommunityPostsByTag = ({
+  tag,
+  page = 1,
+  limit = 5,
+}: {
+  tag: string;
+  page?: number;
+  limit?: number;
+}) =>
+  apiClient
+    .get("/posts/by_tag/", { params: { tag, page, limit } })
+    .then((r) => r.data);
 
 export const getCommunityPostById = (id: string) =>
   apiClient.get(`/posts/${id}/`).then((r) => r.data);
@@ -406,7 +556,11 @@ export const getReplyById = (id: string) =>
 export const deleteReply = (id: string) =>
   apiClient.delete(`/replies/${id}/`).then((r) => r.data);
 
-export const likeCommunityPost = (data: { post_id: string }) =>
+/** Same toggle endpoint backs post likes and reply likes. */
+export const likeCommunityPost = (data: {
+  post_id?: string;
+  reply_id?: string;
+}) =>
   apiClient.post("/likes/toggle/", data).then((r) => r.data);
 
 export const communityPostContactUs = (data: { post_id: string; message: string }) =>
@@ -414,6 +568,48 @@ export const communityPostContactUs = (data: { post_id: string; message: string 
 
 
 // ─── Scan QR ─────────────────────────────────────────────────────────────────
+
+// ─── Scan Permissions ────────────────────────────────────────────────────────
+
+export const getAllVolunteers = (params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  opportunity_id?: string | number;
+  event_id?: string | number;
+}) => apiClient.get("/all-volunteers/", { params }).then((r) => r.data);
+
+export const getScanPermissionsList = (params?: {
+  opportunity_id?: string | number;
+  event_id?: string | number;
+  search?: string;
+  page?: number;
+  limit?: number;
+  download?: boolean;
+}) => apiClient.get("/scan-permissions/list/", { params }).then((r) => r.data);
+
+export const downloadScanPermissions = (params: {
+  opportunity_id?: string | number;
+  event_id?: string | number;
+  search?: string;
+  download?: boolean;
+}): Promise<{ data: { downloadUrl: string } }> =>
+  apiClient.get("/scan-permissions/list/", { params }).then((r) => r.data);
+
+export const bulkUpdateScanPermissions = (data: {
+  user_ids: number[];
+  is_allowed: boolean;
+  opportunity_id?: string | number;
+  event_id?: string | number;
+}) => apiClient.post("/scan-permissions/bulk-update/", data).then((r) => r.data);
+
+export const markVolunteerAttendance = (data: {
+  opportunity_id?: string | number;
+  event_id?: string | number;
+  volunteer_uuid?: string;
+  volunteer_ids?: string[];
+  attendance_date?: string;
+}) => apiClient.post("/volunteer-attendance/scan/", data).then((r) => r.data);
 
 export const scanQRCode = (data: any) =>
   apiClient.post("/scan-qr/", data).then((r) => r.data);
