@@ -3,8 +3,10 @@
 import { useState } from "react";
 import "react-multi-carousel/lib/styles.css";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import Title from "./Title";
 import Link from "next/link";
+import apiClient from "@/lib/api/client";
 import { useAuthStore } from "@/store/authStore";
 import EventCard from "./EventCard";
 import type { HomeEvent } from "@/lib/api/server";
@@ -18,6 +20,26 @@ export default function Events({ initialEvents = [] }: EventsProps) {
   const { t } = useTranslation();
   const [navigationVisibility, setNavigationVisibility] = useState(false);
   const user = useAuthStore((s) => s.user);
+
+  // The authenticated homepage renders this section with no server data, so it
+  // has to fetch for itself. Seeding only from a NON-empty server list matters:
+  // `initialData` counts as fresh for `staleTime`, so seeding with [] would pin
+  // the section empty for two minutes instead of fetching.
+  const { data: eventsData } = useQuery({
+    queryKey: ["events-homepage"],
+    queryFn: async () => {
+      const { data } = await apiClient.get("/events/", {
+        params: { page: 1, limit: 6 },
+      });
+      return data;
+    },
+    initialData: initialEvents.length > 0 ? { data: initialEvents } : undefined,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const events: HomeEvent[] = Array.isArray(eventsData?.data)
+    ? eventsData.data
+    : initialEvents;
 
   return (
     <div className="border-b border-b-[#000000]/20">
@@ -42,7 +64,7 @@ export default function Events({ initialEvents = [] }: EventsProps) {
           )}
         </div>
         <EventCard
-          events={initialEvents}
+          events={events}
           onNavigationVisibilityChange={(isVisible) =>
             setNavigationVisibility(isVisible)
           }

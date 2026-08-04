@@ -15,18 +15,14 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <>
-      {/*
-       * Immediately SSR the public homepage for FCP / LCP.
-       * HomepagePublic is a Server Component that fetches ALL data server-side
-       * in parallel — the banner image is in the first HTML byte.
-       */}
+    /*
+     * The public homepage is a Server Component that fetches ALL its data
+     * server-side in parallel — the banner image is in the first HTML byte — and
+     * it is passed as children so the gate can keep it on screen until hydration
+     * decides. Logged-in visitors get the authenticated view in its place.
+     */
+    <HomepageClientGate>
       <HomepagePublic />
-      {/*
-       * Small client island that swaps to the authenticated view after hydration.
-       * Logged-out visitors see nothing from this component.
-       */}
-      <HomepageClientGate />
-    </>
+    </HomepageClientGate>
   );
 }

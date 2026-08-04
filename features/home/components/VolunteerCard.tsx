@@ -225,8 +225,10 @@ export default function VolunteerCard({
       return data;
     },
     enabled: !!isOpportunity && !isLearnServe,
-    // Seed with server data so no client fetch is needed on first paint
-    initialData: is_homepage && initialData && !isLearnServe
+    // Seed with server data so no client fetch is needed on first paint. An
+    // EMPTY server list is not seeded — `initialData` counts as fresh for
+    // `staleTime`, so it would pin the section empty instead of retrying.
+    initialData: is_homepage && initialData?.length && !isLearnServe
       ? { data: initialData }
       : undefined,
     staleTime: is_homepage ? 2 * 60 * 1000 : 0,
@@ -241,8 +243,8 @@ export default function VolunteerCard({
       return data;
     },
     enabled: !!isLearnServe,
-    // Seed with server data so no client fetch is needed on first paint
-    initialData: is_homepage && initialData && isLearnServe
+    // Same as above — only a non-empty server list is treated as seeded data.
+    initialData: is_homepage && initialData?.length && isLearnServe
       ? { data: initialData }
       : undefined,
     staleTime: is_homepage ? 2 * 60 * 1000 : 0,

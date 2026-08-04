@@ -30,7 +30,9 @@ export default function VolunteerContributions({
       });
       return data;
     },
-    initialData: { data: initialPosts },
+    // Only a non-empty server list is seeded: `initialData` counts as fresh for
+    // `staleTime`, so seeding [] would pin the section empty for two minutes.
+    initialData: initialPosts.length > 0 ? { data: initialPosts } : undefined,
     staleTime: 2 * 60 * 1000, // treat server data as fresh for 2 min
   });
 
