@@ -6,7 +6,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import CheckBox from "@/components/ui/CheckBox";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -21,7 +21,8 @@ import {
   passSocialInfoRequest,
   getDropdownChoicesRequest,
 } from "@/features/auth/api/authApi";
-import { API_BASE_URL } from "@/lib/api/config";
+import { getApiErrorMessages } from "@/lib/api/errors";
+import { startLinkedinLogin } from "@/lib/auth/linkedin";
 import {
   YupEmail,
   YupPhoneNumber,
@@ -65,7 +66,6 @@ function DobWatcher({
 function IndividualAccountPageComponent() {
   const { t } = useTranslation();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const selectedLanguage = useLanguageStore((s) => s.language);
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -237,17 +237,9 @@ function IndividualAccountPageComponent() {
       resetForm();
       router.push(`/email-verification?email=${encodeURIComponent(values.email)}&otp_type=register`);
     } catch (err: any) {
-      const errorData = err?.response?.data;
-      if (errorData?.errors?.email) {
-        toast.error(t("COMMON.TOAST.EMAIL_ALREADY_EXISTS"));
-      } else if (errorData?.errors) {
-        const errors = errorData.errors;
-        Object.keys(errors).forEach((key) => {
-          const errorMessage =
-            errors[key][selectedLanguage] ||
-            t("COMMON.TOAST.REGISTRATION_FAILED");
-          toast.error(errorMessage);
-        });
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
       }
@@ -284,17 +276,9 @@ function IndividualAccountPageComponent() {
         toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
         router.push("/");
       } catch (err: any) {
-        const errorData = err?.response?.data;
-        if (errorData?.errors?.email) {
-          toast.error(t("COMMON.TOAST.EMAIL_ALREADY_EXISTS"));
-        } else if (errorData?.errors) {
-          const errors = errorData.errors;
-          Object.keys(errors).forEach((key) => {
-            const errorMessage =
-              errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.REGISTRATION_FAILED");
-            toast.error(errorMessage);
-          });
+        const messages = getApiErrorMessages(err, selectedLanguage);
+        if (messages.length > 0) {
+          messages.forEach((message) => toast.error(message));
         } else {
           toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
         }
@@ -307,111 +291,15 @@ function IndividualAccountPageComponent() {
   });
 
   const handleLinkedinLogin = () => {
-    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID;
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
-    const redirectUri = `${frontendUrl}/individual-form`;
-    const scope = "openid profile email w_member_social";
-    const stateData = {
-      user_type: "volunteer",
-      page_id: "individual_account",
-      random: Math.random().toString(36).substring(7),
-      redirect_uri: redirectUri,
-    };
-    const state = btoa(JSON.stringify(stateData));
-
-    const linkedinAuthUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
-      redirectUri
-    )}&scope=${encodeURIComponent(scope)}&state=${state}`;
-
-    window.location.href = linkedinAuthUrl;
-  };
-
-  const handleLinkedinCallback = async (
-    code: string,
-    userType: string,
-    redirectUri: string
-  ) => {
+    // LinkedIn redirects to /linkedin-callback — the single registered URI —
+    // which finishes the exchange and routes a brand-new volunteer onward.
     setLinkedinLoading(true);
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/linkedin/callback/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, redirect_uri: redirectUri }),
-        }
-      );
-      const data = await response.json();
-
-      if (data?.key === "success" && data?.data?.access_token) {
-        localStorage.setItem("access_token", data.data.access_token);
-
-        const userData = data.data;
-        userData.social_media_provider = "linkedin";
-        userData.social_profile_pic_url = userData.picture;
-        userData.social_media_id = userData.linkedin_id;
-
-        const checkUserResponse = await checkUserMutation.mutateAsync({
-          email: userData.email,
-        });
-        const isNewUser = checkUserResponse?.data?.email?.is_new_user;
-
-        if (isNewUser) {
-          toast.info("Welcome! Redirecting to complete your profile...");
-          sessionStorage.setItem("oauth_user", JSON.stringify(userData));
-          router.push("/volunteer-mandate-details");
-          return;
-        }
-
-        const finalUserData: any = {
-          social_media_id: userData.linkedin_id,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          email: userData.email,
-          social_profile_pic_url: userData.picture,
-          access_token: data.data.access_token,
-          user_type: userType,
-          social_media_provider: "linkedin",
-        };
-
-        const responseSocial = await passSocialInfoMutation.mutateAsync(finalUserData);
-        const userDataToStore = responseSocial.data;
-        setUser(userDataToStore);
-        toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
-        router.push("/");
-      } else {
-        toast.error(t("COMMON.TOAST.LINKEDIN_LOGIN_FAILED"));
-      }
-    } catch (error) {
-      console.error("Error during LinkedIn login:", error);
-      toast.error(t("COMMON.TOAST.LINKEDIN_LOGIN_ERROR"));
-      router.push("/individual-form");
-    } finally {
+    const started = startLinkedinLogin({ userType: "volunteer", returnTo: "/" });
+    if (!started) {
       setLinkedinLoading(false);
+      toast.error(t("COMMON.TOAST.LINKEDIN_NOT_CONFIGURED"));
     }
   };
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-    const stateParam = urlParams.get("state");
-
-    if (code && stateParam) {
-      try {
-        const decodedState = JSON.parse(atob(stateParam));
-        const { user_type, page_id, redirect_uri } = decodedState;
-
-        if (page_id === "individual_account") {
-          handleLinkedinCallback(code, user_type, redirect_uri);
-        }
-      } catch (error) {
-        console.error("Error parsing state parameter:", error);
-        toast.error(t("COMMON.TOAST.INVALID_LINKEDIN_CALLBACK_STATE"));
-        setLinkedinLoading(false);
-      }
-    }
-  }, [searchParams]);
 
   const checkNicknameAvailability = useCallback(
     async (nickname: string) => {
@@ -748,7 +636,7 @@ function IndividualAccountPageComponent() {
                       alt="Google"
                       onClick={() => {
                         if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                          toast.error("Google Login is not configured.");
+                          toast.error(t("COMMON.TOAST.GOOGLE_NOT_CONFIGURED"));
                           return;
                         }
                         googleLoginForIndividual();

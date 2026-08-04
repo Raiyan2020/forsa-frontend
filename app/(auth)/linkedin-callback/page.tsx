@@ -5,8 +5,9 @@ import Loader from "@/components/ui/Loader";
 import LinkedinCallback from "@/features/auth/components/LinkedinCallback";
 
 /**
- * Legacy alias. New sign-ins land on /linkedin-callback — the path registered in
- * the LinkedIn Developer App — but this keeps in-flight redirects working.
+ * The redirect URI registered in the LinkedIn Developer App:
+ * `${NEXT_PUBLIC_FRONTEND_URL}/linkedin-callback`. `/linkedin/callback` stays
+ * around as an alias for sessions started before the paths were unified.
  */
 export default function Page() {
   return (

@@ -221,7 +221,7 @@ export default function LearnServeDetails({
     toast.error(t("COMMON.ERROR_FETCHING_OPPORTUNITY"));
   }, [opportunityQuery.error, selectedLanguage, t, router]);
 
-  // A LinkedIn sign-up bounces through /linkedin/callback and lands back here
+  // A LinkedIn sign-up bounces through /linkedin-callback and lands back here
   // with the new user's profile stashed; pick it up once and clear it.
   useEffect(() => {
     const linkedinNewUserData = getNavState<any>(NAV_STATE_KEYS.linkedinNewUser);

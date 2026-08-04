@@ -40,8 +40,16 @@ export const checkUserRequest = async (credentials: any) => {
   return data;
 };
 
-export const linkedinLoginRequest = async () => {
-  const { data } = await apiClient.get("/linkedin/login/");
+/**
+ * Exchanges the `code` LinkedIn redirected back with for the member's profile.
+ * `redirect_uri` must equal the one used in the authorize URL byte for byte —
+ * LinkedIn re-validates it here.
+ */
+export const linkedinCallbackRequest = async (payload: {
+  code: string;
+  redirect_uri: string;
+}) => {
+  const { data } = await apiClient.post("/linkedin/callback/", payload);
   return data;
 };
 

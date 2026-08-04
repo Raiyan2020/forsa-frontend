@@ -20,6 +20,7 @@ import {
   getDropdownChoicesRequest,
   passSocialInfoRequest,
 } from "@/features/auth/api/authApi";
+import { getApiErrorMessages } from "@/lib/api/errors";
 import { nationalityOptions } from "@/data/Constants";
 import { cn } from "@/lib/helpers";
 import {
@@ -316,17 +317,9 @@ export default function VolunteerMandateDetails({
         router.push("/");
       }
     } catch (err: any) {
-      const errorData = err?.response?.data;
-      if (errorData?.errors?.email) {
-        toast.error(t("COMMON.TOAST.EMAIL_ALREADY_EXISTS"));
-      } else if (errorData?.errors) {
-        const errors = errorData.errors;
-        Object.keys(errors).forEach((key) => {
-          const errorMessage =
-            errors[key][selectedLanguage] ||
-            t("COMMON.TOAST.REGISTRATION_FAILED");
-          toast.error(errorMessage);
-        });
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
       }

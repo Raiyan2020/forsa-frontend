@@ -207,7 +207,7 @@ export default function VolunteerEvent({
     setShowVolunteerMandateDetails(true);
   };
 
-  // A LinkedIn sign-up bounces through /linkedin/callback and lands back here
+  // A LinkedIn sign-up bounces through /linkedin-callback and lands back here
   // with the new user's profile stashed; pick it up once and clear it so a
   // refresh doesn't reopen the modal.
   useEffect(() => {

@@ -22,6 +22,8 @@ import {
   registerRequest,
 } from "@/features/auth/api/authApi";
 import { nationalityOptions } from "@/data/Constants";
+import { getApiErrorMessages } from "@/lib/api/errors";
+import { startLinkedinLogin } from "@/lib/auth/linkedin";
 import { handleGoogleLogin } from "@/lib/helpers";
 import {
   YupCivilId,
@@ -267,16 +269,9 @@ export default function RegisterVolunteerModalForm({
   }, []);
 
   const reportRegistrationError = (error: any) => {
-    const errorData = error?.response?.data;
-    if (errorData?.errors?.email) {
-      toast.error(t("COMMON.TOAST.EMAIL_ALREADY_EXISTS"));
-    } else if (errorData?.errors) {
-      Object.keys(errorData.errors).forEach((key) => {
-        toast.error(
-          errorData.errors[key][selectedLanguage] ||
-            t("COMMON.TOAST.REGISTRATION_FAILED")
-        );
-      });
+    const messages = getApiErrorMessages(error, selectedLanguage);
+    if (messages.length > 0) {
+      messages.forEach((message) => toast.error(message));
     } else {
       toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
     }
@@ -342,25 +337,12 @@ export default function RegisterVolunteerModalForm({
   });
 
   const handleLinkedinLogin = () => {
-    const clientId = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID;
-    const frontendUrl =
-      process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
     // LinkedIn only accepts pre-registered redirect URIs, so the flow always
-    // lands on /linkedin/callback and returns here via `original_path`.
-    const redirectUri = `${frontendUrl}/linkedin/callback`;
-    const scope = "openid profile email w_member_social";
-    const stateData = {
-      user_type: userType,
-      page_id: "login",
-      random: Math.random().toString(36).substring(7),
-      redirect_uri: redirectUri,
-      original_path: window.location.pathname,
-    };
-    const state = btoa(JSON.stringify(stateData));
-
-    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(
-      redirectUri
-    )}&scope=${encodeURIComponent(scope)}&state=${state}`;
+    // lands on /linkedin-callback and returns to this page via `original_path`,
+    // which re-opens the modal on the volunteer mandate step.
+    if (!startLinkedinLogin({ userType, originalPath: window.location.pathname })) {
+      toast.error(t("COMMON.TOAST.LINKEDIN_NOT_CONFIGURED"));
+    }
   };
 
   const isBusy =
