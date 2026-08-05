@@ -6,6 +6,18 @@
 import { cache } from "react";
 import { API_BASE_URL } from "@/lib/api/config";
 
+/**
+ * Headers for server-side API calls. These responses are ISR-cached and shared
+ * by every visitor, so the language is pinned to English rather than read from
+ * the (client-only) language store — the per-user language is applied by
+ * `lib/api/client.ts` once the page hydrates.
+ */
+export const SERVER_API_HEADERS = {
+  "x-lang": "en",
+  "Accept-Language": "en",
+  Accept: "application/json",
+} as const;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface BannerImage {
@@ -111,7 +123,7 @@ export const fetchBannerData = cache(async (): Promise<BannerData | null> => {
   try {
     const res = await fetch(`${API_BASE_URL}/banner-images/`, {
       next: { revalidate: 60 },
-      headers: { "x-lang": "en", Accept: "application/json" },
+      headers: SERVER_API_HEADERS,
     });
     if (!res.ok) return null;
     const json = await res.json();
@@ -129,7 +141,7 @@ export const fetchSponsors = cache(async (): Promise<SponsorItem[]> => {
   try {
     const res = await fetch(`${API_BASE_URL}/sponsors/`, {
       next: { revalidate: 300 },
-      headers: { "x-lang": "en", Accept: "application/json" },
+      headers: SERVER_API_HEADERS,
     });
     if (!res.ok) return [];
     const json = await res.json();
@@ -150,7 +162,7 @@ export const fetchHomeVolunteerOpportunities = cache(
         `${API_BASE_URL}/list-volunteer-opportunities/?page=1&limit=6`,
         {
           next: { revalidate: 120 },
-          headers: { "x-lang": "en", Accept: "application/json" },
+          headers: SERVER_API_HEADERS,
         }
       );
       if (!res.ok) return [];
@@ -173,7 +185,7 @@ export const fetchHomeLearnServeOpportunities = cache(
         `${API_BASE_URL}/learn-serve-opportunities/?page=1&limit=6`,
         {
           next: { revalidate: 120 },
-          headers: { "x-lang": "en", Accept: "application/json" },
+          headers: SERVER_API_HEADERS,
         }
       );
       if (!res.ok) return [];
@@ -193,7 +205,7 @@ export const fetchHomeEvents = cache(async (): Promise<HomeEvent[]> => {
   try {
     const res = await fetch(`${API_BASE_URL}/events/?page=1&limit=6`, {
       next: { revalidate: 120 },
-      headers: { "x-lang": "en", Accept: "application/json" },
+      headers: SERVER_API_HEADERS,
     });
     if (!res.ok) return [];
     const json = await res.json();
@@ -212,7 +224,7 @@ export const fetchHomeCommunityPosts = cache(
     try {
       const res = await fetch(`${API_BASE_URL}/posts/?page=1&limit=6`, {
         next: { revalidate: 120 },
-        headers: { "x-lang": "en", Accept: "application/json" },
+        headers: SERVER_API_HEADERS,
       });
       if (!res.ok) return [];
       const json = await res.json();

@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/helpers";
 import { API_BASE_URL } from "@/lib/api/config";
+import { useLanguageStore } from "@/store/languageStore";
 
 interface UploadInputProps {
   className?: string;
@@ -49,9 +50,12 @@ const loadImageWithCORS = async (imageUrl: string): Promise<string> => {
     const proxyUrl = `${API_BASE_URL}/proxy-image/?url=${encodeURIComponent(imageUrl)}`;
     console.debug('Attempting to load image via proxy:', proxyUrl);
 
+    const language = useLanguageStore.getState().language || 'en';
+
     const response = await fetch(proxyUrl, {
       method: 'GET',
       credentials: 'omit',
+      headers: { 'x-lang': language, 'Accept-Language': language },
     });
 
     if (!response.ok) {

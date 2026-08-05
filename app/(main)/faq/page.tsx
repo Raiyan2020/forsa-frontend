@@ -1,10 +1,12 @@
 import Faq from "@/features/info/components/Faq";
 import { API_BASE_URL } from "@/lib/api/config";
+import { SERVER_API_HEADERS } from "@/lib/api/server";
 import type { ApiResponse, FaqItem } from "@/lib/api/types";
 
 async function fetchFaqs(): Promise<ApiResponse<FaqItem[]>> {
   const res = await fetch(`${API_BASE_URL}/faqs/?page=1&limit=1000`, {
     next: { revalidate: 3600 }, // Cache for 1 hour
+    headers: SERVER_API_HEADERS,
   });
   if (!res.ok) {
     throw new Error("Failed to fetch FAQs");

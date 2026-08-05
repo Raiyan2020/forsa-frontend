@@ -11,12 +11,13 @@ apiClient.interceptors.request.use(
   (config) => {
     // Get token and language from Zustand stores
     const token = useAuthStore.getState().user?.auth_token;
-    const language = useLanguageStore.getState().language;
+    const language = useLanguageStore.getState().language || "en";
 
     if (token) {
       config.headers.Authorization = `Token ${token}`;
     }
-    config.headers["x-lang"] = language || "en";
+    config.headers["x-lang"] = language;
+    config.headers["Accept-Language"] = language;
 
     return config;
   },
