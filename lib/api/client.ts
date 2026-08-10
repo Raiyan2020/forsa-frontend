@@ -18,6 +18,8 @@ apiClient.interceptors.request.use(
     }
     config.headers["x-lang"] = language;
     config.headers["Accept-Language"] = language;
+    // The social-auth endpoints localize their messages from `Lang`.
+    config.headers["Lang"] = language;
 
     return config;
   },

@@ -22,8 +22,14 @@ import {
   passSocialInfoRequest,
   getDropdownChoicesRequest,
 } from "@/features/auth/api/authApi";
-import { getApiErrorMessages } from "@/lib/api/errors";
+import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
+import {
+  SocialProfile,
+  setSocialPrefill,
+  socialOnboardingRoute,
+  stashSocialProfile,
+} from "@/lib/auth/socialSignup";
 import {
   YupEmail,
   YupPhoneNumber,
@@ -229,7 +235,7 @@ function EntitiesAccountPageComponent() {
 
     if (values.documents) {
       for (let i = 0; i < values.documents.length; i++) {
-        formData.append("documents", values.documents[i]);
+        formData.append("documents[]", values.documents[i]);
       }
     }
 
@@ -248,43 +254,74 @@ function EntitiesAccountPageComponent() {
     }
   };
 
+  /**
+   * What of this form can be carried into /complete-details so the organizer
+   * does not answer the same questions twice. Uploaded documents are `File`
+   * objects and cannot be serialized, so the certificate is asked for again.
+   */
+  const organizationPrefill = (values: typeof initialValues) => ({
+    company_name: values.first_name,
+    organizer_type: values.organizer_type,
+    phone_number: values.phone_number,
+    country_code: values.country_code,
+    license_number: values.license_number,
+    nickname: values.nickname,
+    latitude: values.latitude,
+    longitude: values.longitude,
+  });
+
+  // Set at click time, because the Google popup resolves long after the click
+  // and the callback has no access to the Formik render scope.
+  const pendingPrefillRef = useRef<Record<string, unknown>>({});
+
+  /**
+   * Both providers converge here. `/social-auth/` registers as well as logs in,
+   * but it rejects a brand-new organization that arrives without its company
+   * details, so a new email is routed through /complete-details first.
+   */
+  const continueSocialSignup = async (profile: SocialProfile) => {
+    try {
+      const checkUserResponse = await checkUserMutation.mutateAsync({
+        email: profile.email,
+      });
+
+      if (checkUserResponse?.data?.email?.is_new_user) {
+        toast.info(t("COMMON.TOAST.WELCOME_NEW_USER"));
+        stashSocialProfile(profile);
+        setSocialPrefill("organization", pendingPrefillRef.current);
+        router.push(socialOnboardingRoute("organization"));
+        return;
+      }
+
+      const response = await passSocialInfoMutation.mutateAsync({
+        ...profile,
+        user_type: "organization",
+      });
+      if (!isApiSuccess(response)) {
+        toast.error(response?.msg || t("COMMON.TOAST.REGISTRATION_FAILED"));
+        return;
+      }
+
+      setUser(response.data);
+      toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
+      router.push("/");
+    } catch (err) {
+      // The documented 400 here is "this email signs in with a password" —
+      // worth showing verbatim rather than behind a generic failure toast.
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
+      }
+    }
+  };
+
   const googleLoginForOrganizer = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      const userData = await handleGoogleLogin(tokenResponse);
-      if (!userData) return;
-
-      try {
-        const checkUserResponse = await checkUserMutation.mutateAsync({
-          email: userData.email,
-        });
-        const isNewUser = checkUserResponse?.data?.email?.is_new_user;
-
-        if (isNewUser) {
-          toast.info(t("COMMON.TOAST.WELCOME_NEW_USER"));
-          sessionStorage.setItem("oauth_user", JSON.stringify(userData));
-          router.push("/complete-details");
-          return;
-        }
-
-        const finalUserData: any = {
-          ...userData,
-          user_type: "organization",
-          social_media_provider: "google",
-        };
-
-        const response = await passSocialInfoMutation.mutateAsync(finalUserData);
-        const userDataToStore = response.data;
-        setUser(userDataToStore);
-        toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
-        router.push("/");
-      } catch (err: any) {
-        const messages = getApiErrorMessages(err, selectedLanguage);
-        if (messages.length > 0) {
-          messages.forEach((message) => toast.error(message));
-        } else {
-          toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
-        }
-      }
+      const profile = await handleGoogleLogin(tokenResponse);
+      if (!profile) return;
+      await continueSocialSignup(profile);
     },
     onError: (error) => {
       console.error("Google Login Error:", error);
@@ -292,10 +329,12 @@ function EntitiesAccountPageComponent() {
     },
   });
 
-  const handleLinkedinLogin = () => {
+  const handleLinkedinLogin = (values: typeof initialValues) => {
     // LinkedIn redirects to /linkedin-callback — the single registered URI —
     // which finishes the exchange and routes a brand-new organization onward.
+    // That is a full page load, so park the answers before leaving.
     setLinkedinLoading(true);
+    setSocialPrefill("organization", organizationPrefill(values));
     const started = startLinkedinLogin({ userType: "organization", returnTo: "/" });
     if (!started) {
       setLinkedinLoading(false);
@@ -490,6 +529,7 @@ function EntitiesAccountPageComponent() {
                         toast.error(t("COMMON.TOAST.GOOGLE_NOT_CONFIGURED"));
                         return;
                       }
+                      pendingPrefillRef.current = organizationPrefill(values);
                       googleLoginForOrganizer();
                     }}
                     className="cursor-pointer"
@@ -497,7 +537,7 @@ function EntitiesAccountPageComponent() {
                   <img
                     src="/assets/auth/linkdin.svg"
                     alt="LinkedIn"
-                    onClick={handleLinkedinLogin}
+                    onClick={() => handleLinkedinLogin(values)}
                     className="cursor-pointer"
                   />
                 </div>

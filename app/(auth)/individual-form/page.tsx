@@ -21,8 +21,14 @@ import {
   passSocialInfoRequest,
   getDropdownChoicesRequest,
 } from "@/features/auth/api/authApi";
-import { getApiErrorMessages } from "@/lib/api/errors";
+import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
+import {
+  SocialProfile,
+  setSocialPrefill,
+  socialOnboardingRoute,
+  stashSocialProfile,
+} from "@/lib/auth/socialSignup";
 import {
   YupEmail,
   YupPhoneNumber,
@@ -246,43 +252,80 @@ function IndividualAccountPageComponent() {
     }
   };
 
+  /**
+   * What of this form can be carried into /volunteer-mandate-details so the
+   * volunteer does not answer the same questions twice. `civil_id` matters
+   * most: `/social-auth/` refuses a brand-new volunteer without one.
+   */
+  const volunteerPrefill = (values: typeof initialValues) => ({
+    first_name: values.first_name,
+    last_name: values.last_name,
+    phone_number: values.phone_number,
+    country_code: values.country_code,
+    nickname: values.nickname,
+    dob: values.dob,
+    gender: values.gender,
+    civil_id: values.civil_id,
+    nationality: values.nationality,
+    emergency_contact_name: values.emergency_contact_name,
+    emergency_contact_phone: values.emergency_contact_phone,
+    emergency_contact_country_code: values.emergency_contact_country_code,
+    emergency_contact_civil_id: values.emergency_contact_civil_id,
+    emergency_contact_relationship: values.emergency_contact_relationship,
+  });
+
+  // Set at click time, because the Google popup resolves long after the click
+  // and the callback has no access to the Formik render scope.
+  const pendingPrefillRef = useRef<Record<string, unknown>>({});
+
+  /**
+   * Both providers converge here. `/social-auth/` registers as well as logs in,
+   * but it rejects a brand-new volunteer that arrives without `civil_id`, so a
+   * new email is routed through the mandate screen first.
+   */
+  const continueSocialSignup = async (profile: SocialProfile) => {
+    try {
+      const checkUserResponse = await checkUserMutation.mutateAsync({
+        email: profile.email,
+      });
+
+      if (checkUserResponse?.data?.email?.is_new_user) {
+        toast.info(t("COMMON.TOAST.WELCOME_NEW_USER"));
+        stashSocialProfile(profile);
+        setSocialPrefill("volunteer", pendingPrefillRef.current);
+        router.push(socialOnboardingRoute("volunteer"));
+        return;
+      }
+
+      const response = await passSocialInfoMutation.mutateAsync({
+        ...profile,
+        user_type: "volunteer",
+      });
+      if (!isApiSuccess(response)) {
+        toast.error(response?.msg || t("COMMON.TOAST.REGISTRATION_FAILED"));
+        return;
+      }
+
+      setUser(response.data);
+      toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
+      router.push("/");
+    } catch (err) {
+      // The documented 400 here is "this email signs in with a password" —
+      // worth showing verbatim rather than behind a generic failure toast.
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
+      }
+    }
+  };
+
   const googleLoginForIndividual = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      const userData = await handleGoogleLogin(tokenResponse);
-      if (!userData) return;
-
-      try {
-        const checkUserResponse = await checkUserMutation.mutateAsync({
-          email: userData.email,
-        });
-        const isNewUser = checkUserResponse?.data?.email?.is_new_user;
-
-        if (isNewUser) {
-          toast.info(t("COMMON.TOAST.WELCOME_NEW_USER"));
-          sessionStorage.setItem("oauth_user", JSON.stringify(userData));
-          router.push("/volunteer-mandate-details");
-          return;
-        }
-
-        const finalUserData: any = {
-          ...userData,
-          user_type: "volunteer",
-          social_media_provider: "google",
-        };
-
-        const response = await passSocialInfoMutation.mutateAsync(finalUserData);
-        const userDataToStore = response.data;
-        setUser(userDataToStore);
-        toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
-        router.push("/");
-      } catch (err: any) {
-        const messages = getApiErrorMessages(err, selectedLanguage);
-        if (messages.length > 0) {
-          messages.forEach((message) => toast.error(message));
-        } else {
-          toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
-        }
-      }
+      const profile = await handleGoogleLogin(tokenResponse);
+      if (!profile) return;
+      await continueSocialSignup(profile);
     },
     onError: (error) => {
       console.error("Google Login Error:", error);
@@ -290,10 +333,12 @@ function IndividualAccountPageComponent() {
     },
   });
 
-  const handleLinkedinLogin = () => {
+  const handleLinkedinLogin = (values: typeof initialValues) => {
     // LinkedIn redirects to /linkedin-callback — the single registered URI —
     // which finishes the exchange and routes a brand-new volunteer onward.
+    // That is a full page load, so park the answers before leaving.
     setLinkedinLoading(true);
+    setSocialPrefill("volunteer", volunteerPrefill(values));
     const started = startLinkedinLogin({ userType: "volunteer", returnTo: "/" });
     if (!started) {
       setLinkedinLoading(false);
@@ -639,6 +684,7 @@ function IndividualAccountPageComponent() {
                           toast.error(t("COMMON.TOAST.GOOGLE_NOT_CONFIGURED"));
                           return;
                         }
+                        pendingPrefillRef.current = volunteerPrefill(values);
                         googleLoginForIndividual();
                       }}
                       className="cursor-pointer"
@@ -646,7 +692,7 @@ function IndividualAccountPageComponent() {
                     <img
                       src="/assets/auth/linkdin.svg"
                       alt="LinkedIn"
-                      onClick={handleLinkedinLogin}
+                      onClick={() => handleLinkedinLogin(values)}
                       className="cursor-pointer"
                     />
                   </div>

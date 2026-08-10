@@ -20,7 +20,7 @@ import {
   getDropdownChoicesRequest,
   passSocialInfoRequest,
 } from "@/features/auth/api/authApi";
-import { getApiErrorMessages } from "@/lib/api/errors";
+import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { nationalityOptions } from "@/data/Constants";
 import { cn } from "@/lib/helpers";
 import {
@@ -31,6 +31,12 @@ import {
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import {
+  OAUTH_USER_KEY,
+  applyPrefill,
+  clearSocialSignupState,
+  takeSocialPrefill,
+} from "@/lib/auth/socialSignup";
 
 const CountryCodeSelect = dynamic(
   () => import("@/components/ui/CountryCodeSelect"),
@@ -101,6 +107,10 @@ export default function VolunteerMandateDetails({
   const [storedUserData, setStoredUserData] = useState<any>(null);
   const userData = propUserData || storedUserData;
 
+  // Answers already typed into the individual sign-up form before the visitor
+  // clicked Google / LinkedIn, so they are not asked for a second time.
+  const [prefill, setPrefill] = useState<Record<string, unknown> | null>(null);
+
   const passSocialInfoMutation = useMutation({
     mutationFn: passSocialInfoRequest,
   });
@@ -153,30 +163,37 @@ export default function VolunteerMandateDetails({
     window.scrollTo(0, 0);
     if (propUserData) return;
     try {
-      const stored = sessionStorage.getItem("oauth_user");
+      const stored = sessionStorage.getItem(OAUTH_USER_KEY);
       if (stored) setStoredUserData(JSON.parse(stored));
     } catch {
       // No stashed payload — the name fields simply start empty.
     }
+    // Reads once and drops the stash, so StrictMode's second pass finds
+    // nothing and must not clear what the first pass picked up.
+    const parked = takeSocialPrefill("volunteer");
+    if (parked) setPrefill(parked);
   }, [propUserData]);
 
-  const initialValues: MandateFormValues = {
-    first_name: userData?.first_name || "",
-    last_name: userData?.last_name || "",
-    phone_number: "",
-    nickname: "",
-    dob: "",
-    gender: "",
-    country_code: "",
-    civil_id: "",
-    nationality: "",
-    termsAccepted: false,
-    emergency_contact_name: "",
-    emergency_contact_phone: "",
-    emergency_contact_country_code: "",
-    emergency_contact_civil_id: "",
-    emergency_contact_relationship: "",
-  };
+  const initialValues: MandateFormValues = applyPrefill(
+    {
+      first_name: userData?.first_name || "",
+      last_name: userData?.last_name || "",
+      phone_number: "",
+      nickname: "",
+      dob: "",
+      gender: "",
+      country_code: "",
+      civil_id: "",
+      nationality: "",
+      termsAccepted: false,
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      emergency_contact_country_code: "",
+      emergency_contact_civil_id: "",
+      emergency_contact_relationship: "",
+    },
+    prefill
+  );
 
   const validationSchema = Yup.object({
     first_name: YupStringMaxLength(100)
@@ -298,17 +315,26 @@ export default function VolunteerMandateDetails({
     { resetForm }: FormikHelpers<MandateFormValues>
   ) => {
     try {
+      // `termsAccepted` is a consent checkbox this screen owns; `/social-auth/`
+      // has no such field and should not be handed one. Everything else — the
+      // provider profile plus civil_id / nickname / the volunteer details — is
+      // what the endpoint documents.
+      const profile: Record<string, unknown> = { ...values };
+      delete profile.termsAccepted;
       const finalUserData = {
         ...userData,
-        ...values,
-        gender: values.gender, // gender is now the id (e.g., "1"), no need for toLowerCase
+        ...profile,
         user_type: "volunteer",
         preferred_language: selectedLanguage,
       };
 
       const response = await passSocialInfoMutation.mutateAsync(finalUserData);
+      if (!isApiSuccess(response)) {
+        toast.error(response?.msg || t("COMMON.TOAST.REGISTRATION_FAILED"));
+        return;
+      }
       setUser(response.data);
-      sessionStorage.removeItem("oauth_user");
+      clearSocialSignupState();
       toast.success(t("COMMON.TOAST.PROFILE_COMPLETION"));
       resetForm();
       if (onClose) {

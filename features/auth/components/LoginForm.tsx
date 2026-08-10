@@ -336,7 +336,7 @@ export default function LoginForm({
                     alt="Google"
                     onClick={() => {
                       if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-                        toast.error("Google Login is not configured.");
+                        toast.error(t("COMMON.TOAST.GOOGLE_NOT_CONFIGURED"));
                         return;
                       }
                       googleLogin();

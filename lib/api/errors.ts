@@ -14,6 +14,20 @@
 
 type LegacyFieldError = Record<string, string>;
 
+/**
+ * A 2xx status is not enough: the API answers a rejected request with HTTP 200
+ * and `key: "fail"` often enough that every caller acting on `data` has to look
+ * at the envelope rather than at the status code.
+ */
+export function isApiSuccess(response: unknown): boolean {
+  if (!response || typeof response !== "object") return false;
+  const envelope = response as {
+    key?: string;
+    response_status?: { error?: boolean };
+  };
+  return envelope.key === "success" && !envelope.response_status?.error;
+}
+
 interface ErrorPayload {
   msg?: string;
   response_status?: {

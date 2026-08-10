@@ -20,7 +20,7 @@ import {
   getDropdownChoicesRequest,
   passSocialInfoRequest,
 } from "@/features/auth/api/authApi";
-import { getApiErrorMessages } from "@/lib/api/errors";
+import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import {
   YupPhoneNumber,
   YupRequiredString,
@@ -28,6 +28,12 @@ import {
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import {
+  OAUTH_USER_KEY,
+  applyPrefill,
+  clearSocialSignupState,
+  takeSocialPrefill,
+} from "@/lib/auth/socialSignup";
 
 const CountryCodeSelect = dynamic(
   () => import("@/components/ui/CountryCodeSelect"),
@@ -71,6 +77,11 @@ export default function CompleteDetails() {
   // and sign-up screens now stash it in sessionStorage before navigating here.
   const [userData, setUserData] = useState<SocialUserData | null>(null);
 
+  // Answers already typed into the organizer sign-up form before the visitor
+  // clicked Google / LinkedIn, so they are not asked for a second time. The
+  // certificate is the exception — a File cannot survive sessionStorage.
+  const [prefill, setPrefill] = useState<Record<string, unknown> | null>(null);
+
   const passSocialInfoMutation = useMutation({
     mutationFn: passSocialInfoRequest,
   });
@@ -91,11 +102,15 @@ export default function CompleteDetails() {
   useEffect(() => {
     window.scrollTo(0, 0);
     try {
-      const stored = sessionStorage.getItem("oauth_user");
+      const stored = sessionStorage.getItem(OAUTH_USER_KEY);
       if (stored) setUserData(JSON.parse(stored));
     } catch {
       // No stashed payload — the form still submits, just without social fields.
     }
+    // Reads once and drops the stash, so StrictMode's second pass finds
+    // nothing and must not clear what the first pass picked up.
+    const parked = takeSocialPrefill("organization");
+    if (parked) setPrefill(parked);
   }, []);
 
   const { data: orgTypeData, isLoading: orgTypeLoading } = useQuery({
@@ -112,18 +127,21 @@ export default function CompleteDetails() {
       rawValue: item.value_en,
     })) || [];
 
-  const initialValues: CompleteDetailsValues = {
-    organizer_type: "", // Empty by default to enforce selection
-    phone_number: "",
-    country_code: "",
-    documents: [],
-    license_number: "",
-    company_name: "",
-    nickname: "",
-    latitude: "",
-    longitude: "",
-    termsAccepted: false,
-  };
+  const initialValues: CompleteDetailsValues = applyPrefill(
+    {
+      organizer_type: "", // Empty by default to enforce selection
+      phone_number: "",
+      country_code: "",
+      documents: [],
+      license_number: "",
+      company_name: "",
+      nickname: "",
+      latitude: "",
+      longitude: "",
+      termsAccepted: false,
+    },
+    prefill
+  );
 
   const validationSchema = Yup.object({
     organizer_type: Yup.string().concat(YupRequiredString),
@@ -272,6 +290,7 @@ export default function CompleteDetails() {
     if (userData) {
       formData.append("email", userData.email ?? "");
       formData.append("first_name", userData.first_name ?? "");
+      formData.append("last_name", userData.last_name ?? "");
       formData.append(
         "social_media_provider",
         userData.social_media_provider ?? ""
@@ -286,14 +305,20 @@ export default function CompleteDetails() {
     // Append multiple documents
     if (values.documents) {
       for (let i = 0; i < values.documents.length; i++) {
-        formData.append("documents", values.documents[i]);
+        formData.append("documents[]", values.documents[i]);
       }
     }
 
     try {
       const response = await passSocialInfoMutation.mutateAsync(formData);
+      if (!isApiSuccess(response)) {
+        toast.error(
+          response?.msg || t("COMMON.TOAST.PROFILE_COMPLETION_FAILED")
+        );
+        return;
+      }
       setUser(response.data);
-      sessionStorage.removeItem("oauth_user");
+      clearSocialSignupState();
       toast.success(t("COMMON.TOAST.PROFILE_COMPLETION"));
       resetForm();
       router.push("/");
@@ -317,6 +342,8 @@ export default function CompleteDetails() {
           initialValues={initialValues}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
+          // The parked answers land after mount, one render behind the form.
+          enableReinitialize
         >
           {({ setFieldValue, values, errors, touched }) => (
             <div className="flex justify-center">

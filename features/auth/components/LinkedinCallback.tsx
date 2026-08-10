@@ -11,8 +11,12 @@ import {
   linkedinCallbackRequest,
   passSocialInfoRequest,
 } from "@/features/auth/api/authApi";
-import { getApiErrorMessage } from "@/lib/api/errors";
+import { getApiErrorMessage, isApiSuccess } from "@/lib/api/errors";
 import { getLinkedinRedirectUri, decodeLinkedinState } from "@/lib/auth/linkedin";
+import {
+  clearSocialSignupState,
+  stashSocialProfile,
+} from "@/lib/auth/socialSignup";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -118,7 +122,7 @@ export default function LinkedinCallback() {
             return;
           }
 
-          sessionStorage.setItem("oauth_user", JSON.stringify(userData));
+          stashSocialProfile(userData);
           if (user_type === "volunteer") {
             router.replace("/volunteer-mandate-details");
           } else if (user_type === "organization") {
@@ -130,11 +134,20 @@ export default function LinkedinCallback() {
         }
 
         // A returning user has already supplied civil_id / company details, so
-        // social-auth can issue the token straight away.
+        // social-auth can issue the token straight away — and nothing parked by
+        // the sign-up form they came from is needed any more.
         const socialResponse = await passSocialInfoMutation.mutateAsync({
           ...userData,
           user_type: user_type ?? null,
         });
+        if (!isApiSuccess(socialResponse)) {
+          toast.error(
+            socialResponse?.msg || t("COMMON.TOAST.LINKEDIN_LOGIN_FAILED")
+          );
+          router.replace("/login");
+          return;
+        }
+        clearSocialSignupState();
         setUser(socialResponse.data);
         toast.success(t("COMMON.TOAST.LOGIN_SUCCESSFUL"));
         router.replace(return_to || original_path || "/");
