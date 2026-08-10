@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import Button from "@/components/ui/Button";
 import CheckBox from "@/components/ui/CheckBox";
 import SelectInput from "@/components/ui/SelectInput";
@@ -411,9 +413,8 @@ export default function VolunteerMandateDetails({
                             />
                           </div>
                           <div className="w-full">
-                            <Input
+                            <PhoneInput
                               name="phone_number"
-                              type="number"
                               label={t("COMMON.PHONEPLACEHOLDER")}
                               className="w-full"
                             />
@@ -425,6 +426,11 @@ export default function VolunteerMandateDetails({
                       <div className="w-full relative">
                         <Input
                           name="nickname"
+                          endAdornment={
+                            nicknameAvailability.checking ? (
+                              <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                            ) : null
+                          }
                           type="text"
                           label={t("COMMON.NICKNAMEPLACEHOLDER")}
                           className="w-full"
@@ -435,11 +441,6 @@ export default function VolunteerMandateDetails({
                         />
                         {values.nickname && !errors.nickname && (
                           <div className="text-sm -mt-3 mb-4">
-                            {nicknameAvailability.checking && (
-                              <span className="text-gray-500">
-                                {t("COMMON.CHECKING_AVAILABILITY")}...
-                              </span>
-                            )}
                             {!nicknameAvailability.checking &&
                               nicknameAvailability.available === true && (
                                 <span className="text-green-600">
@@ -547,9 +548,8 @@ export default function VolunteerMandateDetails({
                               />
                             </div>
                             <div className="w-full">
-                              <Input
+                              <PhoneInput
                                 name="emergency_contact_phone"
-                                type="number"
                                 label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                                 className="w-full"
                               />

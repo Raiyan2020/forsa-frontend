@@ -1,7 +1,7 @@
 "use client";
 
 import { useField } from "formik";
-import { useCallback, forwardRef, useState } from "react";
+import { useCallback, forwardRef, useState, ReactNode } from "react";
 import { cn } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 import { FaEyeSlash } from "react-icons/fa";
@@ -13,11 +13,24 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   customClass?: string;
   className?: string;
   type?: "text" | "password" | "email" | "number" | "tel";
+  /** See the note on the same prop in `Input`. */
+  digitsOnly?: boolean;
+  /** Rendered inside the field on the trailing edge. */
+  endAdornment?: ReactNode;
 }
 
 const ModalInput = forwardRef<HTMLInputElement, InputProps>(
   (
-    { customClass, name, type = "text", className = "", hideError = false, ...props },
+    {
+      customClass,
+      name,
+      type = "text",
+      className = "",
+      hideError = false,
+      digitsOnly = false,
+      endAdornment,
+      ...props
+    },
     ref
   ) => {
     const [field, meta, helpers] = useField(name);
@@ -54,6 +67,19 @@ const ModalInput = forwardRef<HTMLInputElement, InputProps>(
       setIsPasswordVisible((prev) => !prev);
     }, []);
 
+    // Rewriting `e.target.value` before delegating is what makes paste and
+    // autofill obey the digit rule, not just typing.
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (digitsOnly) {
+        const digits = e.target.value.replace(/\D/g, "");
+        e.target.value =
+          typeof props.maxLength === "number"
+            ? digits.slice(0, props.maxLength)
+            : digits;
+      }
+      (props.onChange ?? field.onChange)(e);
+    };
+
     return (
       <div className={cn("relative w-full mb-4", customClass)}>
         <div className="relative">
@@ -77,6 +103,7 @@ const ModalInput = forwardRef<HTMLInputElement, InputProps>(
                 ? "border-red-500"
                 : "border-[#CBCBCB]",
               selectedLanguage === "ar" ? "text-right" : "text-left",
+              endAdornment && "pr-10 rtl:pr-3 rtl:pl-10",
               className
             )}
             autoComplete={type === "email" ? "off" : "new-password"}
@@ -84,7 +111,13 @@ const ModalInput = forwardRef<HTMLInputElement, InputProps>(
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
+            onChange={handleChange}
           />
+          {endAdornment && (
+            <div className="absolute inset-y-0 right-[12px] rtl:right-auto rtl:left-[12px] flex items-center pointer-events-none">
+              {endAdornment}
+            </div>
+          )}
           {type === "password" && (
             <button
               type="button"

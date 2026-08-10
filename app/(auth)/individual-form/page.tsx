@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { Formik, Form, FormikHelpers, useFormikContext } from "formik";
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import Button from "@/components/ui/Button";
 import CheckBox from "@/components/ui/CheckBox";
 import Link from "next/link";
@@ -415,7 +417,8 @@ function IndividualAccountPageComponent() {
 
   const isFormLoading =
     registerMutation.isPending ||
-    checkUserMutation.isPending ||
+    // Deliberately not checkUserMutation: the nickname availability check
+    // runs on every keystroke and reports itself inside the field.
     passSocialInfoMutation.isPending ||
     linkedinLoading;
 
@@ -481,9 +484,8 @@ function IndividualAccountPageComponent() {
                           />
                         </div>
                         <div className="w-full">
-                          <Input
+                          <PhoneInput
                             name="phone_number"
-                            type="number"
                             label={t("COMMON.PHONEPLACEHOLDER")}
                             className="w-full"
                           />
@@ -494,6 +496,11 @@ function IndividualAccountPageComponent() {
                     <div className="w-full relative">
                       <Input
                         name="nickname"
+                        endAdornment={
+                          nicknameAvailability.checking ? (
+                            <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                          ) : null
+                        }
                         type="text"
                         label={t("COMMON.NICKNAMEPLACEHOLDER")}
                         className="w-full"
@@ -504,11 +511,6 @@ function IndividualAccountPageComponent() {
                       />
                       {values.nickname && !errors.nickname && (
                         <div className="text-sm -mt-3 mb-4">
-                          {nicknameAvailability.checking && (
-                            <span className="text-gray-500">
-                              {t("COMMON.CHECKING_AVAILABILITY")}...
-                            </span>
-                          )}
                           {!nicknameAvailability.checking &&
                             nicknameAvailability.available === true && (
                               <span className="text-green-600">
@@ -603,9 +605,8 @@ function IndividualAccountPageComponent() {
                             />
                           </div>
                           <div className="w-full">
-                            <Input
+                            <PhoneInput
                               name="emergency_contact_phone"
-                              type="number"
                               label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                               className="w-full"
                             />

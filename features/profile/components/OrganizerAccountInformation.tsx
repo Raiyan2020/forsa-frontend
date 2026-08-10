@@ -12,6 +12,8 @@ import { FaPlus } from "react-icons/fa";
 import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import SelectInput from "@/components/ui/SelectInput";
 import UploadInput from "@/components/ui/UploadInput";
 import { TagsCheckbox } from "@/components/ui/TagsCheckbox";
@@ -29,7 +31,7 @@ import {
   updateOrganizerProfile,
 } from "@/features/services/api";
 import { socialMediaOptions } from "@/data/Constants";
-import { YupPhoneNumber } from "@/lib/schema";
+import { YupPhoneNumber, YupDigitsOnlyOptional } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";
@@ -257,11 +259,8 @@ export default function OrganizerAccountInformation() {
         }
         return nicknameAvailability.available !== false;
       }),
-    // Optional license_number field (max 100 chars)
-    license_number: Yup.string().max(
-      100,
-      t("COMMON.MUST.BE.ATMOST") + 100 + t("COMMON.CHARACTERS")
-    ),
+    // Optional registration / licence number — digits only, max 100 chars
+    license_number: YupDigitsOnlyOptional(100),
     socialMedia: Yup.array().of(
       Yup.object()
         .shape({
@@ -734,9 +733,8 @@ export default function OrganizerAccountInformation() {
                                 />
                               </div>
                               <div className="w-full">
-                                <Input
+                                <PhoneInput
                                   name="phone_number"
-                                  type="tel"
                                   label={t("COMMON.PHONE_NUMBER")}
                                   className="pr-10"
                                 />
@@ -749,6 +747,9 @@ export default function OrganizerAccountInformation() {
                           <div className="relative flex-1">
                             <Input
                               name="license_number"
+                              digitsOnly
+                              inputMode="numeric"
+                              maxLength={100}
                               type="text"
                               label={t("COMMON.ENTER_LICENSE_NUMBER")}
                             />
@@ -787,6 +788,11 @@ export default function OrganizerAccountInformation() {
                         <div className="w-full relative">
                           <Input
                             name="nickname"
+                            endAdornment={
+                              nicknameAvailability.checking ? (
+                                <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                              ) : null
+                            }
                             type="text"
                             label={t("COMMON.NICKNAME")}
                             onChange={(e) => {
@@ -801,11 +807,6 @@ export default function OrganizerAccountInformation() {
                             values.nickname !== initialValues.nickname &&
                             !errors.nickname && (
                               <div className="text-sm -mt-3 mb-4">
-                                {nicknameAvailability.checking && (
-                                  <span className="text-gray-500">
-                                    {t("COMMON.CHECKING_AVAILABILITY")}...
-                                  </span>
-                                )}
                                 {!nicknameAvailability.checking &&
                                   nicknameAvailability.available === true && (
                                     <span className="text-green-600">

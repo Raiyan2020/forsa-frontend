@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import Button from "@/components/ui/Button";
 import UploadInput from "@/components/ui/UploadInput";
 import CheckBox from "@/components/ui/CheckBox";
@@ -25,6 +27,7 @@ import {
   YupPhoneNumber,
   YupRequiredString,
   YupStringMaxLength,
+  YupDigitsOnlyOptional,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -146,9 +149,9 @@ export default function CompleteDetails() {
   const validationSchema = Yup.object({
     organizer_type: Yup.string().concat(YupRequiredString),
     // Make license_number optional for public organizations
-    license_number: Yup.string()
-      .max(100, t("COMMON.MUST.BE.ATMOST") + 100 + t("COMMON.CHARACTERS"))
-      .when("organizer_type", (organizer_type: any, schema: any) => {
+    license_number: YupDigitsOnlyOptional(100).when(
+      "organizer_type",
+      (organizer_type: any, schema: any) => {
         const organizerTypeValue = Array.isArray(organizer_type)
           ? organizer_type[0]
           : organizer_type;
@@ -159,7 +162,8 @@ export default function CompleteDetails() {
         return isPublic
           ? schema.notRequired()
           : schema.required(t("COMMON.REQUIRED.FIELD"));
-      }),
+      }
+    ),
     company_name: YupStringMaxLength(100).concat(YupRequiredString),
     nickname: YupStringMaxLength(50)
       .matches(/^[A-Za-z0-9._]+$/, t("COMMON.ENGLISH_ONLY"))
@@ -373,9 +377,8 @@ export default function CompleteDetails() {
                         />
                       </div>
                       <div className="w-full">
-                        <Input
+                        <PhoneInput
                           name="phone_number"
-                          type="number"
                           label={t("COMMON.ENTER_PHONE_NUMBER")}
                           className="w-full"
                         />
@@ -393,6 +396,11 @@ export default function CompleteDetails() {
                     <div className="w-full relative">
                       <Input
                         name="nickname"
+                        endAdornment={
+                          nicknameAvailability.checking ? (
+                            <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                          ) : null
+                        }
                         type="text"
                         label={t("COMMON.NICKNAME")}
                         onChange={(e) => {
@@ -402,11 +410,6 @@ export default function CompleteDetails() {
                       />
                       {values.nickname && !errors.nickname && (
                         <div className="text-sm -mt-3 mb-4">
-                          {nicknameAvailability.checking && (
-                            <span className="text-gray-500">
-                              {t("COMMON.CHECKING_AVAILABILITY")}...
-                            </span>
-                          )}
                           {!nicknameAvailability.checking &&
                             nicknameAvailability.available === true && (
                               <span className="text-green-600">
@@ -426,6 +429,9 @@ export default function CompleteDetails() {
                   <div className="flex gap-6 xs:block xs:gap-y-6">
                     <Input
                       name="license_number"
+                      digitsOnly
+                      inputMode="numeric"
+                      maxLength={100}
                       type="text"
                       label={t("COMMON.ENTER_LICENSE_NUMBER")}
                     />

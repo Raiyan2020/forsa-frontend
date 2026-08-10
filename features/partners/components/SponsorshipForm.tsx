@@ -4,6 +4,7 @@ import { Formik, Form, FormikHelpers, FormikProps } from "formik";
 import * as Yup from "yup";
 import { useTranslation } from "react-i18next";
 import Input from "@/components/ui/Input";
+import PhoneInput from "@/components/ui/PhoneInput";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
 import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
@@ -357,9 +358,8 @@ function SponsorshipFormInner({
               />
             </div>
             <div className="w-full">
-              <Input
+              <PhoneInput
                 name="phone_number"
-                type="number"
                 label={t("COMMON.PHONEPLACEHOLDER")}
                 className="w-full"
               />

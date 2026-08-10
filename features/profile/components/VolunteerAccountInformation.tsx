@@ -12,6 +12,8 @@ import { FaPlus } from "react-icons/fa";
 import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import SelectInput from "@/components/ui/SelectInput";
 import GroupedSelectInput from "@/components/ui/GroupedSelectInput";
 import BirthDateField from "@/components/ui/BirthDateField";
@@ -959,9 +961,8 @@ export default function VolunteerAccountInformation() {
                               />
                             </div>
                             <div className="w-full">
-                              <Input
+                              <PhoneInput
                                 name="phone_number"
-                                type="tel"
                                 label={t("COMMON.PHONE_NUMBER")}
                                 className="pr-10"
                               />
@@ -1011,6 +1012,11 @@ export default function VolunteerAccountInformation() {
                       <div className="w-full relative">
                         <Input
                           name="nickname"
+                          endAdornment={
+                            nicknameAvailability.checking ? (
+                              <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                            ) : null
+                          }
                           type="text"
                           label={t("COMMON.NICKNAMEPLACEHOLDER")}
                           onChange={(e) => {
@@ -1025,11 +1031,6 @@ export default function VolunteerAccountInformation() {
                           values.nickname !== initialValues.nickname &&
                           !errors.nickname && (
                             <div className="text-sm -mt-3 mb-4">
-                              {nicknameAvailability.checking && (
-                                <span className="text-gray-500">
-                                  {t("COMMON.CHECKING_AVAILABILITY")}...
-                                </span>
-                              )}
                               {!nicknameAvailability.checking &&
                                 nicknameAvailability.available === true && (
                                   <span className="text-green-600">
@@ -1298,9 +1299,8 @@ export default function VolunteerAccountInformation() {
                               />
                             </div>
                             <div className="w-full">
-                              <Input
+                              <PhoneInput
                                 name="emergency_contact_phone"
-                                type="number"
                                 label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                                 className="w-full"
                               />

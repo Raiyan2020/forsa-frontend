@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/Button";
 import BirthDateField from "@/components/ui/BirthDateField";
 import CheckBox from "@/components/ui/CheckBox";
 import ModalInput from "@/components/ui/ModalInput";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import { ModalPhoneInput } from "@/components/ui/PhoneInput";
 import SelectInput from "@/components/ui/SelectInput";
 import {
   checkUserRequest,
@@ -419,9 +421,8 @@ export default function RegisterVolunteerModalForm({
                           }
                         />
                       </div>
-                      <ModalInput
+                      <ModalPhoneInput
                         name="phone_number"
-                        type="number"
                         placeholder={t("COMMON.PHONENUMBER")}
                       />
                     </div>
@@ -430,6 +431,11 @@ export default function RegisterVolunteerModalForm({
                     <p className={FIELD_LABEL_CLASS}>{t("COMMON.NICKNAME")}</p>
                     <ModalInput
                       name="nickname"
+                      endAdornment={
+                        nicknameAvailability.checking ? (
+                          <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                        ) : null
+                      }
                       type="text"
                       placeholder={t("COMMON.NICKNAME")}
                       autoComplete="off"
@@ -440,11 +446,6 @@ export default function RegisterVolunteerModalForm({
                     />
                     {values.nickname && !errors.nickname && (
                       <div className="text-sm -mt-3 mb-4">
-                        {nicknameAvailability.checking && (
-                          <span className="text-gray-500">
-                            {t("COMMON.CHECKING_AVAILABILITY")}...
-                          </span>
-                        )}
                         {!nicknameAvailability.checking &&
                           nicknameAvailability.available === true && (
                             <span className="text-green-600">
@@ -576,9 +577,8 @@ export default function RegisterVolunteerModalForm({
                               }
                             />
                           </div>
-                          <ModalInput
+                          <ModalPhoneInput
                             name="emergency_contact_phone"
-                            type="number"
                             placeholder={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                           />
                         </div>

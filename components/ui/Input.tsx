@@ -1,7 +1,7 @@
 "use client";
 
 import { useField } from "formik";
-import { useState, useCallback, forwardRef } from "react";
+import { useState, useCallback, forwardRef, ReactNode } from "react";
 import { FaEyeSlash } from "react-icons/fa";
 import { LuEye } from "react-icons/lu";
 import { cn } from "@/lib/helpers";
@@ -14,6 +14,14 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   customClass?: string;
   className?: string;
   type?: "text" | "password" | "email" | "number" | "tel";
+  /**
+   * Strip everything but digits as the visitor types, and honour `maxLength`
+   * while doing it. `type="number"` cannot do this — it ignores `maxLength`
+   * entirely and still accepts `e`, `.` and pasted junk.
+   */
+  digitsOnly?: boolean;
+  /** Rendered inside the field on the trailing edge — a status spinner, say. */
+  endAdornment?: ReactNode;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -26,6 +34,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       label,
       hideError = false,
       onKeyDown,
+      digitsOnly = false,
+      endAdornment,
       ...props
     },
     ref
@@ -48,6 +58,25 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       if (onKeyDown) {
         onKeyDown(e);
       }
+    };
+
+    /**
+     * Sanitize on the event itself, before handing it on: `e.target` is the
+     * input element, so rewriting `.value` here is what both Formik and the
+     * rendered field end up seeing. This also covers paste and autofill, which
+     * a keydown guard never catches.
+     */
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (digitsOnly) {
+        const digits = e.target.value.replace(/\D/g, "");
+        e.target.value =
+          typeof props.maxLength === "number"
+            ? digits.slice(0, props.maxLength)
+            : digits;
+      }
+      // A caller-supplied onChange replaces Formik's, exactly as it did when
+      // `{...props}` was spread over `{...field}`.
+      (props.onChange ?? field.onChange)(e);
     };
 
     return (
@@ -88,6 +117,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 ? "border-red-500"
                 : "border-[#29246D1A]/10",
               selectedLanguage === "ar" ? "text-right" : "text-left",
+              endAdornment && "pr-10 rtl:pr-3 rtl:pl-10",
               className
             )}
             autoComplete={
@@ -104,6 +134,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               helpers.setTouched(true);
             }}
             onKeyDown={handleKeyDown}
+            onChange={handleChange}
             aria-describedby={
               meta.touched && meta.error && !hideError
                 ? `${name}-error`
@@ -111,6 +142,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             }
             maxLength={props.maxLength}
           />
+
+          {endAdornment && (
+            <div className="absolute inset-y-0 right-[12px] rtl:right-auto rtl:left-[12px] flex items-center pointer-events-none">
+              {endAdornment}
+            </div>
+          )}
 
           {type === "password" && (
             <button

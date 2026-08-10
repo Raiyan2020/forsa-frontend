@@ -49,9 +49,28 @@ export const YupStrongPassword = YupStringNoLeadingTrailingSpaces
     }
   );
 
+/** A Kuwaiti local number, the only kind this app takes. */
+export const KUWAIT_PHONE_LENGTH = 8;
+
 export const YupPhoneNumber = YupRequiredString
   .matches(/^\d+$/, () => i18n.t("COMMON.MUST.BE.VALID.PHONE"))
-  .length(8, () => i18n.t("COMMON.PHONE.EXACT.8.DIGITS"));
+  .length(KUWAIT_PHONE_LENGTH, () => i18n.t("COMMON.PHONE.EXACT.8.DIGITS"));
+
+/**
+ * Registration / licence numbers are digit strings. Optional on some forms
+ * (public organizations have none), hence `excludeEmptyString`.
+ */
+export const YupDigitsOnlyOptional = (max: number) =>
+  Yup.string()
+    .max(
+      max,
+      () =>
+        `${i18n.t("COMMON.MUST.BE.ATMOST")}${max}${i18n.t("COMMON.CHARACTERS")}`
+    )
+    .matches(/^\d+$/, {
+      message: () => i18n.t("COMMON.ONLY_NUMBERS"),
+      excludeEmptyString: true,
+    });
 
 // Validation for file size up to 5MB (5 * 1024 * 1024 bytes)
 export const YupFileSize = Yup.array()

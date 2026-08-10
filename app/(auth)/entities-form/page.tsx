@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { Formik, Form, FormikHelpers } from "formik";
 import Input from "@/components/ui/Input";
+import InlineSpinner from "@/components/ui/InlineSpinner";
+import PhoneInput from "@/components/ui/PhoneInput";
 import Button from "@/components/ui/Button";
 import UploadInput from "@/components/ui/UploadInput";
 import CheckBox from "@/components/ui/CheckBox";
@@ -36,6 +38,7 @@ import {
   YupRequiredString,
   YupStringMaxLength,
   YupStrongPassword,
+  YupDigitsOnlyOptional,
 } from "@/lib/schema";
 import { handleGoogleLogin } from "@/lib/helpers";
 import dynamic from "next/dynamic";
@@ -110,7 +113,7 @@ function EntitiesAccountPageComponent() {
   const validationSchema = Yup.object({
     first_name: YupStringMaxLength(100).concat(YupRequiredString),
     organizer_type: Yup.string().concat(YupRequiredString),
-    license_number: Yup.string().max(100, t("COMMON.MUST.BE.ATMOST") + 100 + t("COMMON.CHARACTERS")).when("organizer_type", (organizer_type: any, schema: any) => {
+    license_number: YupDigitsOnlyOptional(100).when("organizer_type", (organizer_type: any, schema: any) => {
       const organizerTypeValue = Array.isArray(organizer_type) ? organizer_type[0] : organizer_type;
       const selected = orgTypeOptions.find((o: any) => String(o.value) === String(organizerTypeValue));
       const isPublic = selected?.rawValue === "Public";
@@ -344,7 +347,8 @@ function EntitiesAccountPageComponent() {
 
   const isFormLoading =
     registerMutation.isPending ||
-    checkUserMutation.isPending ||
+    // Deliberately not checkUserMutation: the nickname availability check
+    // runs on every keystroke and reports itself inside the field.
     passSocialInfoMutation.isPending ||
     orgTypeLoading ||
     linkedinLoading;
@@ -408,9 +412,8 @@ function EntitiesAccountPageComponent() {
                     />
                   </div>
                   <div className="w-full">
-                    <Input
+                    <PhoneInput
                       name="phone_number"
-                      type="number"
                       label={t("COMMON.ENTER_PHONE_NUMBER")}
                       className="w-full"
                     />
@@ -419,6 +422,11 @@ function EntitiesAccountPageComponent() {
                 <div className="w-full relative">
                   <Input
                     name="nickname"
+                    endAdornment={
+                      nicknameAvailability.checking ? (
+                        <InlineSpinner label={t("COMMON.CHECKING_AVAILABILITY")} />
+                      ) : null
+                    }
                     type="text"
                     label={t("COMMON.NICKNAME")}
                     onChange={(e) => {
@@ -428,11 +436,6 @@ function EntitiesAccountPageComponent() {
                   />
                   {values.nickname && !errors.nickname && (
                     <div className="text-sm -mt-3 mb-4">
-                      {nicknameAvailability.checking && (
-                        <span className="text-gray-500">
-                          {t("COMMON.CHECKING_AVAILABILITY")}...
-                        </span>
-                      )}
                       {!nicknameAvailability.checking &&
                         nicknameAvailability.available === true && (
                           <span className="text-green-600">
@@ -451,6 +454,9 @@ function EntitiesAccountPageComponent() {
                 <div>
                   <Input
                     name="license_number"
+                    digitsOnly
+                    inputMode="numeric"
+                    maxLength={100}
                     type="text"
                     label={t("COMMON.ENTER_LICENSE_NUMBER")}
                   />
