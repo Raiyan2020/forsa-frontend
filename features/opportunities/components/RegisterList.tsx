@@ -303,6 +303,7 @@ export default function RegisterList() {
                 dataLength={allRegistrations.length}
                 next={loadMoreRegistrations}
                 hasMore={hasMore}
+                hasChildren={allRegistrations.length > 0}
                 loader={
                   <div className="text-center py-4">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-5" />

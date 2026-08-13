@@ -139,7 +139,7 @@ export const registerForVolunteerOpportunity = (data: any) =>
   apiClient.post("/volunteer-opportunity-registrations/", data).then((r) => r.data);
 
 export const unregisterFromVolunteerOpportunity = (id: string) =>
-  apiClient.post(`/volunteer-opportunities/${id}/unregister/`).then((r) => r.data);
+  apiClient.delete(`/volunteer-opportunities/${id}/unregister/`).then((r) => r.data);
 
 export const deleteOpportunityImage = (data: any) =>
   apiClient.delete("/delete-opportunity-image/", { data }).then((r) => r.data);

@@ -1104,6 +1104,7 @@ export default function VolunteerList() {
                 dataLength={allVolunteers.length}
                 next={loadMoreVolunteers}
                 hasMore={hasMoreVolunteers}
+                hasChildren={displayedVolunteers.length > 0}
                 loader={
                   <div className="text-center py-4">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-5" />
@@ -1281,6 +1282,7 @@ export default function VolunteerList() {
                 dataLength={allRegistrations.length}
                 next={loadMoreRegistrations}
                 hasMore={hasMoreRegistrations}
+                hasChildren={allRegistrations.length > 0}
                 loader={
                   <div className="text-center py-4">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-5" />

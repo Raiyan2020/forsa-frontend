@@ -212,7 +212,8 @@ export default function CommunityList() {
             dataLength={allPosts.length}
             next={loadMore}
             hasMore={hasMore}
-            loader={<Loader />}
+            hasChildren={allPosts.length > 0}
+            loader={<Loader inline />}
             endMessage={
               <p className="text-center py-4 text-secondary-102">
                 {t("COMMON.NO_MORE_POSTS")}

@@ -391,7 +391,8 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
           dataLength={opportunities.length}
           next={loadMore}
           hasMore={hasMore}
-          loader={<Loader />}
+          hasChildren={opportunities.length > 0}
+          loader={<Loader inline />}
           endMessage={
             opportunities.length > 0 ? (
               <p className="text-center py-4 text-secondary-102">

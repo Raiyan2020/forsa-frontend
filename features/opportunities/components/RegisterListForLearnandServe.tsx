@@ -568,6 +568,7 @@ export default function RegisterListForLearnandServe() {
                 dataLength={allRegisteredUsers.length}
                 next={loadMoreRegistrations}
                 hasMore={hasMore}
+                hasChildren={allRegisteredUsers.length > 0}
                 loader={
                   <div className="text-center py-4">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-5" />

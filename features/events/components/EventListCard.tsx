@@ -253,7 +253,8 @@ const EventListCard: React.FC<EventCardProps> = ({
           dataLength={allEvents.length}
           next={loadMore}
           hasMore={hasMore}
-          loader={<Loader />}
+          hasChildren={allEvents.length > 0}
+          loader={<Loader inline />}
           endMessage={
             <p className="text-center py-4 text-secondary-102">{t("COMMON.NO_MORE_EVENTS")}</p>
           }

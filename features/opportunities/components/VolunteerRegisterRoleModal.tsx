@@ -17,6 +17,9 @@ import {
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 
+export const VOLUNTEER_ROLE_REGISTRATION_FORM_ID =
+  "volunteer-role-registration-form";
+
 export interface OpportunityRegistrationDetails {
   title_ar?: string;
   title_en?: string;
@@ -154,7 +157,7 @@ export default function VolunteerRegisterRoleModal({
     >
       {({ setFieldValue }) => (
         <div className="md:w-[100%] rounded-lg bg-white pb-[20px] filtermodal">
-          <Form>
+          <Form id={VOLUNTEER_ROLE_REGISTRATION_FORM_ID}>
             <div className="flex mobilescreen:flex-col gap-[50px] mobilescreen:gap-[0px] relative">
               <div className="w-1/3 mobilescreen:w-full">
                 <p className="text-secondary-100 2xl:text-[25px] lg:text-lg md:text-lg xss:text-sm font-semibold pb-3 mobilescreen:pb-1">

@@ -24,12 +24,7 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import {
-  deleteOpportunityImage,
-  downloadOpportunityImage,
-  getOpportunityById,
-  updateVolunteerOpportunityImages,
-} from "@/features/services/api";
+import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages,} from "@/features/services/api";
 import {
   formatSingleDate,
   getDefaultProfileImage,
@@ -41,7 +36,9 @@ import { useLanguageStore } from "@/store/languageStore";
 import ConfirmVolunteerRegistrationModal from "./ConfirmVolunteerRegistrationModal";
 import OpportunitySponsors from "./OpportunitySponsors";
 import UnregisterConfirmationModal from "./UnregisterConfirmationModal";
-import VolunteerRegisterRoleModal from "./VolunteerRegisterRoleModal";
+import VolunteerRegisterRoleModal, {
+  VOLUNTEER_ROLE_REGISTRATION_FORM_ID,
+} from "./VolunteerRegisterRoleModal";
 
 interface ChoiceDisplay {
   id?: string;
@@ -62,7 +59,7 @@ export interface VolunteerOpportunityData {
   description_en?: string;
   description_ar?: string;
   primary_language?: string;
-  due_date?: string;
+  due_date?: string | null;
   start_date: string;
   end_date: string;
   start_time: string;
@@ -138,6 +135,13 @@ const LIST_BUTTON_CLASS =
   "xs4:w-[125px] 2xl:!text-lg xss:w-auto laptop:!w-full text-sm px-1 font-bold text-primary-5 border-b border-primary-5 xsmall:text-xs !rounded-[20px] md:h-[60px]";
 const LIST_BUTTON_LABEL_CLASS =
   "xl:w-[140px] 2xl:w-[200px] lg:w-[95px] xsl:w-[150px] xss:w-[90px] smallscreen1:w-full smallscreen1:text-sm";
+
+const parseIsoUtcDate = (value?: string | null) => {
+  if (!value) return null;
+
+  const parsedDate = moment.utc(value, moment.ISO_8601, true);
+  return parsedDate.isValid() ? parsedDate : null;
+};
 
 export default function VolunteerEvent({
   opportunityId,
@@ -459,38 +463,48 @@ export default function VolunteerEvent({
   }
 
   const isCreator = Boolean(opportunityData?.is_creator);
+  const nowUtc = moment.utc();
+  const dueDate = parseIsoUtcDate(opportunityData?.due_date);
+  const startDate = parseIsoUtcDate(opportunityData?.start_date);
+  const endDate = parseIsoUtcDate(opportunityData?.end_date);
+  const status = opportunityData?.opportunity_status?.toLowerCase();
+  const startsInFuture = Boolean(startDate?.isAfter(nowUtc, "day"));
+
+  // Some legacy records are marked completed even though their scheduled
+  // start is still in the future. Prefer the schedule for that contradictory
+  // state so an otherwise open opportunity keeps its registration action.
+  const isCompleted = status === "completed" && !startsInFuture;
+  const registrationDeadline = dueDate ?? startDate ?? endDate;
+  const isRegistrationClosed = Boolean(
+    registrationDeadline && nowUtc.isAfter(registrationDeadline, "day")
+  );
+  const participantsNeeded = Number(opportunityData?.participants_needed);
+  const registeredVolunteers = Number(
+    opportunityData?.registered_volunteers_count ?? 0
+  );
+  const isFull =
+    Number.isFinite(participantsNeeded) &&
+    participantsNeeded > 0 &&
+    registeredVolunteers >= participantsNeeded;
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );
   const isRepostState =
     isCreator &&
-    (opportunityData?.opportunity_status === "completed" ||
-      opportunityData?.opportunity_status === "inprogress" ||
-      hasStarted);
+    (isCompleted || status === "inprogress" || hasStarted);
 
   /**
-   * The primary CTA is hidden for unverified users, and for non-creators once
-   * the due date has passed, the opportunity has started, or it's full.
+   * A valid due date is the primary registration cutoff. Older records can
+   * have no due date, so their scheduled start/end date provides a safe
+   * fallback instead of suppressing the action entirely.
    */
   const showActionButton =
     (user ? user.is_verified === true : true) &&
     (isCreator ||
-      (moment
-        .utc()
-        .isSameOrBefore(moment.utc(opportunityData?.due_date), "day") &&
-        ((opportunityData?.is_registered &&
-          opportunityData?.opportunity_status !== "completed") ||
-          (user?.user_type !== "organization" &&
-            !(
-              !isCreator &&
-              (moment().isAfter(
-                moment(opportunityData?.start_date)
-                  .subtract(1, "days")
-                  .endOf("day")
-              ) ||
-                (opportunityData?.registered_volunteers_count ?? 0) >=
-                  (opportunityData?.participants_needed ?? 0))
-            )))));
+      (!isCompleted &&
+        !isRegistrationClosed &&
+        (opportunityData?.is_registered ||
+          (user?.user_type !== "organization" && !isFull))));
 
   const actionButtonLabel = isRepostState
     ? t("COMMON.REPOST")
@@ -545,11 +559,9 @@ export default function VolunteerEvent({
               <Button
                 variant="primary"
                 size="medium"
+                type="submit"
+                form={VOLUNTEER_ROLE_REGISTRATION_FORM_ID}
                 className="xss:!w-full"
-                onClick={() => {
-                  const form = document.querySelector("form") as HTMLFormElement;
-                  if (form) form.requestSubmit();
-                }}
                 disabled={isSubmitting}
               >
                 {t("COMMON.CONFIRM")}
@@ -901,16 +913,23 @@ export default function VolunteerEvent({
                 )}
               </div>
 
-              <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5">
+              <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
+                <img
+                  className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                  src="/assets/homepage/duedate.svg"
+                  alt=""
+                />
                 <p className="text-primary-5 2xl:text-xl lg:text-base text-base font-bold">
                   {t("COMMON.DUE_DATE")} :
                   <span className="text-secondary-102 font-bold">
                     {" "}
-                    {formatSingleDate(
-                      opportunityData?.due_date?.split("T")[0] || "",
-                      selectedLanguage,
-                      t
-                    )}
+                    {dueDate
+                      ? formatSingleDate(
+                          dueDate.format("YYYY-MM-DD"),
+                          selectedLanguage,
+                          t
+                        )
+                      : t("COMMON.NO_DATA_AVAILABLE")}
                   </span>
                 </p>
               </div>

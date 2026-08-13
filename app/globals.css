@@ -575,8 +575,13 @@ body[dir="rtl"] {
   padding: 4px 6px !important;
 }
 
+/* The library ships z-index: 999999 on the open options list. Forcing it to 1
+   (as the legacy app did) drops it below the floating labels of Input and
+   BirthDateField, which are `absolute … z-10` — they then paint over the
+   dropdown and swallow clicks on the options underneath. Stay above those
+   labels but below the fixed header (99) and Modal (99). */
 .ReactFlagsSelect-module_selectOptions__3LNBJ {
-  z-index: 1 !important;
+  z-index: 60 !important;
 }
 
 .ReactFlagsSelect-module_fullWidthOptions__1XeR6 {

@@ -472,7 +472,8 @@ export default function OpportunitiesListCard({
           dataLength={allOpportunities.length}
           next={loadMore}
           hasMore={hasMore}
-          loader={<Loader />}
+          hasChildren={allOpportunities.length > 0}
+          loader={<Loader inline />}
           endMessage={
             <p className="text-center py-4 text-secondary-102">
               {t("COMMON.NO_MORE_OPPORTUNITIES")}

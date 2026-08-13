@@ -269,7 +269,8 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
           dataLength={events.length}
           next={loadMore}
           hasMore={hasMore}
-          loader={<Loader />}
+          hasChildren={events.length > 0}
+          loader={<Loader inline />}
           endMessage={
             events.length > 0 ? (
               <p className="text-center py-4 text-secondary-102">
