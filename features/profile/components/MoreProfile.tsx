@@ -13,7 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import MoreProfileFilterForm, { MoreProfileFilters } from "./MoreProfileFilterForm";
 import { getAllProfiles } from "@/features/services/api";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Loader from "@/components/ui/Loader";
 import Image from "next/image";
 import { getDefaultProfileImage } from "@/lib/helpers";
@@ -76,11 +76,23 @@ export default function MoreProfile() {
 
   const [open, setOpen] = useState(false);
 
-  const { data: profileData, isLoading } = useQuery({
+  const hasAppliedFilters =
+    !!filters.name || !!filters.nickname || !!filters.user_type;
+
+  const { data: profileData, isFetching, isLoading } = useQuery({
     queryKey: ["all-profiles", queryParams],
     queryFn: () => getAllProfiles(queryParams),
     staleTime: 30 * 1000,
+    // Every keystroke changes the query key. Without this the results blank
+    // out between searches and the whole page falls back to the spinner.
+    placeholderData: keepPreviousData,
   });
+
+  // `react-multi-carousel` reads `children.length`, so it must never be handed
+  // an undefined list — which is what a map over missing data produces.
+  const volunteers: UserProfile[] = profileData?.data?.volunteer ?? [];
+  const volunteerTeams: UserProfile[] = profileData?.data?.volunteer_team ?? [];
+  const organizations: UserProfile[] = profileData?.data?.organization ?? [];
 
   const responsive = {
     superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 5 },
@@ -114,14 +126,15 @@ export default function MoreProfile() {
 
   useEffect(() => {
     if (!profileData) return;
-
+    // This endpoint nests `meta` inside `data`, unlike the shared envelope.
+    const pagination = profileData?.data?.meta?.pagination;
     setNavigationVisibility({
       volunteer:
-        (profileData?.meta?.pagination?.volunteer?.total || 0) > maxVisibleItems,
+        (pagination?.volunteer?.total || 0) > maxVisibleItems,
       volunteer_team:
-        (profileData?.meta?.pagination?.volunteer_team?.total || 0) > maxVisibleItems,
+        (pagination?.volunteer_team?.total || 0) > maxVisibleItems,
       organization:
-        (profileData?.meta?.pagination?.organization?.total || 0) > maxVisibleItems,
+        (pagination?.organization?.total || 0) > maxVisibleItems,
     });
   }, [profileData, maxVisibleItems]);
 
@@ -145,6 +158,9 @@ export default function MoreProfile() {
     });
   }, [debouncedSearch, filters, router, pathname]);
 
+  // `isLoading` is true only while the first results are on the way: with
+  // `keepPreviousData` a re-search keeps the previous list on screen instead of
+  // replacing the whole page with a spinner.
   if (isLoading) {
     return <Loader />;
   }
@@ -207,6 +223,12 @@ export default function MoreProfile() {
           value={searchQuery}
           onSearchChange={(value) => setSearchQuery(value)}
           onFilterClick={() => setOpen(true)}
+          hasActiveFilters={hasAppliedFilters}
+          isLoading={isFetching}
+          onClearFilters={() => {
+            setFilters({ name: "", nickname: "", user_type: "" });
+            setClearFiltersKey((prev) => prev + 1);
+          }}
         />
       </div>
 
@@ -230,7 +252,7 @@ export default function MoreProfile() {
           )}
         </div>
 
-        {profileData?.data?.volunteer?.length === 0 ? (
+        {volunteers.length === 0 ? (
           <div className="text-center py-8 text-secondary-102 text-lg font-medium">
             {t("COMMON.NO_PROFILES_AVAILABLE")}
           </div>
@@ -238,7 +260,7 @@ export default function MoreProfile() {
           <Carousel
             rtl={selectedLanguage === "ar"}
             responsive={responsive}
-            showDots={(profileData?.data?.volunteer?.length || 0) > maxVisibleItems}
+            showDots={volunteers.length > maxVisibleItems}
             autoPlay={false}
             autoPlaySpeed={3000}
             arrows={false}
@@ -246,7 +268,7 @@ export default function MoreProfile() {
             containerClass="overflow-hidden"
             dotListClass="custom-dot-list-style"
           >
-            {profileData?.data?.volunteer?.map((volunteer: UserProfile) => (
+            {volunteers.map((volunteer: UserProfile) => (
               <ProfileCard key={volunteer?.id} profile={volunteer} />
             ))}
           </Carousel>
@@ -269,7 +291,7 @@ export default function MoreProfile() {
               </Link>
             )}
           </div>
-          {profileData?.data?.volunteer_team?.length === 0 ? (
+          {volunteerTeams.length === 0 ? (
             <div className="text-center py-8 text-secondary-102 text-lg font-medium">
               {t("COMMON.NO_PROFILES_AVAILABLE")}
             </div>
@@ -277,7 +299,7 @@ export default function MoreProfile() {
             <Carousel
               rtl={selectedLanguage === "ar"}
               responsive={responsive}
-              showDots={(profileData?.data?.volunteer_team?.length || 0) > maxVisibleItems}
+              showDots={volunteerTeams.length > maxVisibleItems}
               autoPlay={false}
               autoPlaySpeed={3000}
               arrows={false}
@@ -285,7 +307,7 @@ export default function MoreProfile() {
               containerClass="overflow-hidden"
               dotListClass="custom-dot-list-style"
             >
-              {profileData?.data?.volunteer_team?.map((volunteer: UserProfile) => (
+              {volunteerTeams.map((volunteer: UserProfile) => (
                 <ProfileCard key={volunteer?.id} profile={volunteer} />
               ))}
             </Carousel>
@@ -310,7 +332,7 @@ export default function MoreProfile() {
             )}
           </div>
 
-          {profileData?.data?.organization?.length === 0 ? (
+          {organizations.length === 0 ? (
             <div className="text-center py-8 text-secondary-102 text-lg font-medium">
               {t("COMMON.NO_PROFILES_AVAILABLE")}
             </div>
@@ -318,7 +340,7 @@ export default function MoreProfile() {
             <Carousel
               rtl={selectedLanguage === "ar"}
               responsive={responsive}
-              showDots={(profileData?.data?.organization?.length || 0) > maxVisibleItems}
+              showDots={organizations.length > maxVisibleItems}
               autoPlay={false}
               autoPlaySpeed={3000}
               arrows={false}
@@ -326,7 +348,7 @@ export default function MoreProfile() {
               containerClass="overflow-hidden"
               dotListClass="custom-dot-list-style"
             >
-              {profileData?.data?.organization?.map((volunteer: UserProfile) => (
+              {organizations.map((volunteer: UserProfile) => (
                 <ProfileCard key={volunteer?.id} profile={volunteer} />
               ))}
             </Carousel>

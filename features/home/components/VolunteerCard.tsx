@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import moment from "moment";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api/client";
 import { useLanguageStore } from "@/store/languageStore";
 import Loader from "@/components/ui/Loader";
@@ -232,6 +232,10 @@ export default function VolunteerCard({
       ? { data: initialData }
       : undefined,
     staleTime: is_homepage ? 2 * 60 * 1000 : 0,
+    // A search or filter change rewrites the query key. Keeping the previous
+    // page's results means `isLoading` stays false, so the section is not
+    // replaced by the full-screen loader on every keystroke.
+    placeholderData: keepPreviousData,
   });
 
   const { data: learnServeResponse, isLoading: learnServeLoading } = useQuery({
@@ -248,6 +252,7 @@ export default function VolunteerCard({
       ? { data: initialData }
       : undefined,
     staleTime: is_homepage ? 2 * 60 * 1000 : 0,
+    placeholderData: keepPreviousData,
   });
 
   const data = isLearnServe ? learnServeResponse?.data : volunteerResponse?.data;
@@ -337,8 +342,11 @@ export default function VolunteerCard({
     return t("COMMON.REGISTER");
   };
 
+  // Inline: this is one section of a page, not the page itself. Re-searches
+  // never reach here — `keepPreviousData` holds the previous list on screen and
+  // the search bar shows the in-flight spinner instead.
   if (isLoading || !isMounted) {
-    return <Loader />;
+    return <Loader inline />;
   }
 
   const hasNoOpportunities = !data || data?.length === 0;

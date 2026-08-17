@@ -24,7 +24,7 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages,} from "@/features/services/api";
+import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages, } from "@/features/services/api";
 import {
   formatSingleDate,
   getDefaultProfileImage,
@@ -88,6 +88,7 @@ export interface VolunteerOpportunityData {
   after_completed_images_count?: number;
   gender_display?: ChoiceDisplay;
   interest_display?: Array<{ id: string; value_en: string; value_ar: string }>;
+  license_image?: string | null;
   opportunity_images: OpportunityImage[];
   opportunity_sponsor_images?: Array<{
     id: number | string;
@@ -203,7 +204,7 @@ export default function VolunteerEvent({
   const remainingParticipants = Math.max(
     0,
     (Number(opportunityData?.participants_needed) || 0) -
-      (Number(opportunityData?.registered_volunteers_count) || 0)
+    (Number(opportunityData?.registered_volunteers_count) || 0)
   );
 
   const handleShowVolunteerMandateDetails = (userData: any) => {
@@ -232,7 +233,7 @@ export default function VolunteerEvent({
     const errorData = error.response?.data;
     toast.error(
       (selectedLanguage === "ar" ? errorData?.message_ar : errorData?.message_en) ||
-        t("COMMON.OPPORTUNITY_NOT_FOUND")
+      t("COMMON.OPPORTUNITY_NOT_FOUND")
     );
     router.replace("/404");
   }, [opportunityQuery.error, selectedLanguage, t, router]);
@@ -348,11 +349,11 @@ export default function VolunteerEvent({
       opportunity_status: opportunityData?.opportunity_status,
       manual_tracking: opportunityData?.manual_tracking
         ? moment().isSameOrAfter(
-            moment(opportunityData?.start_date).startOf("day")
-          ) &&
-          moment().isSameOrBefore(
-            moment(opportunityData?.end_date).endOf("day").add(48, "hours")
-          )
+          moment(opportunityData?.start_date).startOf("day")
+        ) &&
+        moment().isSameOrBefore(
+          moment(opportunityData?.end_date).endOf("day").add(48, "hours")
+        )
         : false,
       // Deleting registrations is locked once the opportunity has begun
       disableDeleteAfterPeriod: moment().isAfter(
@@ -677,7 +678,7 @@ export default function VolunteerEvent({
 
       <div className="relative w-full">
         <img
-          className="w-full xss2:h-[320px] object-cover"
+          className="w-full h-[320px] object-cover"
           src={opportunityData?.opportunity_images?.[0]?.image}
           alt=""
         />
@@ -718,29 +719,29 @@ export default function VolunteerEvent({
                     {SOCIAL_LINKS.some(
                       ({ key }) => opportunityData?.created_by?.[key]
                     ) && (
-                      <div>
-                        <div className="mt-3 flex gap-3 justify-center">
-                          {SOCIAL_LINKS.map(({ key, icon }) => {
-                            const href = opportunityData?.created_by?.[key];
-                            if (!href) return null;
-                            return (
-                              <a
-                                key={key}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                href={href}
-                              >
-                                <img
-                                  className="w-[31px] h-[31px]"
-                                  src={icon}
-                                  alt=""
-                                />
-                              </a>
-                            );
-                          })}
+                        <div>
+                          <div className="mt-3 flex gap-3 justify-center">
+                            {SOCIAL_LINKS.map(({ key, icon }) => {
+                              const href = opportunityData?.created_by?.[key];
+                              if (!href) return null;
+                              return (
+                                <a
+                                  key={key}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  href={href}
+                                >
+                                  <img
+                                    className="w-[31px] h-[31px]"
+                                    src={icon}
+                                    alt=""
+                                  />
+                                </a>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
 
                   {isCreator && !opportunityData?.is_public && (
@@ -760,12 +761,32 @@ export default function VolunteerEvent({
                 </div>
               </div>
 
+              {/* License image */}
+              {/* {opportunityData?.license_image && (
+                <div className="w-full flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] bottom-[50px] lg:bottom-[100px] px-[20px] pb-[30px] pt-[20px]">
+                  <p className="text-primary-5 2xl:text-base lg:text-sm text-sm font-bold mb-3">
+                    {t("COMMON.LICENSE")}
+                  </p>
+                  <a
+                    href={opportunityData.license_image}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={t("COMMON.LICENSE")}
+                  >
+                    <img
+                      src={opportunityData.license_image}
+                      alt={t("COMMON.LICENSE")}
+                      className="max-w-full max-h-[200px] object-contain rounded-lg border border-gray-300 shadow hover:opacity-90 transition-opacity cursor-pointer"
+                    />
+                  </a>
+                </div>
+              )} */}
+
               <div
-                className={`mobilescreen:bottom-[50px] sponseritm bg-[#DBDBDB] 2xl:bottom-[100px] lg:bottom-[100px] md:bottom-[60px] relative 2xl:p-[50px] laptopmain:px-12 laptops:px-10 lg:p-[30px] p-[30px] ${
-                  !opportunityData?.opportunity_sponsor_images?.length
-                    ? "hidden"
-                    : ""
-                }`}
+                className={`mobilescreen:bottom-[50px] sponseritm bg-[#DBDBDB] 2xl:bottom-[100px] lg:bottom-[100px] md:bottom-[60px] relative 2xl:p-[50px] laptopmain:px-12 laptops:px-10 lg:p-[30px] p-[30px] ${!opportunityData?.opportunity_sponsor_images?.length
+                  ? "hidden"
+                  : ""
+                  }`}
               >
                 <OpportunitySponsors
                   sponsors={
@@ -781,9 +802,8 @@ export default function VolunteerEvent({
 
               {(isCreator || canShowScanQR) && (
                 <div
-                  className={`w-[100%] flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] msscreen1:bottom-[70px] mdscreen:bottom-[75px] bottom-[50px] pt-[50px] lg:bottom-[100px] px-5 2xl:pb-[70px] lg:pb-[40px] pb-[40px] ${
-                    shouldShowOnlyMobile ? "hidden miniscreen9:flex" : ""
-                  }`}
+                  className={`w-[100%] flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] msscreen1:bottom-[70px] mdscreen:bottom-[75px] bottom-[50px] pt-[50px] lg:bottom-[100px] px-5 2xl:pb-[70px] lg:pb-[40px] pb-[40px] ${shouldShowOnlyMobile ? "hidden miniscreen9:flex" : ""
+                    }`}
                 >
                   {/* Desktop / tablet: no Scan QR here */}
                   {isCreator && (
@@ -925,10 +945,10 @@ export default function VolunteerEvent({
                     {" "}
                     {dueDate
                       ? formatSingleDate(
-                          dueDate.format("YYYY-MM-DD"),
-                          selectedLanguage,
-                          t
-                        )
+                        dueDate.format("YYYY-MM-DD"),
+                        selectedLanguage,
+                        t
+                      )
                       : t("COMMON.NO_DATA_AVAILABLE")}
                   </span>
                 </p>
@@ -987,35 +1007,35 @@ export default function VolunteerEvent({
                     )}
                   </p>
                 </div>
-                <div className="flex items-center font-bold 2xl:text-xl lg:text-base text-base gap-2">
-                  <img
-                    className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                    src="/assets/homepage/timeicn.svg"
-                    alt=""
-                  />
-                  <p className="text-secondary-102 font-bold">
-                    {moment(opportunityData?.start_time, "HH:mm:ss").format(
-                      "hh:mm"
-                    )}
-                  </p>
-                  <p className="text-primary-5">
-                    {moment(opportunityData?.start_time, "HH:mm:ss").format(
-                      "a"
-                    ) === "am"
-                      ? t("COMMON.AM")
-                      : t("COMMON.PM")}{" "}
-                  </p>
-                  <p className="text-secondary-102 font-bold">
-                    -{" "}
-                    {moment(opportunityData?.end_time, "HH:mm:ss").format("hh:mm")}
-                  </p>
-                  <p className="text-primary-5">
-                    {moment(opportunityData?.end_time, "HH:mm:ss").format("a") ===
-                    "am"
-                      ? t("COMMON.AM")
-                      : t("COMMON.PM")}
-                  </p>
-                </div>
+                {opportunityData?.start_time &&
+                  opportunityData?.end_time &&
+                  moment(opportunityData.start_time, "HH:mm:ss", true).isValid() &&
+                  moment(opportunityData.end_time, "HH:mm:ss", true).isValid() && (
+                  <div className="flex items-center font-bold 2xl:text-xl lg:text-base text-base gap-2">
+                    <img
+                      className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                      src="/assets/homepage/timeicn.svg"
+                      alt=""
+                    />
+                    <p className="text-secondary-102 font-bold">
+                      {moment(opportunityData.start_time, "HH:mm:ss").format("hh:mm")}
+                    </p>
+                    <p className="text-primary-5">
+                      {moment(opportunityData.start_time, "HH:mm:ss").format("a") === "am"
+                        ? t("COMMON.AM")
+                        : t("COMMON.PM")}{" "}
+                    </p>
+                    <p className="text-secondary-102 font-bold">
+                      -{" "}
+                      {moment(opportunityData.end_time, "HH:mm:ss").format("hh:mm")}
+                    </p>
+                    <p className="text-primary-5">
+                      {moment(opportunityData.end_time, "HH:mm:ss").format("a") === "am"
+                        ? t("COMMON.AM")
+                        : t("COMMON.PM")}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-[20px] items-center extrasmall:gap-[10px]">
@@ -1029,43 +1049,45 @@ export default function VolunteerEvent({
               <div className="border-b mb-6">
                 <div className="flex mt-5 mobilescreen:mt-3.5 xss:flex-col">
                   <div className="w-1/2 xss:w-full">
-                    <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
-                      <img
-                        className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                        src="/assets/homepage/hours.svg"
-                        alt=""
-                      />
-                      {totalDuration.hrs > 0 && (
-                        <>
-                          <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                            {totalDuration.hrs}
-                          </p>
-                          <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
-                            {t("COMMON.HR")}
-                          </p>
-                        </>
-                      )}
-                      {totalDuration.mins > 0 && (
-                        <>
-                          <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                            {totalDuration.mins}
-                          </p>
-                          <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
-                            {t("COMMON.MIN")}
-                          </p>
-                        </>
-                      )}
-                      {totalDuration.hrs === 0 && totalDuration.mins === 0 && (
-                        <>
-                          <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                            0
-                          </p>
-                          <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
-                            {t("COMMON.MIN")}
-                          </p>
-                        </>
-                      )}
-                    </div>
+                    {opportunityData?.start_time && opportunityData?.end_time && (
+                      <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
+                        <img
+                          className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                          src="/assets/homepage/hours.svg"
+                          alt=""
+                        />
+                        {totalDuration.hrs > 0 && (
+                          <>
+                            <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                              {totalDuration.hrs}
+                            </p>
+                            <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                              {t("COMMON.HR")}
+                            </p>
+                          </>
+                        )}
+                        {totalDuration.mins > 0 && (
+                          <>
+                            <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                              {totalDuration.mins}
+                            </p>
+                            <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                              {t("COMMON.MIN")}
+                            </p>
+                          </>
+                        )}
+                        {totalDuration.hrs === 0 && totalDuration.mins === 0 && (
+                          <>
+                            <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                              0
+                            </p>
+                            <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                              {t("COMMON.MIN")}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
                       <img
@@ -1115,7 +1137,7 @@ export default function VolunteerEvent({
                       <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
                         {
                           opportunityData?.gender_display?.[
-                            selectedLanguage === "ar" ? "value_ar" : "value_en"
+                          selectedLanguage === "ar" ? "value_ar" : "value_en"
                           ]
                         }
                       </p>
@@ -1123,11 +1145,10 @@ export default function VolunteerEvent({
 
                     <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
                       <img
-                        className={`${
-                          selectedLanguage === "ar"
-                            ? "ml-3 right-[3px]"
-                            : "mr-3 left-[3px]"
-                        } w-5 h-5 object-contain relative`}
+                        className={`${selectedLanguage === "ar"
+                          ? "ml-3 right-[3px]"
+                          : "mr-3 left-[3px]"
+                          } w-5 h-5 object-contain relative`}
                         src="/assets/homepage/locations.svg"
                         alt=""
                       />
@@ -1147,13 +1168,10 @@ export default function VolunteerEvent({
                             t("COMMON.ADDRESS_NOT_FOUND")
                           }
                         >
-                          {(
-                            (selectedLanguage === "ar"
-                              ? opportunityData?.location_ar
-                              : opportunityData?.location_en) || ""
-                          )
-                            .slice(0, 18)
-                            .concat("...")}
+                          {(selectedLanguage === "ar"
+                            ? opportunityData?.location_ar
+                            : opportunityData?.location_en) ||
+                            t("COMMON.ADDRESS_NOT_FOUND")}
                         </p>
                       </div>
                     </div>
@@ -1295,9 +1313,8 @@ export default function VolunteerEvent({
                         backgroundColor:
                           TAG_BACKGROUNDS[index % TAG_BACKGROUNDS.length],
                       }}
-                      className={`text-sm py-[13px] rounded-[20px] xss:py-2 xss:px-4 xss:text-xs px-8 ${
-                        TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
-                      } cursor-pointer hover:opacity-80 transition-opacity`}
+                      className={`text-sm py-[13px] rounded-[20px] xss:py-2 xss:px-4 xss:text-xs px-8 ${TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
+                        } cursor-pointer hover:opacity-80 transition-opacity`}
                       onClick={() =>
                         router.push(
                           `/volunteer-opportunities-list?tags=${encodeURIComponent(
@@ -1320,58 +1337,58 @@ export default function VolunteerEvent({
               {((opportunityData?.opportunity_status === "completed" &&
                 isCreator) ||
                 afterCompletedImages.length > 0) && (
-                <div className="pt-[50px]">
-                  {((opportunityData?.opportunity_status === "completed" &&
-                    isCreator &&
-                    afterCompletedImages.length < 10) ||
-                    afterCompletedImages.length > 0) && (
-                    <h3 className="2xl:text-xl lg:text-base text-base font-bold text-primary-5 mb-3 flex gap-2 items-center">
-                      <div dir="rtl">
-                        <img
-                          src="/assets/voluneteerevent/rightarrows.svg"
-                          alt=""
-                          className={
-                            selectedLanguage === "ar" ? "rotate-rtl" : ""
-                          }
-                        />
-                      </div>
-                      {t("COMMON.OPPORTUNITY_IMAGE")}
-                    </h3>
-                  )}
+                  <div className="pt-[50px]">
+                    {((opportunityData?.opportunity_status === "completed" &&
+                      isCreator &&
+                      afterCompletedImages.length < 10) ||
+                      afterCompletedImages.length > 0) && (
+                        <h3 className="2xl:text-xl lg:text-base text-base font-bold text-primary-5 mb-3 flex gap-2 items-center">
+                          <div dir="rtl">
+                            <img
+                              src="/assets/voluneteerevent/rightarrows.svg"
+                              alt=""
+                              className={
+                                selectedLanguage === "ar" ? "rotate-rtl" : ""
+                              }
+                            />
+                          </div>
+                          {t("COMMON.OPPORTUNITY_IMAGE")}
+                        </h3>
+                      )}
 
-                  {opportunityData?.opportunity_status === "completed" &&
-                    isCreator &&
-                    afterCompletedImages.length < 10 && (
-                      <div>
-                        <UploadImageWithSave
-                          label={t("COMMON.UPLOAD_IMAGE")}
-                          instructions={[t("COMMON.MAX_FILE_SIZE")]}
-                          multiple
-                          accept="image/jpeg, image/png"
-                          value={pendingFiles}
-                          onChange={(files) => {
-                            const remainingSlots =
-                              10 - afterCompletedImages.length;
-                            if (files.length > remainingSlots) {
-                              toast.error(t("COMMON.MAX_FILES_EXCEEDED"));
-                              return;
+                    {opportunityData?.opportunity_status === "completed" &&
+                      isCreator &&
+                      afterCompletedImages.length < 10 && (
+                        <div>
+                          <UploadImageWithSave
+                            label={t("COMMON.UPLOAD_IMAGE")}
+                            instructions={[t("COMMON.MAX_FILE_SIZE")]}
+                            multiple
+                            accept="image/jpeg, image/png"
+                            value={pendingFiles}
+                            onChange={(files) => {
+                              const remainingSlots =
+                                10 - afterCompletedImages.length;
+                              if (files.length > remainingSlots) {
+                                toast.error(t("COMMON.MAX_FILES_EXCEEDED"));
+                                return;
+                              }
+                              setPendingFiles(files);
+                            }}
+                            onRemove={(index) =>
+                              setPendingFiles((previous) =>
+                                previous.filter((_, i) => i !== index)
+                              )
                             }
-                            setPendingFiles(files);
-                          }}
-                          onRemove={(index) =>
-                            setPendingFiles((previous) =>
-                              previous.filter((_, i) => i !== index)
-                            )
-                          }
-                          onSave={() => {
-                            if (pendingFiles.length === 0) return;
-                            handleFileUpload(pendingFiles);
-                          }}
-                        />
-                      </div>
-                    )}
-                </div>
-              )}
+                            onSave={() => {
+                              if (pendingFiles.length === 0) return;
+                              handleFileUpload(pendingFiles);
+                            }}
+                          />
+                        </div>
+                      )}
+                  </div>
+                )}
 
               <div className="relative mt-6">
                 <div className="w-full overflow-hidden">

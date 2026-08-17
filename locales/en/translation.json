@@ -27,6 +27,8 @@
   "COMMON.PASSWORDS.MUST.MATCH": "Passwords must match",
   "COMMON.MUST.BE.VALID.PHONE": "Please enter a valid phone number",
   "COMMON.PHONE.EXACT.8.DIGITS": "Phone number must be exactly 8 digits",
+  "COMMON.PHONE.EXACT.DIGITS": "Phone number must be exactly {{count}} digits",
+  "COMMON.PHONE.STARTS.WITH": "Phone number must start with {{digit}}",
   "COMMON.FILE.TOO.LARGE": "File is too large",
   "COMMON.COMPLETEYOURDETAILS": "Complete your details",
   "COMMON.SUBMIT": "Submit",
@@ -1178,5 +1180,10 @@
   "COMMON.LEARN_SERVE_OPPORTUNITY_NOT_FOUND": "Learn and Share opportunity not found",
   "COMMON.SHARE_YOUR_MESSAGE": "Share your message (within 300 character limit)",
   "COMMON.PLEASE_ENTER_ALL_6_OTP_DIGITS": "Please enter all 6 OTP digits.",
-  "COMMON.SENDING_CODE": "Sending Code..."
+  "COMMON.SENDING_CODE": "Sending Code...",
+  "COMMON.BANNER": "Banner",
+  "COMMON.OPEN_LINK": "Open link",
+  "COMMON.GO_TO_IMAGE": "Go to image",
+  "COMMON.MIN_AGE_REQUIRED": "You must be at least {{age}} years old",
+  "COMMON.PHONE.LENGTH.RANGE": "Phone number must be between {{min}} and {{max}} digits"
 }

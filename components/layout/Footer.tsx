@@ -4,6 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import { useLanguageStore } from "@/store/languageStore";
+import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
+import {
+  cmsPageHref,
+  pickLocalized,
+  type FooterCms,
+  type FooterSocial,
+} from "@/lib/api/cms";
 
 // Inline SVGs replace react-icons to eliminate icon library chunks from the layout bundle.
 // The layout renders on every page — library icons would add ~50–100 KB to every page.
@@ -40,9 +48,69 @@ function InstagramIcon({ className }: { className?: string }) {
   );
 }
 
-export default function Footer() {
+interface FooterProps {
+  /**
+   * Admin-editable footer content (`GET /home/` → `footer`), fetched by the
+   * layout on the server. `null` when the CMS request failed — the CMS-driven
+   * pieces are then hidden rather than replaced with static copy. Omit it
+   * entirely (client-only trees, e.g. `app/not-found.tsx`) and the footer
+   * fetches the payload itself off the shared React Query cache.
+   */
+  footer?: FooterCms | null;
+}
+
+const SOCIAL_LINKS: Array<{
+  key: keyof FooterSocial;
+  label: string;
+  className: string;
+  Icon: ({ className }: { className?: string }) => React.ReactElement;
+}> = [
+  {
+    key: "tiktok",
+    label: "TikTok",
+    className:
+      "bg-white w-9 h-9 rounded-full text-[#1A1A66] flex items-center justify-center text-[25px]",
+    Icon: TikTokIcon,
+  },
+  {
+    key: "twitter",
+    label: "Twitter / X",
+    className:
+      "bg-white w-9 h-9 rounded-full text-[#1A1A66] flex items-center justify-center text-[25px]",
+    Icon: XTwitterIcon,
+  },
+  {
+    key: "youtube",
+    label: "YouTube",
+    className: "text-[46px] flex items-center",
+    Icon: YouTubeIcon,
+  },
+  {
+    key: "instagram",
+    label: "Instagram",
+    className:
+      "bg-white w-9 h-9 rounded-lg text-[#1A1A66] flex items-center justify-center text-[25px]",
+    Icon: InstagramIcon,
+  },
+];
+
+export default function Footer({ footer }: FooterProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const language = useLanguageStore((s) => s.language);
+  const { cms } = useHomeCms({ enabled: footer === undefined });
+
+  const data = footer ?? cms?.footer ?? null;
+  const cmsPages = data?.pages ?? [];
+  const socials = SOCIAL_LINKS.map((link) => ({
+    ...link,
+    href: data?.social?.[link.key] ?? "",
+  })).filter((link) => !!link.href);
+  const copyright = pickLocalized(
+    data?.copyright_en,
+    data?.copyright_ar,
+    language
+  );
 
   return (
     <footer className="bg-primary-5 text-white">
@@ -61,15 +129,21 @@ export default function Footer() {
 
           {/* Links */}
           <nav className="relative block 2xl:flex lg:flex mdscreen:block 2xl:gap-[70px] lg:gap-[30px] mdscreen:gap-[20px] sm:gap-[40px] mobilescreen:pt-[40px] mobilescreen:pb-[40px] lg:py-0 mdscreen:py-[40px] pb-[40px]">
-            <Link href="/about-us" className="hover:underline text-lg block text-center mb-3">
-              {t("COMMON.ABOUTUS")}
-            </Link>
-            <Link href="/privacy-policy" className="hover:underline text-lg block text-center mb-3">
-              {t("COMMON.PRIVACYPOLICY")}
-            </Link>
-            <Link href="/termsofuse" className="hover:underline text-lg block text-center mb-3">
-              {t("COMMON.TERMS.OF.USE")}
-            </Link>
+            {/* Page links + labels are admin-editable — no hardcoded fallbacks. */}
+            {cmsPages.map((page) => {
+              const href = cmsPageHref(page.slug);
+              return (
+                <Link
+                  key={page.slug}
+                  href={href}
+                  className={`hover:underline text-lg block text-center mb-3 ${
+                    pathname === href ? "font-bold" : ""
+                  }`}
+                >
+                  {pickLocalized(page.title_en, page.title_ar, language)}
+                </Link>
+              );
+            })}
             <Link
               href="/faq"
               className={`hover:underline text-lg block text-center mb-3 ${pathname === "/faq" ? "font-bold" : ""}`}
@@ -81,55 +155,35 @@ export default function Footer() {
             </Link>
           </nav>
 
-          {/* Social Icons */}
-          <div className="mobilescreen:w-[60%] mobilescreen:mx-auto mobilescreen:pt-[40px] mobilescreen:border-t mdscreen:w-[60%] mdscreen:mx-auto mdscreen:pt-[40px] mdscreen:border-t">
-            <p className="text-lg font-bold text-center">{t("COMMON.FOLLOWUS")}</p>
-            <div className="flex items-center gap-7 extrasmall:gap-3 mt-4 mdscreen:mt-0 pt-5 mobilescreen:justify-center mdscreen:justify-center">
-              <a
-                className="bg-white w-9 h-9 rounded-full text-[#1A1A66] flex items-center justify-center text-[25px]"
-                href="https://www.tiktok.com/@joinforsa"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="TikTok"
-              >
-                <TikTokIcon />
-              </a>
-              <a
-                className="bg-white w-9 h-9 rounded-full text-[#1A1A66] flex items-center justify-center text-[25px]"
-                href="https://x.com/JoinForsa_"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Twitter / X"
-              >
-                <XTwitterIcon />
-              </a>
-              <a
-                className="text-[46px] flex items-center"
-                href="https://www.youtube.com/@joinforsa"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="YouTube"
-              >
-                <YouTubeIcon />
-              </a>
-              <a
-                className="bg-white w-9 h-9 rounded-lg text-[#1A1A66] flex items-center justify-center text-[25px]"
-                href="https://www.instagram.com/joinforsa?igsh=MTN6c254aW15d2ZkYw=="
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram"
-              >
-                <InstagramIcon />
-              </a>
+          {/* Social Icons — admin-editable, each link hidden when unset */}
+          {socials.length > 0 && (
+            <div className="mobilescreen:w-[60%] mobilescreen:mx-auto mobilescreen:pt-[40px] mobilescreen:border-t mdscreen:w-[60%] mdscreen:mx-auto mdscreen:pt-[40px] mdscreen:border-t">
+              <p className="text-lg font-bold text-center">{t("COMMON.FOLLOWUS")}</p>
+              <div className="flex items-center gap-7 extrasmall:gap-3 mt-4 mdscreen:mt-0 pt-5 mobilescreen:justify-center mdscreen:justify-center">
+                {socials.map(({ key, label, className, href, Icon }) => (
+                  <a
+                    key={key}
+                    className={className}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                  >
+                    <Icon />
+                  </a>
+                ))}
+              </div>
             </div>
+          )}
+
+        </div>
+
+        {/* Copyright — admin-editable */}
+        {copyright && (
+          <div className="text-center text-base pb-[70px] mobilescreen:pt-[30px] mdscreen:pt-[30px]">
+            {copyright}
           </div>
-
-        </div>
-
-        {/* Copyright */}
-        <div className="text-center text-base pb-[70px] mobilescreen:pt-[30px] mdscreen:pt-[30px]">
-          {t("COMMON.ALL.RIGHTS.RESERVED", { year: new Date().getFullYear() })}
-        </div>
+        )}
       </div>
     </footer>
   );

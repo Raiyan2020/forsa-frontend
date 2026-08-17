@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
 import Title from "@/components/shared/Title";
+import Loader from "@/components/ui/Loader";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import Image from "next/image";
 import type { FaqItem } from "@/lib/api/types";
+import { getFaqs } from "@/features/services/api";
 
 const containsHTML = (str: string): boolean => {
   return /<[a-z][\s\S]*>/i.test(str);
@@ -36,6 +39,24 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
     };
   }, []);
 
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["faqs"],
+    queryFn: () => getFaqs({ page: 1, limit: 1000 }),
+    // Seed with SSR data so there is no loading flash when data is already available
+    initialData: initialFaqs.length > 0
+      ? {
+          key: "success",
+          msg: "",
+          code: 200,
+          response_status: { error: false, validation_errors: [] },
+          data: initialFaqs,
+        }
+      : undefined,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const faqs: FaqItem[] = Array.isArray(data?.data) ? data.data : [];
+
   const toggleItem = (id: number) => {
     setOpenItemId(openItemId === id ? null : id);
   };
@@ -54,13 +75,31 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
     </>
   );
 
-  if (!initialFaqs || initialFaqs.length === 0) {
-    return sectionContent(<div className="text-center py-10">{t("COMMON.NO_FAQS")}</div>);
+  if (isLoading) {
+    return sectionContent(
+      <div className="flex justify-center py-16">
+        <Loader />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return sectionContent(
+      <div className="text-center py-10 text-red-500">
+        {t("COMMON.ERROR_LOADING_DATA")}
+      </div>
+    );
+  }
+
+  if (faqs.length === 0) {
+    return sectionContent(
+      <div className="text-center py-10">{t("COMMON.NO_FAQS")}</div>
+    );
   }
 
   return sectionContent(
     <div>
-      {initialFaqs.map((item, index) => {
+      {faqs.map((item, index) => {
         const questionNumber = index + 1;
         return (
           <div key={item.id} className="bg-[#f2f2f2] overflow-hidden">
@@ -69,7 +108,11 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
               onClick={() => toggleItem(item.id)}
               aria-expanded={openItemId === item.id}
             >
-              <span className={`font-bold text-secondary-100 2xl:text-[25px] laptopmain:text:lg mobilescreen:text-sm flex-1 ${selectedLanguage === "ar" ? "text-right rtl" : ""}`}>
+              <span
+                className={`font-bold text-secondary-100 2xl:text-[25px] laptopmain:text:lg mobilescreen:text-sm flex-1 ${
+                  selectedLanguage === "ar" ? "text-right rtl" : ""
+                }`}
+              >
                 {selectedLanguage === "ar" ? (
                   <>
                     <span className="text-secondary-100 ml-2">{questionNumber}.</span>
@@ -82,23 +125,58 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
                   </>
                 )}
               </span>
-              <span className={`flex-shrink-0 relative w-6 h-6 ${selectedLanguage === "ar" ? "mr-4" : "ml-4"}`}>
+              <span
+                className={`flex-shrink-0 relative w-6 h-6 ${
+                  selectedLanguage === "ar" ? "mr-4" : "ml-4"
+                }`}
+              >
                 {openItemId === item.id ? (
-                  <Image src="/assets/homepage/minus.svg" alt="minus" fill className="object-contain" />
+                  <Image
+                    src="/assets/homepage/minus.svg"
+                    alt="minus"
+                    fill
+                    className="object-contain"
+                  />
                 ) : (
-                  <Image src="/assets/homepage/plus.svg" alt="plus" fill className="object-contain" />
+                  <Image
+                    src="/assets/homepage/plus.svg"
+                    alt="plus"
+                    fill
+                    className="object-contain"
+                  />
                 )}
               </span>
             </button>
-            <div className={`overflow-hidden ${openItemId === item.id ? "max-h-[1000px] transition-all duration-500 ease-in-out" : "max-h-0 mb-8 mobilescreen:mb-5"}`}>
-              {containsHTML(selectedLanguage === "ar" ? item.answer_ar : item.answer_en) ? (
+            <div
+              className={`overflow-hidden ${
+                openItemId === item.id
+                  ? "max-h-[1000px] transition-all duration-500 ease-in-out"
+                  : "max-h-0 mb-8 mobilescreen:mb-5"
+              }`}
+            >
+              {containsHTML(
+                selectedLanguage === "ar" ? item.answer_ar : item.answer_en
+              ) ? (
                 <div
-                  className={`py-[30px] mobilescreen:py-5 px-[37px] mobilescreen:px-4 text-secondary-100 text-lg mobilescreen:text-sm font-normal answer-content ${selectedLanguage === "ar" ? "text-right rtl" : ""}`}
-                  dangerouslySetInnerHTML={{ __html: selectedLanguage === "ar" ? item.answer_ar || "" : item.answer_en || "" }}
+                  className={`py-[30px] mobilescreen:py-5 px-[37px] mobilescreen:px-4 text-secondary-100 text-lg mobilescreen:text-sm font-normal answer-content ${
+                    selectedLanguage === "ar" ? "text-right rtl" : ""
+                  }`}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      selectedLanguage === "ar"
+                        ? item.answer_ar || ""
+                        : item.answer_en || "",
+                  }}
                 />
               ) : (
-                <div className={`py-[30px] mobilescreen:py-5 px-[37px] mobilescreen:px-4 text-secondary-100 text-lg mobilescreen:text-sm font-normal answer-content ${selectedLanguage === "ar" ? "text-right rtl" : ""}`}>
-                  {selectedLanguage === "ar" ? item.answer_ar || "" : item.answer_en || ""}
+                <div
+                  className={`py-[30px] mobilescreen:py-5 px-[37px] mobilescreen:px-4 text-secondary-100 text-lg mobilescreen:text-sm font-normal answer-content ${
+                    selectedLanguage === "ar" ? "text-right rtl" : ""
+                  }`}
+                >
+                  {selectedLanguage === "ar"
+                    ? item.answer_ar || ""
+                    : item.answer_en || ""}
                 </div>
               )}
             </div>
@@ -108,3 +186,4 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
     </div>
   );
 }
+

@@ -31,7 +31,7 @@ import {
   updateOrganizerProfile,
 } from "@/features/services/api";
 import { socialMediaOptions } from "@/data/Constants";
-import { YupPhoneNumber, YupDigitsOnlyOptional } from "@/lib/schema";
+import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";
@@ -218,7 +218,10 @@ export default function OrganizerAccountInformation() {
   };
 
   const validationSchema = Yup.object({
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     organizer_type: Yup.string().required(t("COMMON.REQUIRED.FIELD")),
     documents: Yup.array().test(
       "fileSizeAndRequired",
@@ -737,6 +740,7 @@ export default function OrganizerAccountInformation() {
                                   name="phone_number"
                                   label={t("COMMON.PHONE_NUMBER")}
                                   className="pr-10"
+                                  countryCode={values.country_code}
                                 />
                               </div>
                             </div>

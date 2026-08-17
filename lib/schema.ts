@@ -1,5 +1,6 @@
 import * as Yup from "yup";
 import i18n from "@/lib/i18n/config";
+import { getPhoneRule } from "@/lib/phoneRules";
 
 export const createSchema = (schema: Record<string, Yup.AnySchema>) => {
   return Yup.object().shape(schema);
@@ -49,12 +50,53 @@ export const YupStrongPassword = YupStringNoLeadingTrailingSpaces
     }
   );
 
-/** A Kuwaiti local number, the only kind this app takes. */
+/** A Kuwaiti local number — kept for backward compatibility. */
 export const KUWAIT_PHONE_LENGTH = 8;
 
-export const YupPhoneNumber = YupRequiredString
-  .matches(/^\d+$/, () => i18n.t("COMMON.MUST.BE.VALID.PHONE"))
-  .length(KUWAIT_PHONE_LENGTH, () => i18n.t("COMMON.PHONE.EXACT.8.DIGITS"));
+/**
+ * Builds a Yup phone schema for the given dial code (e.g. "+965").
+ * Dial codes with no registered rule fall back to a 4–15 digit range.
+ *
+ * The schema enforces:
+ *  - digits only
+ *  - the country's exact length, or sanity bounds when none is known
+ *  - optional leading-digit constraint (e.g. Egypt numbers must start with "1")
+ */
+export const createPhoneNumberSchema = (dialCode?: string) => {
+  const rule = getPhoneRule(dialCode ?? "");
+  let schema = YupRequiredString.matches(/^\d+$/, () =>
+    i18n.t("COMMON.MUST.BE.VALID.PHONE")
+  );
+
+  if (typeof rule.length === "number") {
+    const exact = rule.length;
+    schema = schema.length(exact, () =>
+      i18n.t("COMMON.PHONE.EXACT.DIGITS", { count: exact })
+    );
+  } else {
+    // Countries without a known fixed length only get sanity bounds — better
+    // than rejecting every valid number that is not 8 digits long.
+    const min = rule.min ?? 4;
+    const max = rule.max ?? 15;
+    schema = schema
+      .min(min, () => i18n.t("COMMON.PHONE.LENGTH.RANGE", { min, max }))
+      .max(max, () => i18n.t("COMMON.PHONE.LENGTH.RANGE", { min, max }));
+  }
+  if (rule.startsWith) {
+    const prefix = rule.startsWith;
+    schema = schema.matches(
+      new RegExp(`^${prefix}`),
+      () => i18n.t("COMMON.PHONE.STARTS.WITH", { digit: prefix })
+    );
+  }
+  return schema;
+};
+
+/**
+ * Backward-compatible alias — validates as Kuwait (+965): exactly 8 digits.
+ * Prefer `createPhoneNumberSchema(values.country_code)` in new code.
+ */
+export const YupPhoneNumber = createPhoneNumberSchema("+965");
 
 /**
  * Registration / licence numbers are digit strings. Optional on some forms
@@ -188,3 +230,59 @@ export const YupWhatsAppLink = Yup.string().test(
 export const YupCivilId = YupRequiredString
   .matches(/^[23]\d{11}$/, () => i18n.t("COMMON.CIVIL_ID_INVALID"))
   .length(12, () => i18n.t("COMMON.CIVIL_ID_LENGTH"));
+
+// ─── Date of birth ───────────────────────────────────────────────────────────
+
+/** Youngest age allowed to open a volunteer account. */
+export const MIN_SIGNUP_AGE = 10;
+
+/**
+ * Age in whole years from a `yyyy-MM-dd` date of birth (the format
+ * `BirthDateField` writes), or null when the value is missing/unparseable.
+ *
+ * The parts are read off the string rather than through `new Date(value)`:
+ * that parses a bare date as UTC midnight, which lands on the previous day in
+ * negative-offset timezones and shifts the age by a year on birthdays.
+ */
+export const calculateAgeFromDob = (dob: string): number | null => {
+  if (!dob) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dob);
+  if (!match) return null;
+
+  const [, year, month, day] = match.map(Number);
+  const today = new Date();
+
+  let age = today.getFullYear() - year;
+  const monthDiff = today.getMonth() + 1 - month;
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
+    age--;
+  }
+  return age;
+};
+
+/** The latest date of birth that still satisfies `minAge` — the picker's `maxDate`. */
+export const maxDateOfBirthFor = (minAge: number): Date => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setFullYear(date.getFullYear() - minAge);
+  return date;
+};
+
+/**
+ * Date of birth that must be at least `minAge` years in the past. The picker
+ * caps the calendar at the same date, but the field also accepts typed input —
+ * this is what actually blocks an under-age (or future) date.
+ */
+export const YupDateOfBirth = (minAge: number = MIN_SIGNUP_AGE) =>
+  YupStringMaxLength(10)
+    .concat(YupRequiredString)
+    .test(
+      "min-age",
+      () => i18n.t("COMMON.MIN_AGE_REQUIRED", { age: minAge }),
+      (value) => {
+        if (!value) return true; // emptiness is the required rule's business
+        const age = calculateAgeFromDob(value);
+        return age !== null && age >= minAge;
+      }
+    );

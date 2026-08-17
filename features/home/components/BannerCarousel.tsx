@@ -3,34 +3,43 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
-import type { BannerImage, BannerStatistics } from "@/lib/api/server";
+import { useLanguageStore } from "@/store/languageStore";
+import { pickLocalized, type HeroBanner, type HomeStatistics } from "@/lib/api/cms";
 
 interface BannerCarouselProps {
-  /** Pre-fetched banner images from the server */
-  bannerImages: BannerImage[];
-  /** Pre-fetched stats from the server */
-  statistics: BannerStatistics;
+  /** Hero slides from the CMS (`GET /home/` → `hero.banners`). */
+  banners: HeroBanner[];
+  /** Platform counters shown in the cards below the slider. */
+  statistics: HomeStatistics;
+  /** Hero headline from the CMS (`hero.title_en` / `hero.title_ar`). */
+  heroTitleEn?: string | null;
+  heroTitleAr?: string | null;
 }
 
+const FALLBACK_IMAGE = "/assets/homepage/baner_img.png";
+
 export default function BannerCarousel({
-  bannerImages,
+  banners,
   statistics,
+  heroTitleEn,
+  heroTitleAr,
 }: BannerCarouselProps) {
   const { t } = useTranslation();
+  const language = useLanguageStore((s) => s.language);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const carouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-advance carousel every 5 s when there are multiple slides
   useEffect(() => {
-    if (bannerImages.length > 1) {
+    if (banners.length > 1) {
       carouselIntervalRef.current = setInterval(() => {
-        setCurrentImageIndex((prev) => (prev + 1) % bannerImages.length);
+        setCurrentImageIndex((prev) => (prev + 1) % banners.length);
       }, 5000);
     }
     return () => {
       if (carouselIntervalRef.current) clearInterval(carouselIntervalRef.current);
     };
-  }, [bannerImages.length]);
+  }, [banners.length]);
 
   const cards = [
     {
@@ -56,64 +65,81 @@ export default function BannerCarousel({
     },
   ];
 
-  const fallback = "/assets/homepage/baner_img.png";
-  const images = bannerImages.length > 0 ? bannerImages : [{ image: fallback }];
+  const heroTitle = pickLocalized(heroTitleEn, heroTitleAr, language);
+
+  // The layout below the slider is positioned against the banner, so an empty
+  // CMS response still needs one slide to sit on.
+  const slides: HeroBanner[] =
+    banners.length > 0
+      ? banners
+      : [{ id: 0, image: FALLBACK_IMAGE, banner_url: null }];
+
+  /**
+   * The banner artwork carries its own baked-in wording, so the CMS headline is
+   * used as the image's accessible name instead of being drawn over it.
+   */
+  const altFor = (index: number) => {
+    const base = heroTitle || t("COMMON.BANNER") || "banner";
+    return slides.length > 1 ? `${base} ${index + 1}` : base;
+  };
+
+  const renderSlide = (banner: HeroBanner, index: number, sizes: string) => {
+    const isFirst = index === 0;
+    const img = (
+      <Image
+        src={banner.image || FALLBACK_IMAGE}
+        alt={altFor(index)}
+        fill
+        sizes={sizes}
+        className="object-cover"
+        // First image is the LCP — load immediately with high priority
+        priority={isFirst}
+        loading={isFirst ? "eager" : "lazy"}
+        fetchPriority={isFirst ? "high" : "low"}
+      />
+    );
+
+    return (
+      <div
+        key={banner.id || index}
+        className={`absolute w-full h-full transition-opacity duration-500 ${
+          index === currentImageIndex
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        // Non-visible slides must not be reachable via keyboard/AT
+        aria-hidden={index !== currentImageIndex ? true : undefined}
+      >
+        {banner.banner_url ? (
+          <a
+            href={banner.banner_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            tabIndex={index === currentImageIndex ? 0 : -1}
+            style={{ display: "block", width: "100%", height: "100%" }}
+            aria-label={`${altFor(index)} – ${t("COMMON.OPEN_LINK")}`}
+          >
+            {img}
+          </a>
+        ) : (
+          img
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="w-full">
+      {heroTitle && <h1 className="sr-only">{heroTitle}</h1>}
       <div className="relative flex justify-center items-center">
 
         {/* ── Desktop Banner ────────────────────────────────── */}
         <div className="relative w-full lg:flex xl:flex mobilescreen:hidden md:hidden">
           <div className="flex items-center justify-center w-full">
             <div className="relative 2xl:w-[83%] w-[100%] rounded-3xl overflow-hidden laptopmain:w-[88%] laptop:w-[87%] lg:w-[90%] laptopitm:w-[90%] mx-auto 2xl:h-[680px] laptopmain:h-[600px] laptops:h-[550px] laptop:h-[635px] xl:h-[550px] lg:h-[500px] h-[450px]">
-              {images.map((banner, index) => {
-                const isFirst = index === 0;
-                const img = (
-                  <Image
-                    src={banner.image}
-                    alt={
-                      t("COMMON.BANNER_IMAGE_ALT", { index: index + 1 }) ||
-                      `Banner ${index + 1}`
-                    }
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 85vw"
-                    className="object-cover"
-                    // First image is the LCP — load immediately with high priority
-                    priority={isFirst}
-                    loading={isFirst ? "eager" : "lazy"}
-                    fetchPriority={isFirst ? "high" : "low"}
-                  />
-                );
-
-                return (
-                  <div
-                    key={index}
-                    className={`absolute w-full h-full transition-opacity duration-500 ${
-                      index === currentImageIndex
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none"
-                    }`}
-                    // Non-visible slides must not be reachable via keyboard/AT
-                    aria-hidden={index !== currentImageIndex ? true : undefined}
-                  >
-                    {banner.banner_url ? (
-                      <a
-                        href={banner.banner_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        tabIndex={index === currentImageIndex ? 0 : -1}
-                        style={{ display: "block", width: "100%", height: "100%" }}
-                        aria-label={`${t("COMMON.BANNER_IMAGE_ALT", { index: index + 1 })} – ${t("COMMON.OPEN_LINK")}`}
-                      >
-                        {img}
-                      </a>
-                    ) : (
-                      img
-                    )}
-                  </div>
-                );
-              })}
+              {slides.map((banner, index) =>
+                renderSlide(banner, index, "(max-width: 1024px) 100vw, 85vw")
+              )}
             </div>
           </div>
         </div>
@@ -121,65 +147,20 @@ export default function BannerCarousel({
         {/* ── Mobile Banner ─────────────────────────────────── */}
         <div className="w-full relative mobilescreen:block lg:hidden md:block xsl:h-[350px] xss:h-[250px]">
           <div className="relative w-full h-full">
-            {images.map((banner, index) => {
-              const isFirst = index === 0;
-              const img = (
-                <Image
-                  src={banner.image}
-                  alt={
-                    t("COMMON.BANNER_IMAGE_ALT", { index: index + 1 }) ||
-                    `Banner ${index + 1}`
-                  }
-                  fill
-                  sizes="100vw"
-                  className="object-cover"
-                  priority={isFirst}
-                  loading={isFirst ? "eager" : "lazy"}
-                  fetchPriority={isFirst ? "high" : "low"}
-                />
-              );
-              return (
-                <div
-                  key={index}
-                  className={`absolute w-full h-full transition-opacity duration-500 ${
-                    index === currentImageIndex
-                      ? "opacity-100 pointer-events-auto"
-                      : "opacity-0 pointer-events-none"
-                  }`}
-                  aria-hidden={index !== currentImageIndex ? true : undefined}
-                >
-                  {banner.banner_url ? (
-                    <a
-                      href={banner.banner_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      tabIndex={index === currentImageIndex ? 0 : -1}
-                      style={{ display: "block", width: "100%", height: "100%" }}
-                      aria-label={`${t("COMMON.BANNER_IMAGE_ALT", { index: index + 1 })} – ${t("COMMON.OPEN_LINK")}`}
-                    >
-                      {img}
-                    </a>
-                  ) : (
-                    img
-                  )}
-                </div>
-              );
-            })}
+            {slides.map((banner, index) => renderSlide(banner, index, "100vw"))}
           </div>
 
           {/* Spacer that preserves layout height */}
-          {images.length > 0 && (
-            <div className="h-[700px] md:h-[592px] mobilescreen:h-[480px] w-full invisible" />
-          )}
+          <div className="h-[700px] md:h-[592px] mobilescreen:h-[480px] w-full invisible" />
         </div>
       </div>
 
       {/* ── Stats Cards ───────────────────────────────────── */}
       <div className="relative top-[-70px] mobilescreen:top-[-50px] 2xl:w-[75%] lg:w-[80%] laptop:w-[77.9%] laptopmain:w-[83%] laptopitm:w-[85%] md:w-[90%] mobilescreen:w-[95%] mx-auto">
         <div className="mb-2">
-          {images.length > 1 && (
+          {slides.length > 1 && (
             <div className="flex justify-center py-1">
-              {images.map((_, index) => (
+              {slides.map((_, index) => (
                 <button
                   key={index}
                   type="button"

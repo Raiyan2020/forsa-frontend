@@ -196,7 +196,7 @@ export default function LearnServeDetails({
   const remainingParticipants = Math.max(
     0,
     (Number(opportunityData?.participants_needed) || 0) -
-      (Number(opportunityData?.registered_volunteers_count) || 0)
+    (Number(opportunityData?.registered_volunteers_count) || 0)
   );
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export default function LearnServeDetails({
         (selectedLanguage === "ar"
           ? errorData?.message_ar
           : errorData?.message_en) ||
-          t("COMMON.LEARN_SERVE_OPPORTUNITY_NOT_FOUND")
+        t("COMMON.LEARN_SERVE_OPPORTUNITY_NOT_FOUND")
       );
       router.replace("/404");
       return;
@@ -463,7 +463,7 @@ export default function LearnServeDetails({
                   .endOf("day")
               ) ||
                 (opportunityData?.registered_volunteers_count ?? 0) >=
-                  (opportunityData?.participants_needed ?? 0))
+                (opportunityData?.participants_needed ?? 0))
             )))));
 
   const actionButtonLabel = isRepostState
@@ -673,7 +673,7 @@ export default function LearnServeDetails({
 
       <div className="relative w-full">
         <img
-          className="w-full xss2:h-[320px] object-cover"
+          className="w-full h-[320px] object-cover"
           src={opportunityData?.opportunity_images?.[0]?.image}
           alt=""
         />
@@ -714,40 +714,39 @@ export default function LearnServeDetails({
                     {SOCIAL_LINKS.some(
                       ({ key }) => opportunityData?.created_by?.[key]
                     ) && (
-                      <div>
-                        <div className="mt-3 flex gap-3 justify-center">
-                          {SOCIAL_LINKS.map(({ key, icon }) => {
-                            const href = opportunityData?.created_by?.[key];
-                            if (!href) return null;
-                            return (
-                              <a
-                                key={key}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                href={href}
-                              >
-                                <img
-                                  className="w-[31px] h-[31px]"
-                                  src={icon}
-                                  alt=""
-                                />
-                              </a>
-                            );
-                          })}
+                        <div>
+                          <div className="mt-3 flex gap-3 justify-center">
+                            {SOCIAL_LINKS.map(({ key, icon }) => {
+                              const href = opportunityData?.created_by?.[key];
+                              if (!href) return null;
+                              return (
+                                <a
+                                  key={key}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  href={href}
+                                >
+                                  <img
+                                    className="w-[31px] h-[31px]"
+                                    src={icon}
+                                    alt=""
+                                  />
+                                </a>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               </div>
             </div>
 
             <div
-              className={`mobilescreen:bottom-[50px] sponseritm bg-[#DBDBDB] 2xl:bottom-[100px] lg:bottom-[100px] md:bottom-[60px] relative 2xl:p-[50px] lg:p-[30px] p-[30px] ${
-                !opportunityData?.opportunity_sponsor_images?.length
+              className={`mobilescreen:bottom-[50px] sponseritm bg-[#DBDBDB] 2xl:bottom-[100px] lg:bottom-[100px] md:bottom-[60px] relative 2xl:p-[50px] lg:p-[30px] p-[30px] ${!opportunityData?.opportunity_sponsor_images?.length
                   ? "hidden"
                   : ""
-              }`}
+                }`}
             >
               <OpportunitySponsors
                 sponsors={
@@ -823,7 +822,7 @@ export default function LearnServeDetails({
                     {" "}
                     {
                       opportunityData?.learning_type_display?.[
-                        selectedLanguage === "ar" ? "value_ar" : "value_en"
+                      selectedLanguage === "ar" ? "value_ar" : "value_en"
                       ]
                     }
                   </span>
@@ -889,7 +888,7 @@ export default function LearnServeDetails({
                   </p>
                   <p className="text-primary-5 font-bold">
                     {moment(opportunityData?.end_time, "HH:mm:ss").format("a") ===
-                    "am"
+                      "am"
                       ? t("COMMON.AM")
                       : t("COMMON.PM")}
                   </p>
@@ -993,7 +992,7 @@ export default function LearnServeDetails({
                       <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
                         {
                           opportunityData?.gender_display?.[
-                            selectedLanguage === "ar" ? "value_ar" : "value_en"
+                          selectedLanguage === "ar" ? "value_ar" : "value_en"
                           ]
                         }
                       </p>
@@ -1024,11 +1023,10 @@ export default function LearnServeDetails({
                       {isInPerson ? (
                         <>
                           <img
-                            className={`${
-                              selectedLanguage === "ar"
+                            className={`${selectedLanguage === "ar"
                                 ? "ml-3 right-[3px]"
                                 : "mr-3 left-[3px]"
-                            } w-5 h-5 object-contain relative`}
+                              } w-5 h-5 object-contain relative`}
                             src="/assets/homepage/locations.svg"
                             alt=""
                           />
@@ -1102,21 +1100,21 @@ export default function LearnServeDetails({
                     {CERTIFICATE_TYPES.includes(
                       opportunityData?.learning_type_display?.value_en || ""
                     ) && (
-                      <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
-                        <img
-                          className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                          src="/assets/voluneteerevent/certificate.svg"
-                          alt=""
-                        />
-                        <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                          {opportunityData?.certificate_type_display
-                            ? selectedLanguage === "ar"
-                              ? opportunityData.certificate_type_display.value_ar
-                              : opportunityData.certificate_type_display.value_en
-                            : t("COMMON.CERTIFICATE_ATTENDANCE")}
-                        </p>
-                      </div>
-                    )}
+                        <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
+                          <img
+                            className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                            src="/assets/voluneteerevent/certificate.svg"
+                            alt=""
+                          />
+                          <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                            {opportunityData?.certificate_type_display
+                              ? selectedLanguage === "ar"
+                                ? opportunityData.certificate_type_display.value_ar
+                                : opportunityData.certificate_type_display.value_en
+                              : t("COMMON.CERTIFICATE_ATTENDANCE")}
+                          </p>
+                        </div>
+                      )}
 
                     <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
                       <img
@@ -1174,9 +1172,8 @@ export default function LearnServeDetails({
                         backgroundColor:
                           TAG_BACKGROUNDS[index % TAG_BACKGROUNDS.length],
                       }}
-                      className={`text-sm py-[13px] xss:py-2 xss:px-4 xss:text-xs px-8 rounded-[20px] ${
-                        TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
-                      } cursor-pointer hover:opacity-80 transition-opacity`}
+                      className={`text-sm py-[13px] xss:py-2 xss:px-4 xss:text-xs px-8 rounded-[20px] ${TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
+                        } cursor-pointer hover:opacity-80 transition-opacity`}
                       onClick={() =>
                         router.push(
                           `/learn-and-share-list?tags=${encodeURIComponent(
@@ -1199,58 +1196,58 @@ export default function LearnServeDetails({
               {((opportunityData?.opportunity_status === "completed" &&
                 isCreator) ||
                 afterCompletedImages.length > 0) && (
-                <div className="pt-[50px] pb-2">
-                  {((opportunityData?.opportunity_status === "completed" &&
-                    isCreator &&
-                    afterCompletedImages.length < 10) ||
-                    afterCompletedImages.length > 0) && (
-                    <h3 className="2xl:text-xl lg:text-base text-base font-bold text-primary-5 mb-3 flex gap-2 items-center">
-                      <div dir="rtl">
-                        <img
-                          src="/assets/voluneteerevent/rightarrows.svg"
-                          alt=""
-                          className={
-                            selectedLanguage === "ar" ? "rotate-rtl" : ""
-                          }
-                        />
-                      </div>
-                      {t("COMMON.OPPORTUNITY_IMAGE")}
-                    </h3>
-                  )}
+                  <div className="pt-[50px] pb-2">
+                    {((opportunityData?.opportunity_status === "completed" &&
+                      isCreator &&
+                      afterCompletedImages.length < 10) ||
+                      afterCompletedImages.length > 0) && (
+                        <h3 className="2xl:text-xl lg:text-base text-base font-bold text-primary-5 mb-3 flex gap-2 items-center">
+                          <div dir="rtl">
+                            <img
+                              src="/assets/voluneteerevent/rightarrows.svg"
+                              alt=""
+                              className={
+                                selectedLanguage === "ar" ? "rotate-rtl" : ""
+                              }
+                            />
+                          </div>
+                          {t("COMMON.OPPORTUNITY_IMAGE")}
+                        </h3>
+                      )}
 
-                  {opportunityData?.opportunity_status === "completed" &&
-                    isCreator &&
-                    afterCompletedImages.length < 10 && (
-                      <div>
-                        <UploadImageWithSave
-                          label={t("COMMON.UPLOAD_IMAGE")}
-                          instructions={[t("COMMON.MAX_FILE_SIZE")]}
-                          multiple
-                          accept="image/jpeg, image/png"
-                          value={pendingFiles}
-                          onChange={(files) => {
-                            const remainingSlots =
-                              10 - afterCompletedImages.length;
-                            if (files.length > remainingSlots) {
-                              toast.error(t("COMMON.MAX_FILES_EXCEEDED"));
-                              return;
+                    {opportunityData?.opportunity_status === "completed" &&
+                      isCreator &&
+                      afterCompletedImages.length < 10 && (
+                        <div>
+                          <UploadImageWithSave
+                            label={t("COMMON.UPLOAD_IMAGE")}
+                            instructions={[t("COMMON.MAX_FILE_SIZE")]}
+                            multiple
+                            accept="image/jpeg, image/png"
+                            value={pendingFiles}
+                            onChange={(files) => {
+                              const remainingSlots =
+                                10 - afterCompletedImages.length;
+                              if (files.length > remainingSlots) {
+                                toast.error(t("COMMON.MAX_FILES_EXCEEDED"));
+                                return;
+                              }
+                              setPendingFiles(files);
+                            }}
+                            onRemove={(index) =>
+                              setPendingFiles((previous) =>
+                                previous.filter((_, i) => i !== index)
+                              )
                             }
-                            setPendingFiles(files);
-                          }}
-                          onRemove={(index) =>
-                            setPendingFiles((previous) =>
-                              previous.filter((_, i) => i !== index)
-                            )
-                          }
-                          onSave={() => {
-                            if (pendingFiles.length === 0) return;
-                            handleFileUpload(pendingFiles);
-                          }}
-                        />
-                      </div>
-                    )}
-                </div>
-              )}
+                            onSave={() => {
+                              if (pendingFiles.length === 0) return;
+                              handleFileUpload(pendingFiles);
+                            }}
+                          />
+                        </div>
+                      )}
+                  </div>
+                )}
 
               {afterCompletedImages.length > 0 && (
                 <div className="relative mt-6 pb-4">

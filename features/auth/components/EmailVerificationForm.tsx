@@ -293,6 +293,7 @@ export default function EmailVerificationForm({
                     size="medium"
                     type="submit"
                     disabled={isLoading}
+                    loading={isLoading}
                   >
                     {t("COMMON.SUBMIT")}
                   </Button>

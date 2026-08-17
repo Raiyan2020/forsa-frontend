@@ -242,15 +242,21 @@ export default function LoginForm({
     }
   };
 
-  const isLoading =
-    loginMutation.isPending ||
+  /**
+   * Signing in with an email and password reports itself inside the submit
+   * button. The social paths keep the overlay: they hand the tab to Google or
+   * LinkedIn, so the whole page really is blocked while they resolve.
+   */
+  const isSocialLoading =
     checkUserMutation.isPending ||
     passSocialInfoMutation.isPending ||
     linkedinLoading;
 
+  const isLoading = loginMutation.isPending || isSocialLoading;
+
   const form = (
     <>
-      {isLoading && (
+      {isSocialLoading && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-white/50">
           <Loader />
         </div>
@@ -320,6 +326,7 @@ export default function LoginForm({
                   size="medium"
                   type="submit"
                   disabled={isLoading}
+                  loading={loginMutation.isPending}
                 >
                   {t("COMMON.LOGIN")}
                 </Button>

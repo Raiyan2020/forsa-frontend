@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef, Suspense } from "react";
 import { Formik, Form, FormikHelpers, useFormikContext } from "formik";
 import Input from "@/components/ui/Input";
 import InlineSpinner from "@/components/ui/InlineSpinner";
@@ -38,6 +38,11 @@ import {
   YupStringMaxLength,
   YupStrongPassword,
   YupCivilId,
+  YupDateOfBirth,
+  MIN_SIGNUP_AGE,
+  createPhoneNumberSchema,
+  calculateAgeFromDob,
+  maxDateOfBirthFor,
 } from "@/lib/schema";
 import { cn, handleGoogleLogin } from "@/lib/helpers";
 import dynamic from "next/dynamic";
@@ -149,35 +154,32 @@ function IndividualAccountPageComponent() {
     emergency_contact_relationship: "",
   };
 
-  const calculateAge = (dob: string) => {
-    if (!dob) return null;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
+  const calculateAge = calculateAgeFromDob;
+
+  // Recomputed only on mount: a new Date object every render would make the
+  // picker think its bounds changed.
+  const maxBirthDate = useMemo(() => maxDateOfBirthFor(MIN_SIGNUP_AGE), []);
 
   const validationSchema = Yup.object({
-    first_name: YupStringMaxLength(100)
+    first_name: YupStringMaxLength(30)
       .concat(YupRequiredString)
       .matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
-    last_name: YupStringMaxLength(100)
+    last_name: YupStringMaxLength(30)
       .concat(YupRequiredString)
       .matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
-    nickname: YupStringMaxLength(100)
+    nickname: YupStringMaxLength(30)
       .concat(YupRequiredString)
       .matches(/^[A-Za-z0-9._]+$/, t("COMMON.ENGLISH_ONLY"))
       .test("nickname-availability", t("COMMON.USERNAME_TAKEN"), function () {
         return nicknameAvailability.available !== false;
       }),
     gender: Yup.string().concat(YupRequiredString),
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     country_code: Yup.string().concat(YupRequiredString),
-    dob: YupStringMaxLength(10).concat(YupRequiredString),
+    dob: YupDateOfBirth(MIN_SIGNUP_AGE),
     email: YupEmail,
     password: YupStrongPassword,
     civil_id: YupCivilId,
@@ -190,7 +192,7 @@ function IndividualAccountPageComponent() {
         const age = calculateAge(dob);
         return age !== null && age < 18;
       },
-      then: () => YupStringMaxLength(100).concat(YupRequiredString),
+      then: () => YupStringMaxLength(100).concat(YupRequiredString).matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_country_code: Yup.string().when("dob", {
@@ -206,7 +208,10 @@ function IndividualAccountPageComponent() {
         const age = calculateAge(dob);
         return age !== null && age < 18;
       },
-      then: () => YupPhoneNumber,
+      then: () => Yup.string().when("emergency_contact_country_code", (emergency_contact_country_code: any, schema: any) => {
+        const code = Array.isArray(emergency_contact_country_code) ? emergency_contact_country_code[0] : emergency_contact_country_code;
+        return createPhoneNumberSchema(code);
+      }),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_civil_id: Yup.string().when("dob", {
@@ -415,17 +420,21 @@ function IndividualAccountPageComponent() {
     };
   }, []);
 
-  const isFormLoading =
-    registerMutation.isPending ||
+  /**
+   * The social paths hand the tab to Google or LinkedIn, so they keep the
+   * overlay. Submitting the form reports itself inside the submit button.
+   */
+  const isSocialLoading =
     // Deliberately not checkUserMutation: the nickname availability check
     // runs on every keystroke and reports itself inside the field.
-    passSocialInfoMutation.isPending ||
-    linkedinLoading;
+    passSocialInfoMutation.isPending || linkedinLoading;
+
+  const isFormLoading = registerMutation.isPending || isSocialLoading;
 
   return (
     <div className="border-t border-[#000]">
       <div className="2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] relative">
-        {isFormLoading && (
+        {isSocialLoading && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-white/50">
             <Loader />
           </div>
@@ -451,11 +460,13 @@ function IndividualAccountPageComponent() {
                       label={t("COMMON.FIRSTNAMEPLACEHOLDER")}
                       className="text-primary-5"
                       autoComplete="off"
+                      maxLength={30}
                     />
                     <Input
                       name="last_name"
                       type="text"
                       label={t("COMMON.LASTNAMEPLACEHOLDER")}
+                      maxLength={30}
                     />
                   </div>
                   <div className="flex gap-6 mobilescreen:block">
@@ -488,6 +499,7 @@ function IndividualAccountPageComponent() {
                             name="phone_number"
                             label={t("COMMON.PHONEPLACEHOLDER")}
                             className="w-full"
+                            countryCode={values.country_code}
                           />
                         </div>
                       </div>
@@ -504,6 +516,7 @@ function IndividualAccountPageComponent() {
                         type="text"
                         label={t("COMMON.NICKNAMEPLACEHOLDER")}
                         className="w-full"
+                        maxLength={30}
                         onChange={(e) => {
                           setFieldValue("nickname", e.target.value);
                           checkNicknameAvailability(e.target.value);
@@ -531,7 +544,7 @@ function IndividualAccountPageComponent() {
                     <BirthDateField
                       name="dob"
                       label={t("COMMON.DATE_OF_BIRTH")}
-                      maxDate={new Date()}
+                      maxDate={maxBirthDate}
                     />
                     <SelectInput
                       name="gender"
@@ -550,6 +563,7 @@ function IndividualAccountPageComponent() {
                       type="text"
                       label={t("COMMON.CIVIL_ID")}
                       maxLength={12}
+                      digitsOnly
                     />
                     <SelectInput
                       name="nationality"
@@ -580,6 +594,7 @@ function IndividualAccountPageComponent() {
                           name="emergency_contact_name"
                           type="text"
                           label={t("COMMON.EMERGENCY_CONTACT_NAME")}
+                          lettersOnly
                         />
 
                         <SelectInput
@@ -609,6 +624,7 @@ function IndividualAccountPageComponent() {
                               name="emergency_contact_phone"
                               label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                               className="w-full"
+                              countryCode={values.emergency_contact_country_code}
                             />
                           </div>
                         </div>
@@ -618,6 +634,7 @@ function IndividualAccountPageComponent() {
                           type="text"
                           label={t("COMMON.EMERGENCY_CONTACT_CIVIL_ID")}
                           maxLength={12}
+                          digitsOnly
                         />
                       </div>
                     </>
@@ -668,6 +685,7 @@ function IndividualAccountPageComponent() {
                     size="medium"
                     type="submit"
                     disabled={isFormLoading || genderLoading || relationshipLoading}
+                    loading={registerMutation.isPending}
                   >
                     {t("COMMON.CREATEACCOUNT")}
                   </Button>

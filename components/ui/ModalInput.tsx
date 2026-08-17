@@ -15,6 +15,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   type?: "text" | "password" | "email" | "number" | "tel";
   /** See the note on the same prop in `Input`. */
   digitsOnly?: boolean;
+  /**
+   * Strip everything but letters and spaces as the visitor types (covers paste
+   * and autofill too). Use for name fields that must not contain digits.
+   */
+  lettersOnly?: boolean;
   /** Rendered inside the field on the trailing edge. */
   endAdornment?: ReactNode;
 }
@@ -28,6 +33,7 @@ const ModalInput = forwardRef<HTMLInputElement, InputProps>(
       className = "",
       hideError = false,
       digitsOnly = false,
+      lettersOnly = false,
       endAdornment,
       ...props
     },
@@ -76,6 +82,8 @@ const ModalInput = forwardRef<HTMLInputElement, InputProps>(
           typeof props.maxLength === "number"
             ? digits.slice(0, props.maxLength)
             : digits;
+      } else if (lettersOnly) {
+        e.target.value = e.target.value.replace(/[^A-Za-z\s]/g, "");
       }
       (props.onChange ?? field.onChange)(e);
     };

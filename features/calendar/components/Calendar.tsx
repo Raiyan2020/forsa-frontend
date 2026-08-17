@@ -659,12 +659,12 @@ export default function Calendar() {
                     <div className="w-3 h-3 rounded-full bg-[#D9EF61]" />
                     <div className="w-3 h-3 rounded-full bg-[#70B4C2]" />
                   </div>
-                  <Image
+                  {/* <Image
                     src={asset("calander/calnderplus.svg")}
                     alt="Add"
                     width={20}
                     height={20}
-                  />
+                  /> */}
                 </div>
 
                 {/* Mini calendar */}

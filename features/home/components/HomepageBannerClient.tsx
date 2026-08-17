@@ -1,40 +1,31 @@
 "use client";
 
 /**
- * HomepageBannerClient — client-side banner for the authenticated homepage.
+ * HomepageBannerClient — client-side banner for screens that render entirely on
+ * the client (authenticated homepage, FAQ, CMS pages).
  *
- * Fetches banner images and statistics via React Query (same cache key as
- * the server-fetched data, so if the public homepage already populated the
- * cache the data is reused immediately).
+ * Reads the same `GET /home/` payload as the server-rendered `Banner`, through
+ * the shared React Query cache.
  */
-import { useQuery } from "@tanstack/react-query";
-import apiClient from "@/lib/api/client";
 import BannerCarousel from "./BannerCarousel";
-import type { BannerImage, BannerStatistics } from "@/lib/api/server";
+import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
+import type { HomeStatistics } from "@/lib/api/cms";
 
-const FALLBACK_STATS: BannerStatistics = {
+const FALLBACK_STATS: HomeStatistics = {
   volunteer_count: 0,
   volunteer_team_count: 0,
   organization_count: 0,
 };
 
 export default function HomepageBannerClient() {
-  const { data } = useQuery({
-    queryKey: ["banner-images"],
-    queryFn: async () => {
-      const { data } = await apiClient.get("/banner-images/");
-      return data;
-    },
-    staleTime: 60 * 1000,
-  });
+  const { cms } = useHomeCms();
 
-  const bannerImages: BannerImage[] =
-    data?.data?.banner_images?.map((item: any) => ({
-      image: item.image,
-      banner_url: item.banner_url,
-    })) ?? [];
-
-  const statistics: BannerStatistics = data?.data?.statistics ?? FALLBACK_STATS;
-
-  return <BannerCarousel bannerImages={bannerImages} statistics={statistics} />;
+  return (
+    <BannerCarousel
+      banners={cms?.hero?.banners ?? []}
+      statistics={cms?.statistics ?? FALLBACK_STATS}
+      heroTitleEn={cms?.hero?.title_en}
+      heroTitleAr={cms?.hero?.title_ar}
+    />
+  );
 }

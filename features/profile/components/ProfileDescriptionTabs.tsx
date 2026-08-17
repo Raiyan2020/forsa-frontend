@@ -169,6 +169,15 @@ function MyEventsTabs({
   const [filters, setFilters] = useState<FiltersData>(EMPTY_PROFILE_FILTERS);
   const formikRef = useRef<{ submitForm: () => Promise<void> } | null>(null);
 
+  const hasAppliedFilters =
+    !!filters.startDate ||
+    !!filters.endDate ||
+    !!filters.category ||
+    !!filters.status ||
+    (filters.tags?.length ?? 0) > 0 ||
+    !!filters.opportunity_type ||
+    !!filters.opportunity_status;
+
   const handleApplyFilters = (newFilters: FiltersData) => {
     setFilters(newFilters);
     setOpen(false);
@@ -187,6 +196,9 @@ function MyEventsTabs({
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // True while the user has typed but the debounce hasn't fired yet
+  const isSearching = searchQuery !== debouncedSearch;
 
   return (
     <>
@@ -235,6 +247,12 @@ function MyEventsTabs({
           <Searchbar
             onFilterClick={() => setOpen(true)}
             onSearchChange={(value) => setSearchQuery(value)}
+            hasActiveFilters={hasAppliedFilters}
+            isLoading={isSearching}
+            onClearFilters={() => {
+              setFilters(EMPTY_PROFILE_FILTERS);
+              setClearFiltersKey((prev) => prev + 1);
+            }}
           />
         </div>
       </div>
@@ -279,6 +297,15 @@ function OpportunityTabs({
   const [filters, setFilters] = useState<FiltersData>(EMPTY_PROFILE_FILTERS);
   const formikRef = useRef<{ submitForm: () => Promise<void> } | null>(null);
 
+  const hasAppliedFilters =
+    !!filters.startDate ||
+    !!filters.endDate ||
+    !!filters.category ||
+    !!filters.status ||
+    (filters.tags?.length ?? 0) > 0 ||
+    !!filters.opportunity_type ||
+    !!filters.opportunity_status;
+
   // If switching to organized tab when on sponsored tab and isVolunteerTeam becomes true
   useEffect(() => {
     if (isVolunteerTeam && activeTab === "sponsored") {
@@ -298,6 +325,9 @@ function OpportunityTabs({
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // True while the user has typed but the debounce hasn't fired yet
+  const isSearching = searchQuery !== debouncedSearch;
 
   return (
     <>
@@ -349,6 +379,12 @@ function OpportunityTabs({
             <Searchbar
               onFilterClick={() => setOpen(true)}
               onSearchChange={(value) => setSearchQuery(value)}
+              hasActiveFilters={hasAppliedFilters}
+              isLoading={isSearching}
+              onClearFilters={() => {
+                setFilters(EMPTY_PROFILE_FILTERS);
+                setClearFiltersKey((prev) => prev + 1);
+              }}
             />
           </div>
         </div>

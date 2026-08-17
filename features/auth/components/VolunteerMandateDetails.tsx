@@ -30,6 +30,7 @@ import {
   YupPhoneNumber,
   YupRequiredString,
   YupStringMaxLength,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -211,7 +212,10 @@ export default function VolunteerMandateDetails({
         return nicknameAvailability.available !== false;
       }),
     gender: Yup.string().concat(YupRequiredString),
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     dob: YupStringMaxLength(10).concat(YupRequiredString),
     country_code: Yup.string().concat(YupRequiredString),
     civil_id: YupCivilId,
@@ -222,7 +226,7 @@ export default function VolunteerMandateDetails({
     // Conditional validation for emergency contacts (required if under 18)
     emergency_contact_name: Yup.string().when("dob", {
       is: isUnderage,
-      then: () => YupStringMaxLength(100).concat(YupRequiredString),
+      then: () => YupStringMaxLength(100).concat(YupRequiredString).matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_country_code: Yup.string().when("dob", {
@@ -232,7 +236,10 @@ export default function VolunteerMandateDetails({
     }),
     emergency_contact_phone: Yup.string().when("dob", {
       is: isUnderage,
-      then: () => YupPhoneNumber,
+      then: () => Yup.string().when("emergency_contact_country_code", (emergency_contact_country_code: any, schema: any) => {
+        const code = Array.isArray(emergency_contact_country_code) ? emergency_contact_country_code[0] : emergency_contact_country_code;
+        return createPhoneNumberSchema(code);
+      }),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_civil_id: Yup.string().when("dob", {
@@ -417,6 +424,7 @@ export default function VolunteerMandateDetails({
                               name="phone_number"
                               label={t("COMMON.PHONEPLACEHOLDER")}
                               className="w-full"
+                              countryCode={values.country_code}
                             />
                           </div>
                         </div>
@@ -480,6 +488,7 @@ export default function VolunteerMandateDetails({
                         type="text"
                         label={t("COMMON.CIVIL_ID")}
                         maxLength={12}
+                        digitsOnly
                       />
                       <SelectInput
                         name="nationality"
@@ -517,6 +526,7 @@ export default function VolunteerMandateDetails({
                             name="emergency_contact_name"
                             type="text"
                             label={t("COMMON.EMERGENCY_CONTACT_NAME")}
+                            lettersOnly
                           />
 
                           <SelectInput
@@ -552,6 +562,7 @@ export default function VolunteerMandateDetails({
                                 name="emergency_contact_phone"
                                 label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                                 className="w-full"
+                                countryCode={values.emergency_contact_country_code}
                               />
                             </div>
                           </div>
@@ -561,6 +572,7 @@ export default function VolunteerMandateDetails({
                             type="text"
                             label={t("COMMON.EMERGENCY_CONTACT_CIVIL_ID")}
                             maxLength={12}
+                            digitsOnly
                           />
                         </div>
                       </>
@@ -614,6 +626,7 @@ export default function VolunteerMandateDetails({
                         genderLoading ||
                         relationshipLoading
                       }
+                      loading={passSocialInfoMutation.isPending}
                     >
                       {t("COMMON.SUBMIT")}
                     </Button>

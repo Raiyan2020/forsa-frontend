@@ -24,6 +24,12 @@ export interface ButtonProps
     | "blue";
   size?: "small" | "medium" | "xs" | "large" | "modal" | "xss";
   isSelected?: boolean;
+  /**
+   * Shows a spinner inside the button and blocks further clicks. Use this for
+   * work the button itself started — a page-covering overlay is the wrong
+   * feedback for a form submit.
+   */
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -34,6 +40,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant = "primary",
       size = BtnSize.SMALL,
       isSelected = false,
+      loading = false,
+      disabled,
       ...props
     },
     ref
@@ -75,7 +83,21 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       .join(" ");
 
     return (
-      <button className={buttonClassNames} ref={ref} {...props}>
+      <button
+        className={buttonClassNames}
+        ref={ref}
+        {...props}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+      >
+        {loading && (
+          <span
+            aria-hidden="true"
+            // `border-current` so the spinner takes the button's text colour on
+            // every variant, dark-on-light and light-on-dark alike.
+            className="inline-block shrink-0 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+          />
+        )}
         {children}
       </button>
     );

@@ -28,6 +28,7 @@ import {
   YupRequiredString,
   YupStringMaxLength,
   YupDigitsOnlyOptional,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -171,7 +172,10 @@ export default function CompleteDetails() {
         if (!this.parent.nickname) return true;
         return nicknameAvailability.available !== false;
       }),
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     country_code: Yup.string().concat(YupRequiredString),
     // Uploaded license is optional for public organizations; validate sizes when present
     documents: Yup.array().test(
@@ -381,6 +385,7 @@ export default function CompleteDetails() {
                           name="phone_number"
                           label={t("COMMON.ENTER_PHONE_NUMBER")}
                           className="w-full"
+                          countryCode={values.country_code}
                         />
                       </div>
                     </div>
@@ -493,6 +498,7 @@ export default function CompleteDetails() {
                     size="medium"
                     type="submit"
                     disabled={passSocialInfoMutation.isPending}
+                    loading={passSocialInfoMutation.isPending}
                   >
                     {t("COMMON.SUBMIT")}
                   </Button>

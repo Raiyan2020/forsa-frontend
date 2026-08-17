@@ -280,7 +280,7 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
           }
           className="overflow-hidden pt-[25px] 2xl:pt-[50px] laptop:pt-[40px] lg:pt-[24px] md:pt-[30px] cross-class-visible"
         >
-          <div className="grid grid-cols-1 miniscreen4:grid-cols-2 2xl:grid-cols-3 xl:grid-cols-3 miniscreen:grid-cols-1 laptopitms:grid-cols-3 md:grid-cols-2 gap-[25px] mobilescreen:gap-0">
+          <div className="grid grid-cols-1 miniscreen4:grid-cols-2 2xl:grid-cols-3 xl:grid-cols-3 miniscreen:grid-cols-1 laptopitms:grid-cols-3 md:grid-cols-2 gap-[25px] mobilescreen:gap-0 items-stretch">
             {events.map((item) => {
               const title =
                 item[selectedLanguage === "ar" ? "title_ar" : "title_en"] || "";
@@ -288,8 +288,8 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                 item?.participation_type_display?.value_en === "Paid Event";
 
               return (
-                <div key={item.id} className="mobilescreen:pb-6">
-                  <Link href={`/event-details/${item.id}`}>
+                <div key={item.id} className="mobilescreen:pb-6 h-full">
+                  <Link href={`/event-details/${item.id}`} className="flex flex-col h-full">
                     <div className="border-[#484848] relative rounded-t-[20px] border-t-[1px] border-l-[1px] border-r-[1px]">
                       {currentUser &&
                         item.created_by?.id === currentUser.id &&
@@ -391,7 +391,7 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                       </div>
                     </div>
 
-                    <div className="border-primary-801 border-b-[1px] border-l-[1px] border-r-[1px] rounded-b-[20px] relative bg-[#fff] px-4 pb-4 eventshadhow mb-[10px]">
+                    <div className="border-primary-801 border-b-[1px] border-l-[1px] border-r-[1px] rounded-b-[20px] relative bg-[#fff] px-4 pb-4 eventshadhow mb-[10px] flex flex-col flex-1">
                       <div className="flex items-center justify-between pt-2 pb-[10px]">
                         <h3 className="2xl:text-[25px] text-[18px] text-secondary-100 font-bold line-clamp-1">
                           {title.length > 12
@@ -412,7 +412,7 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="flex justify-between items-end">
+                      <div className="flex justify-between items-end mt-auto">
                         <div>
                           <p className="flex items-center text-secondary-102 gap-[14px] 2xl:text-lg lg:text-base text-sm xss:text-base pb-4">
                             <Image

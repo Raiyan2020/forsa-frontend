@@ -8,6 +8,11 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, Pagination } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/pagination";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
@@ -22,7 +27,9 @@ import {
 import { formatSingleDate } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import AddToCalendar from "@/components/shared/AddToCalendar";
 import EventFeedback from "./EventFeedback";
+import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
 interface ChoiceDisplay {
   id?: string;
@@ -115,62 +122,6 @@ function localizedError(error: unknown, language: string, fallback: string) {
     return firstError[language] || fallback;
   }
   return fallback;
-}
-
-function AddToCalendar({ event }: { event: EventDetailsData }) {
-  const { t } = useTranslation();
-  const language = useLanguageStore((state) => state.language);
-
-  const downloadCalendarFile = () => {
-    const title = language === "ar" ? event.title_ar : event.title_en;
-    const location = language === "ar" ? event.location_ar : event.location_en;
-    const start = new Date(`${event.start_date}T${event.start_time}`);
-    const end = new Date(`${event.end_date}T${event.end_time}`);
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      toast.error(t("COMMON.CALENDAR_ERROR_MESSAGE"));
-      return;
-    }
-
-    const toIcsDate = (date: Date) =>
-      date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const escapeValue = (value: string) =>
-      value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,");
-    const content = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//Fursa//Events//EN",
-      "CALSCALE:GREGORIAN",
-      "BEGIN:VEVENT",
-      `UID:fursa-event-${event.id}@fursa`,
-      `SUMMARY:${escapeValue(title || "Fursa event")}`,
-      `LOCATION:${escapeValue(location || "")}`,
-      `DTSTART:${toIcsDate(start)}`,
-      `DTEND:${toIcsDate(end)}`,
-      "END:VEVENT",
-      "END:VCALENDAR",
-    ].join("\r\n");
-
-    const url = URL.createObjectURL(new Blob([content], { type: "text/calendar" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${(title || "event").replace(/\s+/g, "_")}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    toast.success(t("COMMON.CALENDAR_TOAST_MESSAGE"));
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={downloadCalendarFile}
-      className="border-b border-primary-5 font-bold text-primary-5 2xl:text-xl"
-    >
-      {t("COMMON.ADD_TO_CALENDAR")}
-    </button>
-  );
 }
 
 function EventSponsors({
@@ -311,6 +262,19 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const [showMoreDescription, setShowMoreDescription] = useState(false);
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<number>();
+
+  // Bind Fancybox to the event image gallery
+  useEffect(() => {
+    const galleryId = `event-gallery-${eventId}`;
+    NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
+      showClass: "fancybox-zoomIn",
+      hideClass: "fancybox-zoomOut",
+    });
+    return () => {
+      NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`);
+      NativeFancybox.close();
+    };
+  }, [eventId]);
 
   const eventQuery = useQuery({
     queryKey: ["event-details", eventId, Boolean(user?.auth_token)],
@@ -570,11 +534,45 @@ export default function EventDetails({ eventId }: { eventId: string }) {
       </Modal>
 
       <div className="relative h-[320px] w-full md:h-[460px]">
-        <img
-          src={event.event_images?.[0]?.image || asset("voluneteerevent/eventbaner.svg")}
-          alt={language === "ar" ? event.title_ar : event.title_en}
-          className="h-full w-full object-cover"
-        />
+        {(event.event_images?.length ?? 0) > 1 ? (
+          <Swiper
+            modules={[Autoplay, Pagination]}
+            autoplay={{ delay: 4000, disableOnInteraction: false }}
+            loop
+            pagination={{ clickable: true }}
+            className="h-full w-full"
+          >
+            {event.event_images!.map((img) => (
+              <SwiperSlide key={img.id}>
+                <a
+                  href={img.image}
+                  data-fancybox={`event-gallery-${event.id}`}
+                  data-caption={language === "ar" ? event.title_ar : event.title_en}
+                  className="block h-full w-full cursor-zoom-in"
+                >
+                  <img
+                    src={img.image}
+                    alt={language === "ar" ? event.title_ar : event.title_en}
+                    className="h-full w-full object-cover"
+                  />
+                </a>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        ) : (
+          <a
+            href={event.event_images?.[0]?.image || asset("voluneteerevent/eventbaner.svg")}
+            data-fancybox={`event-gallery-${event.id}`}
+            data-caption={language === "ar" ? event.title_ar : event.title_en}
+            className="block h-full w-full cursor-zoom-in"
+          >
+            <img
+              src={event.event_images?.[0]?.image || asset("voluneteerevent/eventbaner.svg")}
+              alt={language === "ar" ? event.title_ar : event.title_en}
+              className="h-full w-full object-cover"
+            />
+          </a>
+        )}
       </div>
 
       <div className="mx-auto w-[90%] py-10 2xl:py-[70px] mobilescreen:w-full">
@@ -658,7 +656,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
 
             {user?.auth_token && (
               <div className="pb-5">
-                <AddToCalendar event={event} />
+                <AddToCalendar payload={event} />
               </div>
             )}
 

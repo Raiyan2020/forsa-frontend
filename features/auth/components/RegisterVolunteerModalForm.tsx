@@ -34,6 +34,7 @@ import {
   YupRequiredString,
   YupStringMaxLength,
   YupStrongPassword,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -197,7 +198,10 @@ export default function RegisterVolunteerModalForm({
         return nicknameAvailability.available !== false;
       }),
     gender: Yup.string().concat(YupRequiredString),
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     country_code: Yup.string().concat(YupRequiredString),
     dob: YupStringMaxLength(10).concat(YupRequiredString),
     civil_id: YupCivilId,
@@ -208,10 +212,15 @@ export default function RegisterVolunteerModalForm({
       .required(t("COMMON.REQUIRED.FIELD"))
       .oneOf([true], t("COMMON.TERMS_ACCEPTANCE_REQUIRED")),
     emergency_contact_name: requiredWhenUnder18(() =>
-      YupStringMaxLength(100).concat(YupRequiredString)
+      YupStringMaxLength(100).concat(YupRequiredString).matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY"))
     ),
     emergency_contact_country_code: requiredWhenUnder18(() => YupRequiredString),
-    emergency_contact_phone: requiredWhenUnder18(() => YupPhoneNumber),
+    emergency_contact_phone: requiredWhenUnder18(() =>
+      Yup.string().when("emergency_contact_country_code", (emergency_contact_country_code: any, schema: any) => {
+        const code = Array.isArray(emergency_contact_country_code) ? emergency_contact_country_code[0] : emergency_contact_country_code;
+        return createPhoneNumberSchema(code);
+      })
+    ),
     emergency_contact_civil_id: requiredWhenUnder18(() => YupCivilId),
     emergency_contact_relationship: requiredWhenUnder18(() => YupRequiredString),
   });
@@ -424,6 +433,7 @@ export default function RegisterVolunteerModalForm({
                       <ModalPhoneInput
                         name="phone_number"
                         placeholder={t("COMMON.PHONENUMBER")}
+                        countryCode={values.country_code}
                       />
                     </div>
                   </div>
@@ -496,6 +506,7 @@ export default function RegisterVolunteerModalForm({
                       type="text"
                       placeholder={t("COMMON.CIVIL_ID")}
                       maxLength={12}
+                      digitsOnly
                     />
                   </div>
                   <div>
@@ -538,6 +549,7 @@ export default function RegisterVolunteerModalForm({
                           name="emergency_contact_name"
                           type="text"
                           placeholder={t("COMMON.EMERGENCY_CONTACT_NAME")}
+                          lettersOnly
                         />
                       </div>
                       <div>
@@ -580,6 +592,7 @@ export default function RegisterVolunteerModalForm({
                           <ModalPhoneInput
                             name="emergency_contact_phone"
                             placeholder={t("COMMON.EMERGENCY_CONTACT_PHONE")}
+                            countryCode={values.emergency_contact_country_code}
                           />
                         </div>
                       </div>
@@ -592,6 +605,7 @@ export default function RegisterVolunteerModalForm({
                           type="text"
                           placeholder={t("COMMON.EMERGENCY_CONTACT_CIVIL_ID")}
                           maxLength={12}
+                          digitsOnly
                         />
                       </div>
                     </div>
@@ -643,6 +657,7 @@ export default function RegisterVolunteerModalForm({
                     size="medium"
                     type="submit"
                     disabled={isBusy}
+                    loading={registerMutation.isPending}
                   >
                     {t("COMMON.REGISTER")}
                   </Button>

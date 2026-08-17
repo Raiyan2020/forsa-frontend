@@ -39,6 +39,7 @@ import {
   YupStringMaxLength,
   YupStrongPassword,
   YupDigitsOnlyOptional,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import { handleGoogleLogin } from "@/lib/helpers";
 import dynamic from "next/dynamic";
@@ -111,7 +112,7 @@ function EntitiesAccountPageComponent() {
   };
 
   const validationSchema = Yup.object({
-    first_name: YupStringMaxLength(100).concat(YupRequiredString),
+    first_name: YupStringMaxLength(30).concat(YupRequiredString),
     organizer_type: Yup.string().concat(YupRequiredString),
     license_number: YupDigitsOnlyOptional(100).when("organizer_type", (organizer_type: any, schema: any) => {
       const organizerTypeValue = Array.isArray(organizer_type) ? organizer_type[0] : organizer_type;
@@ -119,13 +120,16 @@ function EntitiesAccountPageComponent() {
       const isPublic = selected?.rawValue === "Public";
       return isPublic ? schema.notRequired() : schema.required(t("COMMON.REQUIRED.FIELD"));
     }),
-    nickname: YupStringMaxLength(50)
+    nickname: YupStringMaxLength(30)
       .matches(/^[A-Za-z0-9._]+$/, t("COMMON.ENGLISH_ONLY"))
       .test("nickname-availability", t("COMMON.USERNAME_TAKEN"), function () {
         if (!this.parent.nickname) return true;
         return nicknameAvailability.available !== false;
       }),
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     country_code: Yup.string().concat(YupRequiredString),
     email: YupEmail,
     documents: Yup.array().test("fileSizeAndRequired", t("COMMON.FILE.TOO.LARGE"), function (files) {
@@ -345,18 +349,22 @@ function EntitiesAccountPageComponent() {
     }
   };
 
-  const isFormLoading =
-    registerMutation.isPending ||
+  /**
+   * The social paths hand the tab to Google or LinkedIn and `orgTypeLoading`
+   * blocks the form until its dropdown has options, so both keep the overlay.
+   * Submitting the form reports itself inside the submit button.
+   */
+  const isBlockingLoading =
     // Deliberately not checkUserMutation: the nickname availability check
     // runs on every keystroke and reports itself inside the field.
-    passSocialInfoMutation.isPending ||
-    orgTypeLoading ||
-    linkedinLoading;
+    passSocialInfoMutation.isPending || orgTypeLoading || linkedinLoading;
+
+  const isFormLoading = registerMutation.isPending || isBlockingLoading;
 
   return (
     <div className="border-t border-[#000]">
       <div className="2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] relative">
-        {isFormLoading && (
+        {isBlockingLoading && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-white/50">
             <Loader />
           </div>
@@ -378,6 +386,7 @@ function EntitiesAccountPageComponent() {
                     name="first_name"
                     type="text"
                     label={t("COMMON.ENTER_FULL_NAME")}
+                    maxLength={30}
                   />
                   <SelectInput
                     name="organizer_type"
@@ -416,6 +425,7 @@ function EntitiesAccountPageComponent() {
                       name="phone_number"
                       label={t("COMMON.ENTER_PHONE_NUMBER")}
                       className="w-full"
+                      countryCode={values.country_code}
                     />
                   </div>
                 </div>
@@ -429,6 +439,7 @@ function EntitiesAccountPageComponent() {
                     }
                     type="text"
                     label={t("COMMON.NICKNAME")}
+                    maxLength={30}
                     onChange={(e) => {
                       setFieldValue("nickname", e.target.value);
                       checkNicknameAvailability(e.target.value);
@@ -518,6 +529,7 @@ function EntitiesAccountPageComponent() {
                   size="medium"
                   type="submit"
                   disabled={isFormLoading}
+                  loading={registerMutation.isPending}
                 >
                   {t("COMMON.CREATE_ACCOUNT")}
                 </Button>

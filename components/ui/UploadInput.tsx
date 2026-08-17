@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ErrorMessage, useField } from "formik";
 import { FaPlus } from "react-icons/fa";
 
@@ -26,6 +26,7 @@ const UploadInput: React.FC<UploadInputProps> = ({
 }) => {
   const [field, , helpers] = useField<File[]>(name);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -47,8 +48,15 @@ const UploadInput: React.FC<UploadInputProps> = ({
     }
   }, [field.value]);
 
-  const handlePlusClick = () => {
-    document.getElementById(`${name}-input`)?.click();
+  /**
+   * The whole box opens the picker, not just the label and the plus icon.
+   * Clicks that land on the label or the input (both of which already open it)
+   * or on a file chip's link / remove button are left alone — otherwise
+   * removing a file would immediately reopen the dialog.
+   */
+  const handleContainerClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("a, button, label, input")) return;
+    inputRef.current?.click();
   };
 
   const existingCount = existingFiles?.length ?? 0;
@@ -56,29 +64,27 @@ const UploadInput: React.FC<UploadInputProps> = ({
 
   return (
     <>
-      <div className="relative w-full border border-[#29246D1A] rounded-2xl p-3 bg-[#29246D08] flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label
-            className="text-primary-5 cursor-pointer"
-            htmlFor={`${name}-input`}
-          >
-            {label}
-          </label>
-          <button
-            type="button"
-            onClick={handlePlusClick}
-            className="text-primary-5"
-          >
-            <FaPlus size={20} />
-          </button>
-          <input
-            id={`${name}-input`}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </div>
+      <div
+        className="relative w-full border border-[#29246D1A] rounded-2xl p-3 bg-[#29246D08] flex flex-col gap-2 cursor-pointer focus-within:border-primary-5"
+        onClick={handleContainerClick}
+      >
+        <label
+          className="text-primary-5 cursor-pointer flex items-center justify-between gap-2"
+          htmlFor={`${name}-input`}
+        >
+          <span>{label}</span>
+          <FaPlus size={20} aria-hidden="true" />
+        </label>
+        {/* `sr-only` rather than `hidden`: keeps the input focusable, so the
+            field is still reachable and openable from the keyboard. */}
+        <input
+          ref={inputRef}
+          id={`${name}-input`}
+          type="file"
+          multiple
+          className="sr-only"
+          onChange={handleFileChange}
+        />
         {hasAnyFiles && (
           <div className="flex flex-wrap gap-2">
             {existingFiles?.map((file) => (

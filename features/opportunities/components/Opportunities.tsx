@@ -15,7 +15,7 @@ import { Modal } from "@/components/ui/Modal";
 import OpportuniteFilterModal, {
   AllOpportunitiesFiltersData,
 } from "./AllOpportuniteFilterModal";
-import { useQuery } from "@tanstack/react-query";
+import { useIsFetching, useQuery } from "@tanstack/react-query";
 import {
   getOpportunitiesList,
   getLearnServeOpportunitiesList,
@@ -101,6 +101,17 @@ export default function Opportunities() {
     queryKey: ["learnserve-check", queryParamsForLearnServe],
     queryFn: () => getLearnServeOpportunitiesList(queryParamsForLearnServe),
   });
+
+  /**
+   * The two lists are fetched inside `VolunteerCard`, so the search bar watches
+   * those query keys directly rather than the counts fetched above. Result: a
+   * small spinner in the field while a search/filter is in flight, instead of
+   * the full-screen loader that used to swallow the page.
+   */
+  const isSearching =
+    useIsFetching({ queryKey: ["volunteer-opportunities"] }) +
+      useIsFetching({ queryKey: ["learn-serve-opportunities"] }) >
+    0;
 
   const handleOpportunityTypeSelect = (type: "volunteer" | "learn-serve") => {
     setOpportunityModalOpen(false);
@@ -209,8 +220,10 @@ export default function Opportunities() {
           <div className="flex justify-between items-center mobilescreen:flex-col mobilescreen:gap-5 2xl:px-5 px-3 mobilescreen:px-[13px]">
             <div className="w-[668px] mobilescreen:w-[100%]">
               <Searchbar
+                value={searchQuery}
                 onFilterClick={() => setOpen(true)}
                 onSearchChange={(value) => setSearchQuery(value)}
+                isLoading={isSearching}
               />
             </div>
             {user &&

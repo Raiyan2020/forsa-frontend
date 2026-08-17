@@ -16,6 +16,7 @@ import {
   YupPhoneNumber,
   YupRequiredString,
   YupStringMaxLength,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import SelectInput from "@/components/ui/SelectInput";
 import { useLanguageStore } from "@/store/languageStore";
@@ -121,7 +122,10 @@ export default function SponsorshipForm() {
     org_type: Yup.string().concat(YupRequiredString),
     person_name: YupStringMaxLength(100).concat(YupRequiredString),
     email: YupEmail,
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     country_code: Yup.string().concat(YupRequiredString),
     sponsor_type: YupRequiredString,
     type_of_support: YupRequiredString,
@@ -362,6 +366,7 @@ function SponsorshipFormInner({
                 name="phone_number"
                 label={t("COMMON.PHONEPLACEHOLDER")}
                 className="w-full"
+                countryCode={values.country_code}
               />
             </div>
           </div>

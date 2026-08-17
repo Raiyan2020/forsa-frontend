@@ -46,6 +46,7 @@ import {
   YupPhoneNumber,
   YupRequiredString,
   YupStringMaxLength,
+  createPhoneNumberSchema,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -382,7 +383,10 @@ export default function VolunteerAccountInformation() {
   };
 
   const validationSchema = Yup.object({
-    phone_number: YupPhoneNumber,
+    phone_number: Yup.string().when("country_code", (country_code: any, schema: any) => {
+      const code = Array.isArray(country_code) ? country_code[0] : country_code;
+      return createPhoneNumberSchema(code);
+    }),
     first_name: Yup.string()
       .required(t("COMMON.REQUIRED.FIELD"))
       .min(2, t("COMMON.FIRST_NAME_MIN_LENGTH"))
@@ -409,7 +413,7 @@ export default function VolunteerAccountInformation() {
     civil_id: YupCivilId,
     emergency_contact_name: Yup.string().when("dob", {
       is: isUnderage,
-      then: () => YupStringMaxLength(100).concat(YupRequiredString),
+      then: () => YupStringMaxLength(100).concat(YupRequiredString).matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_country_code: Yup.string().when("dob", {
@@ -419,7 +423,10 @@ export default function VolunteerAccountInformation() {
     }),
     emergency_contact_phone: Yup.string().when("dob", {
       is: isUnderage,
-      then: () => YupPhoneNumber,
+      then: () => Yup.string().when("emergency_contact_country_code", (emergency_contact_country_code: any, schema: any) => {
+        const code = Array.isArray(emergency_contact_country_code) ? emergency_contact_country_code[0] : emergency_contact_country_code;
+        return createPhoneNumberSchema(code);
+      }),
       otherwise: () => Yup.string().notRequired(),
     }),
     emergency_contact_civil_id: Yup.string().when("dob", {
@@ -965,6 +972,7 @@ export default function VolunteerAccountInformation() {
                                 name="phone_number"
                                 label={t("COMMON.PHONE_NUMBER")}
                                 className="pr-10"
+                                countryCode={values.country_code}
                               />
                             </div>
                           </div>
@@ -978,6 +986,7 @@ export default function VolunteerAccountInformation() {
                             type="text"
                             label={t("COMMON.CIVIL_ID")}
                             maxLength={12}
+                            digitsOnly
                           />
                         </div>
                         <div className="relative flex-1">
@@ -1269,6 +1278,7 @@ export default function VolunteerAccountInformation() {
                             name="emergency_contact_name"
                             type="text"
                             label={t("COMMON.EMERGENCY_CONTACT_NAME")}
+                            lettersOnly
                           />
                           <SelectInput
                             name="emergency_contact_relationship"
@@ -1303,6 +1313,7 @@ export default function VolunteerAccountInformation() {
                                 name="emergency_contact_phone"
                                 label={t("COMMON.EMERGENCY_CONTACT_PHONE")}
                                 className="w-full"
+                                countryCode={values.emergency_contact_country_code}
                               />
                             </div>
                           </div>
@@ -1311,6 +1322,7 @@ export default function VolunteerAccountInformation() {
                             type="text"
                             label={t("COMMON.EMERGENCY_CONTACT_CIVIL_ID")}
                             maxLength={12}
+                            digitsOnly
                           />
                         </div>
                       </>

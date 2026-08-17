@@ -97,9 +97,8 @@ const Header = () => {
         />
         {unreadCount > 0 && (
           <span
-            className={`absolute top-[14px] left-[10px] p-2 transform translate-x-1/2 -translate-y-1/2 bg-orange-500 text-white text-[10px] leading-[1rem] font-bold ${
-              unreadCount > 99 ? "w-5 h-3" : "w-3 h-3"
-            } flex items-center justify-center rounded-full`}
+            className={`absolute top-[14px] left-[10px] p-2 transform translate-x-1/2 -translate-y-1/2 bg-orange-500 text-white text-[10px] leading-[1rem] font-bold ${unreadCount > 99 ? "w-5 h-3" : "w-3 h-3"
+              } flex items-center justify-center rounded-full`}
           >
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
@@ -256,9 +255,8 @@ const Header = () => {
         {/* Desktop Menu */}
         <ul className="hidden mediumscreen:flex 2xl:gap-[30px] lg:gap-5 md:gap-4 mediumscreen1:gap-2 items-center laptopitm:gap-[13px]">
           <li
-            className={`flex text-primary-5 2xl:text-lg lg:text-base sm:text-base items-center laptopitm:text-sm ${
-              pathname === "/" ? "font-bold" : ""
-            }`}
+            className={`flex text-primary-5 2xl:text-lg lg:text-base sm:text-base items-center laptopitm:text-sm ${pathname === "/" ? "font-bold" : ""
+              }`}
           >
             <Link href="/" onClick={close}>
               {t("COMMON.HOME")}
@@ -270,13 +268,12 @@ const Header = () => {
             <Link
               href="/opportunities"
               onClick={close}
-              className={`flex text-primary-5 2xl:text-lg lg:text-base sm:text-base items-center laptopitm:text-sm ${
-                pathname === "/opportunities" ||
+              className={`flex text-primary-5 2xl:text-lg lg:text-base sm:text-base items-center laptopitm:text-sm ${pathname === "/opportunities" ||
                 pathname === "/volunteer-opportunities-list" ||
                 pathname === "/learn-and-share-list"
-                  ? "font-bold"
-                  : ""
-              }`}
+                ? "font-bold"
+                : ""
+                }`}
             >
               {t("COMMON.OPPORTUNITIES")}
             </Link>
@@ -315,14 +312,13 @@ const Header = () => {
           </li>
 
           <li
-            className={`flex text-primary-5 2xl:text-lg lg:text-base laptopitm:text-sm sm:text-base items-center ${
-              pathname === "/events-and-activities" ||
+            className={`flex text-primary-5 2xl:text-lg lg:text-base laptopitm:text-sm sm:text-base items-center ${pathname === "/events-and-activities" ||
               pathname === "/event-exhibition-list" ||
               pathname === "/event-sports-list" ||
               pathname === "/event-camps-list"
-                ? "font-bold"
-                : ""
-            }`}
+              ? "font-bold"
+              : ""
+              }`}
           >
             <Link href="/events-and-activities" onClick={close}>
               {t("COMMON.EVENTS_ACTIVITIES")}
@@ -330,9 +326,8 @@ const Header = () => {
           </li>
 
           <li
-            className={`flex text-primary-5 2xl:text-lg lg:text-base laptopitm:text-sm sm:text-base items-center ${
-              pathname === "/achievements" ? "font-bold" : ""
-            }`}
+            className={`flex text-primary-5 2xl:text-lg lg:text-base laptopitm:text-sm sm:text-base items-center ${pathname === "/achievements" ? "font-bold" : ""
+              }`}
           >
             <Link href="/achievements" onClick={close}>
               {t("COMMON.ACHIEVEMENTS")}
@@ -340,9 +335,8 @@ const Header = () => {
           </li>
 
           <li
-            className={`flex text-primary-5 2xl:text-lg laptopitm:text-sm lg:text-base sm:text-base items-center ${
-              pathname === "/community" ? "font-bold" : ""
-            }`}
+            className={`flex text-primary-5 2xl:text-lg laptopitm:text-sm lg:text-base sm:text-base items-center ${pathname === "/community" ? "font-bold" : ""
+              }`}
           >
             <Link href="/community" onClick={close}>
               {t("COMMON.FORSA.COMMUNITY-")}
@@ -351,11 +345,10 @@ const Header = () => {
 
           {/* More dropdown */}
           <li
-            className={`cursor-pointer flex text-primary-5 2xl:text-lg laptopitm:text-sm lg:text-base sm:text-base relative ${
-              ["/more-profile", "/partner", "/about-us", "/contact-us", "/faq"].includes(pathname)
-                ? "font-bold"
-                : ""
-            }`}
+            className={`cursor-pointer flex text-primary-5 2xl:text-lg laptopitm:text-sm lg:text-base sm:text-base relative ${["/more-profile", "/partner", "/about-us", "/contact-us", "/faq"].includes(pathname)
+              ? "font-bold"
+              : ""
+              }`}
           >
             <button
               className="text-primary-5 2xl:text-lg laptopitm:text-sm lg:text-base sm:text-base flex gap-1 items-center focus:outline-none"
@@ -406,8 +399,8 @@ const Header = () => {
           {(isVolunteer || isOrganizer) && <NotificationBadge />}
           <LanguageSelection />
           {!isLoggedIn ? (
-            <Link href="/login" onClick={close}>
-              <button className="bg-primary-5 text-white px-6 py-2 rounded-xl text-base font-semibold hover:opacity-90 transition-opacity">
+            <Link href="/login" className="h-[50px] mediumscreen3:h-[34px] cursor-pointer flex" onClick={close}>
+              <button className="bg-primary-5 h-full text-white px-6 rounded-xl text-base font-semibold hover:opacity-90 transition-opacity">
                 {t("COMMON.SIGN_IN")}
               </button>
             </Link>

@@ -28,6 +28,8 @@
   "COMMON.PASSWORDS.MUST.MATCH": "يجب أن تتطابق كلمات المرور",
   "COMMON.MUST.BE.VALID.PHONE": "الرجاء إدخال رقم هاتف صالح",
   "COMMON.PHONE.EXACT.8.DIGITS": "يجب أن يتكون رقم الهاتف من 8 أرقام بالضبط",
+  "COMMON.PHONE.EXACT.DIGITS": "يجب أن يتكون رقم الهاتف من {{count}} أرقام بالضبط",
+  "COMMON.PHONE.STARTS.WITH": "يجب أن يبدأ رقم الهاتف بـ {{digit}}",
   "COMMON.FILE.TOO.LARGE": "الملف كبير جدا",
   "COMMON.HOME": "الرئيسية",
   "COMMON.OPPORTUNITIES": "فرص",
@@ -1169,5 +1171,10 @@
   "COMMON.LEARN_SERVE_OPPORTUNITY_NOT_FOUND": "لم يتم العثور على فرصة تعلم وشارك",
   "COMMON.SHARE_YOUR_MESSAGE": "شارك رسالتك (في حدود 300 حرف)",
   "COMMON.PLEASE_ENTER_ALL_6_OTP_DIGITS": "يرجى إدخال جميع أرقام رمز التحقق لمرة واحدة (OTP) الستة.",
-  "COMMON.SENDING_CODE": "إرسال الرمز..."
+  "COMMON.SENDING_CODE": "إرسال الرمز...",
+  "COMMON.BANNER": "لافتة",
+  "COMMON.OPEN_LINK": "فتح الرابط",
+  "COMMON.GO_TO_IMAGE": "الانتقال إلى الصورة",
+  "COMMON.MIN_AGE_REQUIRED": "يجب ألا يقل عمرك عن {{age}} سنوات",
+  "COMMON.PHONE.LENGTH.RANGE": "يجب أن يتكون رقم الهاتف من {{min}} إلى {{max}} أرقام"
 }

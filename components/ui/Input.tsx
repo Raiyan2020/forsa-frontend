@@ -20,6 +20,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
    * entirely and still accepts `e`, `.` and pasted junk.
    */
   digitsOnly?: boolean;
+  /**
+   * Strip everything but letters and spaces as the visitor types (covers paste
+   * and autofill too). Use for name fields that must not contain digits.
+   */
+  lettersOnly?: boolean;
   /** Rendered inside the field on the trailing edge — a status spinner, say. */
   endAdornment?: ReactNode;
 }
@@ -35,6 +40,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       hideError = false,
       onKeyDown,
       digitsOnly = false,
+      lettersOnly = false,
       endAdornment,
       ...props
     },
@@ -73,6 +79,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           typeof props.maxLength === "number"
             ? digits.slice(0, props.maxLength)
             : digits;
+      } else if (lettersOnly) {
+        e.target.value = e.target.value.replace(/[^A-Za-z\s]/g, "");
       }
       // A caller-supplied onChange replaces Formik's, exactly as it did when
       // `{...props}` was spread over `{...field}`.
