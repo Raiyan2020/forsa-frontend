@@ -911,6 +911,7 @@
   "COMMON.CHANGES_TO_TERMS_TEXT": "هذه الشروط قابلة للتغيير. سيتم إخطار المستخدمين بالتحديثات عبر البريد الإلكتروني أو إشعارات المنصة.",
   "COMMON.CALENDAR_TOAST_MESSAGE": "اضغط على الملف الذي تم تنزيله لإضافته إلى التقويم",
   "COMMON.CLEAR": "مسح",
+  "COMMON.CLEAR_FILTERS": "مسح عوامل التصفية",
   "COMMON.SCAN_PERMISSION": "إذن المسح",
   "COMMON.REMOVE_PERMISSION": "إزالة الإذن",
   "COMMON.REMOVE_PERMISSION_DESCRIPTION": "هل أنت متأكد أنك تريد إزالة إذن المسح؟",

@@ -47,6 +47,7 @@ import {
   fetchAddress,
   formatDateToYYYYMMDD,
 } from "@/lib/helpers";
+import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupNumberOnly,
@@ -361,9 +362,9 @@ export default function VolunteerForm({
     enabled: !!selectedLanguage,
   });
 
-  const tagOptions =
+  const tagOptions: Array<{ id: string; label: string }> =
     tagsData?.data?.map((item: any) => ({
-      id: item.id,
+      id: String(item.id),
       label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
     })) || [];
 
@@ -512,10 +513,13 @@ export default function VolunteerForm({
       ] || "",
     link: opportunityData?.link || "",
     description: opportunityData?.[`description_${selectedLanguage}`] || "",
-    _interests:
-      opportunityData?.interest_display?.map(
-        (interest: { id: string }) => interest.id
-      ) || [],
+    _interests: resolveInterestOptionIds(
+      normalizeInterests(
+        opportunityData?.interest_display,
+        opportunityData?.interests
+      ),
+      tagOptions
+    ),
     opportunity_images: [],
     license_image: "",
     isPrivate: id

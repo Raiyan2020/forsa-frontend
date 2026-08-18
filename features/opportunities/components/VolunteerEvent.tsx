@@ -30,6 +30,7 @@ import {
   getDefaultProfileImage,
   handleShare,
 } from "@/lib/helpers";
+import { interestLabel, normalizeInterests } from "@/lib/interests";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -87,7 +88,17 @@ export interface VolunteerOpportunityData {
   has_scan_permission?: boolean;
   after_completed_images_count?: number;
   gender_display?: ChoiceDisplay;
-  interest_display?: Array<{ id: string; value_en: string; value_ar: string }>;
+  interest_display?: Array<{
+    id: string;
+    value_en: string;
+    value_ar: string;
+  }> | null;
+  interests?: Array<{
+    id: number | string;
+    name_en: string;
+    name_ar: string;
+    interest_type?: string;
+  }> | null;
   license_image?: string | null;
   opportunity_images: OpportunityImage[];
   opportunity_sponsor_images?: Array<{
@@ -434,6 +445,15 @@ export default function VolunteerEvent({
       opportunityData?.opportunity_images?.filter(
         (image) => image.is_after_completed
       ) ?? [],
+    [opportunityData]
+  );
+
+  const interestTags = useMemo(
+    () =>
+      normalizeInterests(
+        opportunityData?.interest_display,
+        opportunityData?.interests
+      ),
     [opportunityData]
   );
 
@@ -1303,33 +1323,32 @@ export default function VolunteerEvent({
                 />
               </div>
 
-              {(opportunityData?.interest_display?.length ?? 0) > 0 && (
+              {interestTags.length > 0 && (
                 <div className="flex flex-wrap gap-6 mt-6 xss:gap-2 items-center">
                   <img src="/assets/voluneteerevent/label.svg" alt="" />
-                  {opportunityData?.interest_display?.map((interest, index) => (
-                    <span
-                      key={interest.id ?? index}
-                      style={{
-                        backgroundColor:
-                          TAG_BACKGROUNDS[index % TAG_BACKGROUNDS.length],
-                      }}
-                      className={`text-sm py-[13px] rounded-[20px] xss:py-2 xss:px-4 xss:text-xs px-8 ${TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
-                        } cursor-pointer hover:opacity-80 transition-opacity`}
-                      onClick={() =>
-                        router.push(
-                          `/volunteer-opportunities-list?tags=${encodeURIComponent(
-                            selectedLanguage === "ar"
-                              ? interest.value_ar
-                              : interest.value_en
-                          )}`
-                        )
-                      }
-                    >
-                      {selectedLanguage === "ar"
-                        ? interest.value_ar
-                        : interest.value_en}
-                    </span>
-                  ))}
+                  {interestTags.map((interest, index) => {
+                    const label = interestLabel(interest, selectedLanguage);
+                    return (
+                      <span
+                        key={interest.id ?? index}
+                        style={{
+                          backgroundColor:
+                            TAG_BACKGROUNDS[index % TAG_BACKGROUNDS.length],
+                        }}
+                        className={`text-sm py-[13px] rounded-[20px] xss:py-2 xss:px-4 xss:text-xs px-8 ${TAG_TEXT_COLORS[index % TAG_TEXT_COLORS.length]
+                          } cursor-pointer hover:opacity-80 transition-opacity`}
+                        onClick={() =>
+                          router.push(
+                            `/volunteer-opportunities-list?tags=${encodeURIComponent(
+                              label
+                            )}`
+                          )
+                        }
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
 

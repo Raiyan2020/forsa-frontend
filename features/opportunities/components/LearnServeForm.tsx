@@ -49,6 +49,7 @@ import {
 } from "@/features/services/api";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
+import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
@@ -616,9 +617,9 @@ export default function LearnServeForm({
     return Array.from(sponsorMap.values());
   }, [preLoadedSponsors, sponsorList]);
 
-  const tagOptions =
+  const tagOptions: Array<{ id: string; label: string }> =
     tagsData?.data?.map((item: any) => ({
-      id: item.id,
+      id: String(item.id),
       label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
     })) || [];
 
@@ -721,10 +722,13 @@ export default function LearnServeForm({
     is_kuwaitis: opportunityData?.is_kuwaitis === true,
     opportunity_images: [],
     license_image: "",
-    _interests:
-      opportunityData?.interest_display?.map(
-        (interest: { id: string }) => interest.id
-      ) || [],
+    _interests: resolveInterestOptionIds(
+      normalizeInterests(
+        opportunityData?.interest_display,
+        opportunityData?.interests
+      ),
+      tagOptions
+    ),
     sponsors: opportunityData?.opportunity_sponsor_images?.length
       ? opportunityData.opportunity_sponsor_images.map(
           (sponsor: any, index: number) => ({
@@ -1343,7 +1347,9 @@ export default function LearnServeForm({
             <Title text={t("COMMON.LEARN.SERVE.FORM")} variant="default" />
           </h2>
           <Formik
-            key={formKey}
+            // The tag choices decide which ids the saved interests preselect,
+            // so remount once they land as well.
+            key={`${formKey}-${tagOptions.length}`}
             initialValues={initialValues}
             validationSchema={validationSchema}
             onSubmit={handleSubmit}

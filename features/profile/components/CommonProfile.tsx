@@ -1,16 +1,22 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
+import { Modal } from "@/components/ui/Modal";
+import Searchbar from "@/components/ui/Searchbar";
 import Title from "@/components/shared/Title";
+import ProfileFilterForm, {
+  EMPTY_PROFILE_FILTERS,
+  FiltersData,
+} from "./ProfileFilterForm";
 import {
   getAllOpportunities,
   getPublicProfile,
@@ -529,14 +535,57 @@ function PublicProfileListings({
   const deferredSearch = useDeferredValue(search);
   const isVolunteer = userType === "volunteer";
 
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<FiltersData>(EMPTY_PROFILE_FILTERS);
+  const [clearFiltersKey, setClearFiltersKey] = useState(0);
+  const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const filterFormRef = useRef<{ submitForm: () => Promise<void> } | null>(null);
+
+  const hasActiveFilters =
+    !!filters.startDate ||
+    !!filters.endDate ||
+    !!filters.category ||
+    !!filters.status ||
+    (filters.tags?.length ?? 0) > 0 ||
+    !!filters.opportunity_type ||
+    !!filters.opportunity_status;
+
+  const clearFilters = () => {
+    setFilters(EMPTY_PROFILE_FILTERS);
+    setClearFiltersKey((prev) => prev + 1);
+  };
+
+  // Same param mapping the owner's own profile uses in ProfileVolunteerCard /
+  // ProfileEventCard, so both screens filter identically.
+  const filterParams = {
+    start_date: filters.startDate
+      ? moment(filters.startDate).format("YYYY-MM-DD")
+      : undefined,
+    end_date: filters.endDate
+      ? moment(filters.endDate).format("YYYY-MM-DD")
+      : undefined,
+    tags: filters.tags?.length ? filters.tags : undefined,
+  };
+
   const listingQuery = useQuery({
-    queryKey: ["public-profile-listing", userId, userType, section, mode, deferredSearch],
+    queryKey: [
+      "public-profile-listing",
+      userId,
+      userType,
+      section,
+      mode,
+      deferredSearch,
+      filters,
+    ],
     queryFn: () => {
       if (isVolunteer && section === "opportunities") {
         return getUserOpportunities({
           filter_type: "organized",
           user_id: userId,
           search: deferredSearch || undefined,
+          ...filterParams,
+          opportunity_type: filters.opportunity_type || undefined,
+          opportunity_status: filters.opportunity_status || undefined,
           page: 1,
           limit: 30,
         });
@@ -550,6 +599,10 @@ function PublicProfileListings({
             : mode,
         user_id: userId,
         search: deferredSearch || undefined,
+        ...filterParams,
+        opportunity_type:
+          filters.opportunity_type || filters.category || undefined,
+        status: filters.opportunity_status || filters.status || undefined,
         page: 1,
         limit: 30,
       });
@@ -583,6 +636,50 @@ function PublicProfileListings({
 
   return (
     <section className="pb-[50px]">
+      <Modal
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        title={t("COMMON.FILTER")}
+        size="md"
+        footer={
+          <div className="flex w-full justify-center gap-5 xss:flex-col">
+            <Button
+              variant="primary"
+              size="medium"
+              className="xss:w-full"
+              type="button"
+              onClick={() => filterFormRef.current?.submitForm()}
+              disabled={!isFilterDirty}
+            >
+              {t("COMMON.APPLY")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="medium"
+              className="xss:w-full"
+              type="button"
+              onClick={clearFilters}
+            >
+              {t("COMMON.CLEAR")}
+            </Button>
+          </div>
+        }
+      >
+        <ProfileFilterForm
+          key={clearFiltersKey}
+          formikRef={filterFormRef}
+          initialValues={filters}
+          onDirtyChange={setIsFilterDirty}
+          onApply={(applied) => {
+            setFilters(applied);
+            setFilterOpen(false);
+          }}
+          isEventFilter={section === "events"}
+          type={section !== "events"}
+          activeTab={mode}
+        />
+      </Modal>
+
       <div className="flex gap-[38px] px-3 2xl:px-5 xss:gap-2">
         {sections.map((tab) => (
           <button
@@ -591,6 +688,8 @@ function PublicProfileListings({
             onClick={() => {
               setSection(tab.value);
               setMode("organized");
+              // Opportunity and event filters don't share the same choices.
+              clearFilters();
             }}
             className={`relative rounded-t-[20px] border border-primary-5 px-6 py-4 text-xl font-bold text-primary-5 ${
               section === tab.value ? "border-b-white bg-white" : "bg-[#D2D8F6]"
@@ -621,15 +720,14 @@ function PublicProfileListings({
                 </button>
               )}
             </div>
-            <label className="flex h-[50px] w-full max-w-[560px] items-center rounded-full border border-primary-5/20 bg-white px-4">
-              <Search className="h-5 w-5 text-primary-5" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("COMMON.SEARCH")}
-                className="w-full bg-transparent px-3 text-lg outline-none"
-              />
-            </label>
+            <Searchbar
+              value={search}
+              onSearchChange={setSearch}
+              onFilterClick={() => setFilterOpen(true)}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={clearFilters}
+              isLoading={search !== deferredSearch}
+            />
           </div>
         )}
 

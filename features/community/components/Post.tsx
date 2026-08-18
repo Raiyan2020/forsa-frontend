@@ -31,6 +31,8 @@ interface PostProps {
   ) => void;
   initialValues?: CommunityFiltersData;
   isViewAll?: boolean;
+  /** Drives the small spinner in the search field while a search/filter request is in flight. */
+  isSearching?: boolean;
 }
 
 function Post({
@@ -41,6 +43,7 @@ function Post({
   initialValues,
   setSearchQuery,
   isViewAll = false,
+  isSearching = false,
 }: PostProps) {
   const { t } = useTranslation();
   const [opencreatepost, setcreatepost] = useState(false);
@@ -164,6 +167,7 @@ function Post({
                 <Searchbar
                   onFilterClick={() => setOpenfilter(true)}
                   onSearchChange={(value) => setSearchQuery(value)}
+                  isLoading={isSearching}
                 />
 
                 <Button
@@ -183,6 +187,7 @@ function Post({
                 <Searchbar
                   onFilterClick={() => setOpenfilter(true)}
                   onSearchChange={(value) => setSearchQuery(value)}
+                  isLoading={isSearching}
                 />
               </div>
             </div>

@@ -926,6 +926,7 @@
   "COMMON.CHANGES_TO_TERMS_TEXT": "These terms are subject to change. Users will be notified of updates via email or platform notifications.",
   "COMMON.CALENDAR_TOAST_MESSAGE": "Tap the downloaded file to add it to your calendar",
   "COMMON.CLEAR": "Clear",
+  "COMMON.CLEAR_FILTERS": "Clear filters",
   "COMMON.SCAN_PERMISSION": "Scan Permission",
   "COMMON.REMOVE_PERMISSION": "Remove Permission",
   "COMMON.REMOVE_PERMISSION_DESCRIPTION": "Are you sure you want to remove the scan permission ?",

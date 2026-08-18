@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import moment from "moment";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import ForsaCommunity from "./ForsaCommunity";
 import Post from "./Post";
@@ -47,6 +47,7 @@ function Community() {
   const {
     data: posts,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
     queryKey: ["communityPosts", debouncedSearch, filters],
@@ -65,7 +66,14 @@ function Community() {
         type: filters?.type,
         tags: filters?.tags?.length ? filters?.tags : undefined,
       }),
+    // A search or filter change rewrites the query key. Keeping the previous
+    // results means `isLoading` stays false, so the posts are not replaced by
+    // the full-screen loader on every keystroke — the search field shows a
+    // small spinner instead, like /opportunities does.
+    placeholderData: keepPreviousData,
   });
+
+  const isSearching = isFetching && !isLoading;
 
   const hasNoPosts = posts?.data?.length === 0 || !posts;
 
@@ -84,6 +92,7 @@ function Community() {
           onApply={handleApplyFilters}
           initialValues={filters}
           setSearchQuery={setSearchQuery}
+          isSearching={isSearching}
         />
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] mx-auto relative">
           {!hasNoPosts && isLoading ? (
