@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
 import { registerForLearnServeOpportunity } from "@/features/services/api";
+import { getApiErrorMessage, isApiSuccess } from "@/lib/api/errors";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 
@@ -42,7 +43,23 @@ export default function ConfirmRegistrationModal({
   const handleConfirm = async () => {
     if (!opportunityId) return;
     try {
-      await registerMutation.mutateAsync({ opportunity: opportunityId });
+      const response = await registerMutation.mutateAsync({
+        opportunity: opportunityId,
+      });
+
+      // The API also rejects with HTTP 200 + `key: "fail"`, so the envelope —
+      // not the status — decides, and its `msg` carries the reason.
+      if (!isApiSuccess(response)) {
+        toast.error(
+          getApiErrorMessage(
+            response,
+            selectedLanguage,
+            t("COMMON.TOAST.REGISTRATION_FAILED")
+          )
+        );
+        return;
+      }
+
       toast.success(t("COMMON.TOAST.REGISTRATION_SUCCESSFUL"));
       setNavState(NAV_STATE_KEYS.opportunityThankyou, {
         ...opportunityDetails,
@@ -51,23 +68,14 @@ export default function ConfirmRegistrationModal({
       setOpenForm();
       refetch();
       router.push("/register-now");
-    } catch (error: any) {
-      const data = error?.response?.data;
-      if (data?.errors && Object.keys(data.errors).length > 0) {
-        Object.keys(data.errors).forEach((key) => {
-          toast.error(
-            data.errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.REGISTRATION_FAILED")
-          );
-        });
-      } else if (data?.message_en || data?.message_ar) {
-        toast.error(
-          data[`message_${selectedLanguage}`] ||
-            t("COMMON.TOAST.REGISTRATION_FAILED")
-        );
-      } else {
-        toast.error(t("COMMON.TOAST.REGISTRATION_FAILED"));
-      }
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(
+          error,
+          selectedLanguage,
+          t("COMMON.TOAST.REGISTRATION_FAILED")
+        )
+      );
     }
   };
 

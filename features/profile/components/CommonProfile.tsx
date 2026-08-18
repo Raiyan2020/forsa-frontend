@@ -114,6 +114,25 @@ interface CertificateItem {
 
 type ProfileSection = "opportunities" | "events" | "certificates";
 type ListingMode = "organized" | "sponsored";
+type OpportunityTypeFilter = "all" | "volunteer" | "development";
+
+const OPPORTUNITY_TYPE_TABS: Array<{
+  value: OpportunityTypeFilter;
+  labelKey: string;
+}> = [
+  { value: "all", labelKey: "COMMON.ALL" },
+  { value: "volunteer", labelKey: "COMMON.VOLUNTEER" },
+  { value: "development", labelKey: "COMMON.LEARN_SERVE" },
+];
+
+/** `opportunity_type` values `/list-all-opportunities/` accepts. */
+const OPPORTUNITY_TYPE_PARAM: Record<
+  Exclude<OpportunityTypeFilter, "all">,
+  string
+> = {
+  volunteer: "volunteer_opportunity",
+  development: "learn_serve_opportunity",
+};
 
 const asset = (path: string) => `/assets/${path}`;
 
@@ -327,13 +346,19 @@ function BackgroundAndAchievements({
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
-    {
-      icon: "profile/statistics/n_learnServeicn.svg",
-      value: profile.learn_opportunity_organized ?? 0,
-      label: t("COMMON.OPPORTUNITIESORGANIZED--"),
-      color: "border-primary-503 text-primary-503",
-    },
-    ...(!isVolunteerTeam
+    // Hours and volunteer opportunities always show, even at zero; development
+    // and sponsorship appear only once they have a value.
+    ...((profile.learn_opportunity_organized ?? 0) > 0
+      ? [
+          {
+            icon: "profile/statistics/n_learnServeicn.svg",
+            value: profile.learn_opportunity_organized ?? 0,
+            label: t("COMMON.OPPORTUNITIESORGANIZED--"),
+            color: "border-primary-503 text-primary-503",
+          },
+        ]
+      : []),
+    ...(!isVolunteerTeam && (profile.sponsored ?? 0) > 0
       ? [
           {
             icon: "profile/statistics/n_sponseredbyus.svg",
@@ -357,12 +382,16 @@ function BackgroundAndAchievements({
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
-    {
-      icon: "profile/statistics/n_Certificate.svg",
-      value: volunteerStats.certificates,
-      label: t("COMMON.CERTIFICATE-"),
-      color: "border-primary-503 text-primary-503",
-    },
+    ...(volunteerStats.certificates > 0
+      ? [
+          {
+            icon: "profile/statistics/n_Certificate.svg",
+            value: volunteerStats.certificates,
+            label: t("COMMON.CERTIFICATE-"),
+            color: "border-primary-503 text-primary-503",
+          },
+        ]
+      : []),
   ];
   const cards = userType === "organization" ? organizationCards : volunteerCards;
 
@@ -450,9 +479,11 @@ function ListingCard({ item, isEvent }: { item: OpportunityItem; isEvent: boolea
       : item.format_display;
 
   return (
-    <Link href={href} className="group block pb-6">
-      <article className="overflow-hidden rounded-[20px] border border-primary-5 bg-white shadow-[0_4px_10px_rgba(0,0,0,0.12)]">
-        <div className="relative h-[260px] w-full bg-gray-100">
+    // h-full + flex so every card in a row matches the tallest one; the detail
+    // rows absorb the slack and the View button stays pinned to the bottom.
+    <Link href={href} className="group flex h-full flex-col pb-6">
+      <article className="flex flex-1 flex-col overflow-hidden rounded-[20px] border border-primary-5 bg-white shadow-[0_4px_10px_rgba(0,0,0,0.12)]">
+        <div className="relative h-[260px] w-full shrink-0 bg-gray-100">
           <Image
             src={image || asset("homepage/treeplanting.png")}
             alt={title}
@@ -483,11 +514,11 @@ function ListingCard({ item, isEvent }: { item: OpportunityItem; isEvent: boolea
             </div>
           )}
         </div>
-        <div className="p-5">
+        <div className="flex flex-1 flex-col p-5">
           <h3 className="mb-4 line-clamp-1 text-xl font-bold text-secondary-100">
             {title}
           </h3>
-          <div className="space-y-3 text-secondary-102">
+          <div className="flex-1 space-y-3 text-secondary-102">
             {detail && (
               <p className="flex items-center gap-3">
                 <Image src={asset("homepage/learn_type.svg")} alt="" width={20} height={20} />
@@ -531,6 +562,8 @@ function PublicProfileListings({
   const language = useLanguageStore((state) => state.language);
   const [section, setSection] = useState<ProfileSection>("opportunities");
   const [mode, setMode] = useState<ListingMode>("organized");
+  // All / Volunteer / Development, applied on top of the organized/sponsored tag
+  const [typeFilter, setTypeFilter] = useState<OpportunityTypeFilter>("all");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const isVolunteer = userType === "volunteer";
@@ -555,6 +588,10 @@ function PublicProfileListings({
     setClearFiltersKey((prev) => prev + 1);
   };
 
+  // The All / Volunteer / Development chips win over the filter modal's type.
+  const selectedOpportunityType =
+    typeFilter === "all" ? undefined : OPPORTUNITY_TYPE_PARAM[typeFilter];
+
   // Same param mapping the owner's own profile uses in ProfileVolunteerCard /
   // ProfileEventCard, so both screens filter identically.
   const filterParams = {
@@ -576,6 +613,7 @@ function PublicProfileListings({
       mode,
       deferredSearch,
       filters,
+      typeFilter,
     ],
     queryFn: () => {
       if (isVolunteer && section === "opportunities") {
@@ -584,7 +622,8 @@ function PublicProfileListings({
           user_id: userId,
           search: deferredSearch || undefined,
           ...filterParams,
-          opportunity_type: filters.opportunity_type || undefined,
+          opportunity_type:
+            selectedOpportunityType || filters.opportunity_type || undefined,
           opportunity_status: filters.opportunity_status || undefined,
           page: 1,
           limit: 30,
@@ -601,7 +640,10 @@ function PublicProfileListings({
         search: deferredSearch || undefined,
         ...filterParams,
         opportunity_type:
-          filters.opportunity_type || filters.category || undefined,
+          selectedOpportunityType ||
+          filters.opportunity_type ||
+          filters.category ||
+          undefined,
         status: filters.opportunity_status || filters.status || undefined,
         page: 1,
         limit: 30,
@@ -613,7 +655,9 @@ function PublicProfileListings({
   const certificatesQuery = useQuery({
     queryKey: ["public-profile-certificates", userId],
     queryFn: () => getUserCertificates(userId),
-    enabled: isVolunteer && section === "certificates",
+    // Fetched up front, not just when the tab is open: an empty list hides the
+    // tab, the same rule the counters follow.
+    enabled: isVolunteer,
   });
 
   const items: OpportunityItem[] = Array.isArray(listingQuery.data?.data)
@@ -627,7 +671,14 @@ function PublicProfileListings({
   const sections: Array<{ value: ProfileSection; label: string }> = isVolunteer
     ? [
         { value: "opportunities", label: t("COMMON.OPPORTUNITIES-") },
-        { value: "certificates", label: t("COMMON.CERTIFICATES") },
+        ...(certificates.length > 0
+          ? [
+              {
+                value: "certificates" as ProfileSection,
+                label: t("COMMON.CERTIFICATES"),
+              },
+            ]
+          : []),
       ]
     : [
         { value: "opportunities", label: t("COMMON.OPPORTUNITIES-") },
@@ -688,6 +739,7 @@ function PublicProfileListings({
             onClick={() => {
               setSection(tab.value);
               setMode("organized");
+              setTypeFilter("all");
               // Opportunity and event filters don't share the same choices.
               clearFilters();
             }}
@@ -708,7 +760,7 @@ function PublicProfileListings({
                 onClick={() => setMode("organized")}
                 className={`pb-1 text-lg ${mode === "organized" ? "border-b-2 border-primary-5 font-bold text-primary-5" : "text-black"}`}
               >
-                {t(isVolunteer ? "COMMON.ATTENDED--" : "COMMON.ORGANIZED")}
+                {t(isVolunteer ? "COMMON.ATTENDED--" : "COMMON.ORGANIZER_TAG")}
               </button>
               {!isVolunteerTeam && !isVolunteer && (
                 <button
@@ -716,18 +768,39 @@ function PublicProfileListings({
                   onClick={() => setMode("sponsored")}
                   className={`pb-1 text-lg ${mode === "sponsored" ? "border-b-2 border-primary-5 font-bold text-primary-5" : "text-black"}`}
                 >
-                  {t("COMMON.SPONSORED")}
+                  {t("COMMON.SPONSOR")}
                 </button>
               )}
             </div>
-            <Searchbar
-              value={search}
-              onSearchChange={setSearch}
-              onFilterClick={() => setFilterOpen(true)}
-              hasActiveFilters={hasActiveFilters}
-              onClearFilters={clearFilters}
-              isLoading={search !== deferredSearch}
-            />
+            <div className="flex items-center gap-4 mobilescreen:flex-col mobilescreen:w-full">
+              {/* All / Volunteer / Development — events are one type already */}
+              {section === "opportunities" && (
+                <div className="flex gap-2">
+                  {OPPORTUNITY_TYPE_TABS.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setTypeFilter(type.value)}
+                      className={`rounded-full border border-primary-5 px-4 py-2 text-sm font-bold whitespace-nowrap ${
+                        typeFilter === type.value
+                          ? "bg-primary-5 text-white"
+                          : "bg-white text-primary-5"
+                      }`}
+                    >
+                      {t(type.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Searchbar
+                value={search}
+                onSearchChange={setSearch}
+                onFilterClick={() => setFilterOpen(true)}
+                hasActiveFilters={hasActiveFilters}
+                onClearFilters={clearFilters}
+                isLoading={search !== deferredSearch}
+              />
+            </div>
           </div>
         )}
 
@@ -736,6 +809,8 @@ function PublicProfileListings({
         ) : section === "certificates" ? (
           certificates.length ? (
             <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+              {/* Fixed box + object-contain: every tile is the same height
+                  whatever the certificate's aspect ratio, without cropping. */}
               {certificates.map((certificate) => {
                 const title =
                   certificate[language === "ar" ? "opportunity__title_ar" : "opportunity__title_en"] ||
@@ -746,14 +821,14 @@ function PublicProfileListings({
                     href={certificate.certificate_image}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group relative overflow-hidden rounded-lg shadow-md"
+                    className="group relative flex h-[260px] items-center justify-center overflow-hidden rounded-lg bg-[#29246D]/[0.03] shadow-md"
                   >
                     <Image
                       src={certificate.certificate_image}
                       alt={title}
                       width={600}
                       height={420}
-                      className="h-auto w-full transition-transform group-hover:scale-[1.02]"
+                      className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]"
                       unoptimized
                     />
                     <span className="absolute end-3 top-3 rounded-full bg-white p-2 text-primary-5 shadow">

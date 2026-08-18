@@ -242,14 +242,14 @@ export default function MoreProfile() {
           <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
             {t("COMMON.VOLUNTEER--")}
           </h2>
-          {navigationVisibility.volunteer && (
+          {/* {navigationVisibility.volunteer && ( */}
             <Link
               href={`/volunteer-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
               className="text-primary-5 font-bold text-base"
             >
               {t("COMMON.SHOW.ALL")}
             </Link>
-          )}
+          {/* )} */}
         </div>
 
         {volunteers.length === 0 ? (
@@ -282,14 +282,14 @@ export default function MoreProfile() {
             <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
               {t("COMMON.VOLUNTEER.TEAM")}
             </h2>
-            {navigationVisibility.volunteer_team && (
+            {/* {navigationVisibility.volunteer_team && ( */}
               <Link
                 href={`/volunteer-team-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
                 className="text-primary-5 font-bold text-base"
               >
                 {t("COMMON.SHOW.ALL")}
               </Link>
-            )}
+            {/* )} */}
           </div>
           {volunteerTeams.length === 0 ? (
             <div className="text-center py-8 text-secondary-102 text-lg font-medium">
@@ -322,14 +322,14 @@ export default function MoreProfile() {
             <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
               {t("COMMON.ORGANIZATION")}
             </h2>
-            {navigationVisibility.organization && (
+            {/* {navigationVisibility.organization && ( */}
               <Link
                 href={`/entities-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
                 className="text-primary-5 font-bold text-base"
               >
                 {t("COMMON.SHOW.ALL")}
               </Link>
-            )}
+            {/* )} */}
           </div>
 
           {organizations.length === 0 ? (

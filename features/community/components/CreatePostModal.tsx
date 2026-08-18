@@ -285,39 +285,23 @@ function CreatePostModal({
               />
             </div>
             {showToggles && (
-              <>
-                <div className="py-6 mobilescreen:py-4 f6">
-                  <Field name="proposing_idea">
-                    {({ field }: { field: any }) => (
-                      <Toggle
-                        label={t("COMMON.PROPOSING_IDEA")}
-                        checked={field.value}
-                        onChange={() => {
-                          setFieldValue("proposing_idea", !field.value);
-                          if (field.value) {
-                            setFieldValue("is_funding_required", false);
-                          }
-                        }}
-                        disabled={false}
-                      />
-                    )}
-                  </Field>
-                </div>
-                <div className="f6">
-                  <Field name="is_funding_required">
-                    {({ field }: { field: any }) => (
-                      <Toggle
-                        label={t("COMMON.NEED_FUNDING")}
-                        checked={field.value}
-                        onChange={() =>
-                          setFieldValue("is_funding_required", !field.value)
-                        }
-                        disabled={!values.proposing_idea}
-                      />
-                    )}
-                  </Field>
-                </div>
-              </>
+              // Only the Idea toggle is offered — the funding ("Needs Support")
+              // toggle was dropped, so posts always submit is_funding_required false.
+              <div className="py-6 mobilescreen:py-4 f6">
+                <Field name="proposing_idea">
+                  {({ field }: { field: any }) => (
+                    <Toggle
+                      label={t("COMMON.PROPOSING_IDEA")}
+                      checked={field.value}
+                      onChange={() => {
+                        setFieldValue("proposing_idea", !field.value);
+                        setFieldValue("is_funding_required", false);
+                      }}
+                      disabled={false}
+                    />
+                  )}
+                </Field>
+              </div>
             )}
           </Form>
         </div>

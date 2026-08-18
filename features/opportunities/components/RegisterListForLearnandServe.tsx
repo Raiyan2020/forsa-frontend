@@ -42,6 +42,7 @@ interface RegisteredUser {
     profile_pic: string;
     full_name: string;
     full_name_ar?: string;
+    civil_id?: string | null;
     is_public?: boolean;
     email?: string;
     phone_number?: string;
@@ -641,19 +642,27 @@ export default function RegisterListForLearnandServe() {
                             unoptimized
                             className="h-10 w-10 rounded-full object-cover"
                           />
-                          <span
-                            className="cursor-pointer text-primary-5"
-                            onClick={() => {
-                              if (!userId) return;
-                              router.push(
-                                isPublic
-                                  ? `/public-profile/${userId}`
-                                  : `/volunteer-private-profile/${userId}`
-                              );
-                            }}
-                          >
-                            {rowData.user.full_name}
-                          </span>
+                          <div className="flex flex-col">
+                            <span
+                              className="cursor-pointer text-primary-5"
+                              onClick={() => {
+                                if (!userId) return;
+                                router.push(
+                                  isPublic
+                                    ? `/public-profile/${userId}`
+                                    : `/volunteer-private-profile/${userId}`
+                                );
+                              }}
+                            >
+                              {rowData.user.full_name}
+                            </span>
+                            {/* Reports show the volunteer's civil ID under the name */}
+                            {(rowData.civil_id || user?.civil_id) && (
+                              <span className="text-xs text-gray-500">
+                                {rowData.civil_id || user?.civil_id}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     }

@@ -19,6 +19,50 @@ import ProfileVolunteerCard from "./ProfileVolunteerCard";
 const TAB_TRIGGER_CLASS =
   "xsl:w-[150px] xss:w-[110px] relative px-6 xs:px-2 2xl:py-5 lg:py-3 md:py-3 py-3 xss:py-3 laptopmain:py-5 rounded-t-[20px] rounded-b-[0px] data-[state=active]:bg-white border-t border-l border-r data-[state=active]:border-t data-[state=active]:border-l data-[state=active]:border-r data-[state=active]:border-primary-5 data-[state=inactive]:border-primary-5 data-[state=active]:text-primary-5 data-[state=active]:font-bold data-[state=inactive]:bg-[#D2D8F6] before:content-[''] before:absolute before:top-[96%] data-[state=active]:before:top-[99%] before:left-0 before:w-full before:h-[3px] before:bg-[#D2D8F6] before:hidden data-[state=active]:before:block data-[state=active]:before:bg-[#fff] after:content-[''] after:absolute after:w-[16px] after:bg-primary-5 after:left-[-16px] rtl:after:left-[0] rtl:after:right-[-16px] after:bottom-[-1px] after:block";
 
+/**
+ * The opportunity tabs split by type on top of the organized/sponsored tag.
+ * `opportunity_type` is the value `/list-all-opportunities/` accepts.
+ */
+type OpportunityTypeFilter = "all" | "volunteer" | "development";
+
+const OPPORTUNITY_TYPE_TABS: Array<{
+  value: OpportunityTypeFilter;
+  labelKey: string;
+  param?: string;
+}> = [
+  { value: "all", labelKey: "COMMON.ALL" },
+  { value: "volunteer", labelKey: "COMMON.VOLUNTEER", param: "volunteer_opportunity" },
+  { value: "development", labelKey: "COMMON.LEARN_SERVE", param: "learn_serve_opportunity" },
+];
+
+function OpportunityTypeChips({
+  value,
+  onChange,
+}: {
+  value: OpportunityTypeFilter;
+  onChange: (value: OpportunityTypeFilter) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex gap-2">
+      {OPPORTUNITY_TYPE_TABS.map((type) => (
+        <button
+          key={type.value}
+          type="button"
+          onClick={() => onChange(type.value)}
+          className={`rounded-full border border-primary-5 px-4 py-2 text-sm font-bold whitespace-nowrap ${
+            value === type.value
+              ? "bg-primary-5 text-white"
+              : "bg-white text-primary-5"
+          }`}
+        >
+          {t(type.labelKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const TAB_CONTENT_CLASS =
   "mt-0 border-t border-primary-5 2xl:pt-16 laptopmain:pt-8 lg:pt-5 pt-5 md:pt-5 lg:pb-[50px] md:pb-[20px] pb-[20px]";
 
@@ -26,12 +70,18 @@ interface ProfileDescriptionTabsProps {
   isVolunteerTeam: boolean;
   isPublicProfile?: boolean;
   user_id?: string;
+  /**
+   * A volunteer's own profile lists what they registered for and attended; a
+   * team or entity lists what it organised (and sponsored).
+   */
+  isVolunteer?: boolean;
 }
 
 export default function ProfileDescriptionTabs({
   isVolunteerTeam = false,
   isPublicProfile = false,
   user_id,
+  isVolunteer = false,
 }: ProfileDescriptionTabsProps) {
   const selectedLanguage = useLanguageStore((s) => s.language);
   const { t } = useTranslation();
@@ -61,6 +111,7 @@ export default function ProfileDescriptionTabs({
           isVolunteerTeam={isVolunteerTeam}
           isPublicProfile={isPublicProfile}
           user_id={user_id}
+          isVolunteer={isVolunteer}
         />
       </TabsContent>
 
@@ -229,7 +280,7 @@ function MyEventsTabs({
               }`}
               onClick={() => setActiveTab("organized_events")}
             >
-              {t("COMMON.ORGANIZED")}
+              {t("COMMON.ORGANIZER_TAG")}
             </button>
             {!isVolunteerTeam && (
               <button
@@ -240,7 +291,7 @@ function MyEventsTabs({
                 }`}
                 onClick={() => setActiveTab("sponsored_events")}
               >
-                {t("COMMON.SPONSORED")}
+                {t("COMMON.SPONSOR")}
               </button>
             )}
           </div>
@@ -285,8 +336,12 @@ function OpportunityTabs({
   isVolunteerTeam,
   isPublicProfile = false,
   user_id,
+  isVolunteer = false,
 }: ProfileDescriptionTabsProps) {
-  const [activeTab, setActiveTab] = useState("organized");
+  const [activeTab, setActiveTab] = useState(
+    isVolunteer ? "registered" : "organized"
+  );
+  const [typeFilter, setTypeFilter] = useState<OpportunityTypeFilter>("all");
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -329,6 +384,14 @@ function OpportunityTabs({
   // True while the user has typed but the debounce hasn't fired yet
   const isSearching = searchQuery !== debouncedSearch;
 
+  // The chips win over the filter modal's type when one is picked.
+  const typeParam = OPPORTUNITY_TYPE_TABS.find(
+    (type) => type.value === typeFilter
+  )?.param;
+  const typedFilters: FiltersData = typeParam
+    ? { ...filters, opportunity_type: typeParam }
+    : filters;
+
   return (
     <>
       <FilterModal
@@ -351,6 +414,20 @@ function OpportunityTabs({
       <div className="relative dotlist-white">
         <div className="flex justify-between items-center 2xl:px-5 px-3 mobilescreen:px-[13px] mobilescreen:block">
           <div className="flex gap-8 mobilescreen:gap-7 mobilescreen:mb-5 mobilescreen:justify-center">
+            {/* A volunteer sees Registered / Attended; a team or entity sees
+                Organizer (and Sponsor, which volunteer teams don't have). */}
+            {isVolunteer && (
+              <button
+                className={`pb-1 ${
+                  activeTab === "registered"
+                    ? "text-primary-5 border-b-2 border-primary-5 text-[18px] 2xl:text-[25px] lg:text-[18px] md:text-[18px] xs:text-[13px] font-bold"
+                    : "text-[#000000] text-[18px] 2xl:text-[25px] lg:text-[18px] md:text-[18px] xs:text-[13px] font-normal"
+                }`}
+                onClick={() => setActiveTab("registered")}
+              >
+                {t("COMMON.REGISTERED")}
+              </button>
+            )}
             <button
               className={`pb-1 ${
                 activeTab === "organized"
@@ -359,9 +436,9 @@ function OpportunityTabs({
               }`}
               onClick={() => setActiveTab("organized")}
             >
-              {t("COMMON.ORGANIZED")}
+              {t(isVolunteer ? "COMMON.ATTENDED--" : "COMMON.ORGANIZER_TAG")}
             </button>
-            {!isVolunteerTeam && (
+            {!isVolunteerTeam && !isVolunteer && (
               <button
                 className={`pb-1 ${
                   activeTab === "sponsored"
@@ -370,35 +447,53 @@ function OpportunityTabs({
                 }`}
                 onClick={() => setActiveTab("sponsored")}
               >
-                {t("COMMON.SPONSORED")}
+                {t("COMMON.SPONSOR")}
               </button>
             )}
           </div>
 
-          <div className="orgsearch">
-            <Searchbar
-              onFilterClick={() => setOpen(true)}
-              onSearchChange={(value) => setSearchQuery(value)}
-              hasActiveFilters={hasAppliedFilters}
-              isLoading={isSearching}
-              onClearFilters={() => {
-                setFilters(EMPTY_PROFILE_FILTERS);
-                setClearFiltersKey((prev) => prev + 1);
-              }}
-            />
+          <div className="flex items-center gap-4 mobilescreen:flex-col mobilescreen:items-start">
+            <OpportunityTypeChips value={typeFilter} onChange={setTypeFilter} />
+            <div className="orgsearch">
+              <Searchbar
+                onFilterClick={() => setOpen(true)}
+                onSearchChange={(value) => setSearchQuery(value)}
+                hasActiveFilters={hasAppliedFilters}
+                isLoading={isSearching}
+                onClearFilters={() => {
+                  setFilters(EMPTY_PROFILE_FILTERS);
+                  setClearFiltersKey((prev) => prev + 1);
+                }}
+              />
+            </div>
           </div>
         </div>
+
+        {activeTab === "registered" && isVolunteer && (
+          <ProfileVolunteerCard
+            buttonText={undefined}
+            filter_type="registered"
+            filters={typedFilters}
+            searchQuery={debouncedSearch}
+            currentUser={user}
+            isPublicProfile={isPublicProfile}
+            user_id={user_id}
+            type="registered"
+            useNewApi
+          />
+        )}
 
         {activeTab === "organized" && (
           <ProfileVolunteerCard
             buttonText={undefined}
             filter_type="organized"
-            filters={filters}
+            filters={typedFilters}
             searchQuery={debouncedSearch}
             currentUser={user}
             isPublicProfile={isPublicProfile}
             user_id={user_id}
             type="organized"
+            useNewApi={isVolunteer}
           />
         )}
 
@@ -406,7 +501,7 @@ function OpportunityTabs({
           <ProfileVolunteerCard
             buttonText={undefined}
             filter_type="sponsored"
-            filters={filters}
+            filters={typedFilters}
             searchQuery={debouncedSearch}
             currentUser={user}
             isPublicProfile={isPublicProfile}

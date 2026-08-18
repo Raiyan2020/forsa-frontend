@@ -596,39 +596,21 @@ function InnerPost({ data, refetch }: PostData) {
 
           <div className="mb-4">
             <h2 className="text-xl font-bold mb-2 flex gap-3 items-center">
-              {data?.proposing_idea || data?.is_funding_required ? (
+              {/* Idea badge only — the funding ("Needs Support") badge was removed. */}
+              {data?.proposing_idea ? (
                 <div
                   className="flex items-center justify-center gap-1.5 border border-[#FC9555] bg-[#FAEADD] rounded-[20px]"
-                  style={{
-                    width:
-                      data?.proposing_idea && data?.is_funding_required
-                        ? 72
-                        : 60,
-                    height: 36,
-                  }}
+                  style={{ width: 60, height: 36 }}
                 >
-                  {data?.proposing_idea && (
-                    <div className="relative w-[12px] h-[19px]">
-                      <Image
-                        src="/assets/community/idia.svg"
-                        alt="Idea"
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  {data?.is_funding_required && (
-                    <div className="relative w-[27px] h-[27px]">
-                      <Image
-                        src="/assets/community/handsake.svg"
-                        alt="Funding"
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  )}
+                  <div className="relative w-[12px] h-[19px]">
+                    <Image
+                      src="/assets/community/idia.svg"
+                      alt="Idea"
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
                 </div>
               ) : null}
             </h2>

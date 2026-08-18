@@ -29,7 +29,6 @@ export default function Volunteer({ initialOpportunities = [] }: VolunteerProps)
               hasMargin={false}
             />
           </h2>
-          {!hasNoOpportunities && (
             <Link
               href="/volunteer-opportunities-list"
               className="text-primary-802 font-bold lg:text-lg md:text-lg text-base 2xl:text-xl"
@@ -37,7 +36,6 @@ export default function Volunteer({ initialOpportunities = [] }: VolunteerProps)
             >
               {t("COMMON.SHOW.ALL")}
             </Link>
-          )}
         </div>
         <VolunteerCard
           isOpportunity

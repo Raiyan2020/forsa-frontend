@@ -142,6 +142,10 @@ export const registerForVolunteerOpportunity = (data: any) =>
 export const unregisterFromVolunteerOpportunity = (id: string) =>
   apiClient.delete(`/volunteer-opportunities/${id}/unregister/`).then((r) => r.data);
 
+/** Creator-only: stop accepting registrations before the due date is reached. */
+export const closeVolunteerOpportunityRegistration = (id: string) =>
+  apiClient.post(`/volunteer-opportunities/${id}/close-registration/`).then((r) => r.data);
+
 export const deleteOpportunityImage = (data: any) =>
   apiClient.delete("/delete-opportunity-image/", { data }).then((r) => r.data);
 
@@ -316,6 +320,10 @@ export const registerForLearnServeOpportunity = (data: any) =>
 
 export const unregisterFromLearnServeOpportunity = (id: string) =>
   apiClient.post(`/learn-serve-opportunities/${id}/unregister/`).then((r) => r.data);
+
+/** Creator-only: stop accepting registrations before the due date is reached. */
+export const closeLearnServeOpportunityRegistration = (id: string) =>
+  apiClient.post(`/learn-serve-opportunities/${id}/close-registration/`).then((r) => r.data);
 
 export const deleteLearnServeRegistrationByOpportunity = ({ opportunity_id, user_id }: { opportunity_id: string | number; user_id: string | number }) =>
   apiClient.delete(`/learnserve/${opportunity_id}/unregister/${user_id}/`).then((r) => r.data);

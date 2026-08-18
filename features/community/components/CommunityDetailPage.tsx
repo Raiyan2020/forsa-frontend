@@ -519,13 +519,11 @@ export default function CommunityDetailPage({ id }: { id: string }) {
 
           <div className="mb-4">
             <h2 className="text-xl xs:text-base font-bold mb-2 flex gap-3">
-              {postData.proposing_idea || postData.is_funding_required ? (
+              {/* Idea badge only — the funding ("Needs Support") badge was removed. */}
+              {postData.proposing_idea ? (
                 <div
                   style={{
-                    width:
-                      postData.proposing_idea && postData.is_funding_required
-                        ? 72
-                        : 60,
+                    width: 60,
                     height: 36,
                     borderRadius: 20,
                     border: "1px solid #29246D",
@@ -536,24 +534,13 @@ export default function CommunityDetailPage({ id }: { id: string }) {
                     gap: 6,
                   }}
                 >
-                  {postData.proposing_idea && (
-                    <Image
-                      src={asset("community/idia.svg")}
-                      style={{ width: 12, height: 19.25 }}
-                      alt="Idea"
-                      width={12}
-                      height={20}
-                    />
-                  )}
-                  {postData.is_funding_required && (
-                    <Image
-                      src={asset("community/handsake.svg")}
-                      style={{ width: 27, height: 27 }}
-                      alt="Funding"
-                      width={27}
-                      height={27}
-                    />
-                  )}
+                  <Image
+                    src={asset("community/idia.svg")}
+                    style={{ width: 12, height: 19.25 }}
+                    alt="Idea"
+                    width={12}
+                    height={20}
+                  />
                 </div>
               ) : null}
             </h2>

@@ -38,6 +38,7 @@ import {
   clearSocialSignupState,
   takeSocialPrefill,
 } from "@/lib/auth/socialSignup";
+import { isLicenseExemptOrgType } from "@/data/orgTypes";
 
 const CountryCodeSelect = dynamic(
   () => import("@/components/ui/CountryCodeSelect"),
@@ -159,7 +160,7 @@ export default function CompleteDetails() {
         const selected = orgTypeOptions.find(
           (o: any) => String(o.value) === String(organizerTypeValue)
         );
-        const isPublic = selected?.rawValue === "Public";
+        const isPublic = isLicenseExemptOrgType(selected?.rawValue);
         return isPublic
           ? schema.notRequired()
           : schema.required(t("COMMON.REQUIRED.FIELD"));
@@ -186,7 +187,7 @@ export default function CompleteDetails() {
         const selected = orgTypeOptions.find(
           (o: any) => String(o.value) === String(organizer_type)
         );
-        const isPublic = selected?.rawValue === "Public";
+        const isPublic = isLicenseExemptOrgType(selected?.rawValue);
 
         if (isPublic) {
           if (!files || files.length === 0) return true;

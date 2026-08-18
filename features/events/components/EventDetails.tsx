@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -24,10 +23,9 @@ import {
   registerForEvent,
   unregisterFromEvent,
 } from "@/features/services/api";
-import { formatSingleDate } from "@/lib/helpers";
+import { formatSingleDate, openLocation } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
-import AddToCalendar from "@/components/shared/AddToCalendar";
 import EventFeedback from "./EventFeedback";
 import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
@@ -51,6 +49,7 @@ interface EventDetailsData {
   longitude: number | string;
   location_en: string;
   location_ar: string;
+  location_url?: string | null;
   from_age?: number;
   to_age?: number;
   registration_required?: boolean;
@@ -259,7 +258,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [showMoreDescription, setShowMoreDescription] = useState(false);
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<number>();
 
@@ -365,12 +363,9 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const organizerPath = event.created_by?.is_public
     ? `/public-profile/${event.created_by.id}`
     : `/volunteer-private-profile/${event.created_by?.id}`;
+  // The description is always shown in full — the View More toggle was removed.
   const description =
     (event.primary_language === "ar" ? event.description_ar : event.description_en) || "";
-  const visibleDescription =
-    description.length > 300 && !showMoreDescription
-      ? `${description.substring(0, 300)}...`
-      : description;
   const displayValue = (value?: ChoiceDisplay) =>
     value?.[language === "ar" ? "value_ar" : "value_en"] || "";
   const isActive = event.event_status === "upcoming" || event.event_status === "inprogress";
@@ -654,12 +649,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
               </DetailRow>
             </div>
 
-            {user?.auth_token && (
-              <div className="pb-5">
-                <AddToCalendar payload={event} />
-              </div>
-            )}
-
             <div className="mb-6 border-b">
               <div className="flex xss:flex-col">
                 <div className="w-1/2 pt-5 xss:w-full">
@@ -669,11 +658,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                       className="line-clamp-1 hover:underline"
                       title={language === "ar" ? event.location_ar : event.location_en}
                       onClick={() =>
-                        window.open(
-                          `https://www.google.com/maps/search/?api=1&query=${event.latitude},${event.longitude}`,
-                          "_blank",
-                          "noopener,noreferrer"
-                        )
+                        openLocation(event.location_url, event.latitude, event.longitude)
                       }
                     >
                       {language === "ar" ? event.location_ar : event.location_en}
@@ -705,20 +690,10 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                   />
                   {t("COMMON.DESCRIPTION")}
                 </h2>
-                {description.length > 300 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowMoreDescription((current) => !current)}
-                    className="flex items-center gap-1 font-bold text-secondary-102"
-                  >
-                    {t("COMMON.VIEW")} {t(showMoreDescription ? "COMMON.LESS" : "COMMON.MORE")}
-                    {showMoreDescription ? <ChevronUp /> : <ChevronDown />}
-                  </button>
-                )}
               </div>
               <div
                 className="text-sm font-semibold text-secondary-102 2xl:text-lg"
-                dangerouslySetInnerHTML={{ __html: visibleDescription }}
+                dangerouslySetInnerHTML={{ __html: description }}
               />
             </section>
 

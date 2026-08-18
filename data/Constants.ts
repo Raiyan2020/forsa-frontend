@@ -58,19 +58,19 @@ export const SponsorshipTypes = [
 
 export const OpportunityCategories = [
   { name_en: "Volunteer", name_ar: "تطوع", id: 1, value: "volunteer" },
-  { name_en: "Learn and Share", name_ar: "تعلم وشارك", id: 2, value: "learn" },
+  { name_en: "Development", name_ar: "تطور", id: 2, value: "learn" },
 ];
 
 export const OpportunityCategoriesOrganization = [
   { name_en: "Volunteer", name_ar: "متطوع", id: 1, value: "volunteer" },
-  { name_en: "Learn and Share", name_ar: "تعلم وشارك", id: 2, value: "learn" },
+  { name_en: "Development", name_ar: "تطور", id: 2, value: "learn" },
   { name_en: "Event", name_ar: "حدث", id: 3, value: "event" },
 ]
 
 export const OpportunityStatus = [
-  { name_en: "In Progress", name_ar: "بدأت", id: 1, value: "inprogress" },
+  { name_en: "Started", name_ar: "بدأت", id: 1, value: "inprogress" },
   { name_en: "Upcoming", name_ar: "قادمة", id: 2, value: "upcoming" },
-  { name_en: "Finished", name_ar: "منتهية", id: 3, value: "completed" },
+  { name_en: "Ended", name_ar: "انتهت", id: 3, value: "completed" },
 ]
 
 export const nationalityOptions = [

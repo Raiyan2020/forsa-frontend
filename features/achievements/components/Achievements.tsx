@@ -102,8 +102,21 @@ export default function Achievements() {
   const topData = apiResponseForTop?.data;
   const totalVolunteerHours = chartData?.grand_total_hours;
   const vol_opp_completed = chartData?.volunteer_opportunities_completed;
-  const learnserve_opp_completed = chartData?.learn_serve_opportunities_completed;
-  const relief_trips = chartData?.relief_trips;
+  // The backend renamed both counters and kept the old keys as aliases:
+  // learn & share → development, relief → outside Kuwait.
+  const learnserve_opp_completed =
+    chartData?.development_opportunities_completed ??
+    chartData?.learn_serve_opportunities_completed;
+  const relief_trips = chartData?.outside_kuwait_trips ?? chartData?.relief_trips;
+
+  // Economic impact = volunteer hours × the backend's KWD rate (6 by default).
+  // Prefer the computed value from the API and only fall back to the formula.
+  const economicImpactRate = chartData?.economic_impact_rate_kwd ?? 6;
+  const economicImpact =
+    chartData?.economic_impact_kwd ??
+    (typeof totalVolunteerHours === "number"
+      ? totalVolunteerHours * economicImpactRate
+      : 0);
 
   const buildLeaderboardTitle = (
     section: LeaderboardType,
@@ -210,7 +223,7 @@ export default function Achievements() {
                   reliefTrips={relief_trips}
                 />
               </div>
-              <div className="grid gap-[15px] lg:grid-cols-3 xss:grid-cols-1">
+              <div className="grid gap-[15px] lg:grid-cols-4 md:grid-cols-2 xss:grid-cols-1">
                 <div className="bg-[#9F6DEE4D]/30 rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
                   <div className="text-xl font-semibold text-[#9F6DEE] pb-3 h-[40px]">
                     {vol_opp_completed || 0}
@@ -233,6 +246,14 @@ export default function Achievements() {
                   </div>
                   <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#4E5B08] font-semibold flex items-start justify-center">
                     {t("ACHIEVEMENTS.RELIEF_TRIP")}
+                  </div>
+                </div>
+                <div className="bg-[#FC95554D]/30 rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
+                  <div className="text-xl text-[#B4531C] font-semibold pb-3 h-[40px]">
+                    {economicImpact.toLocaleString()} {t("COMMON.KWD")}
+                  </div>
+                  <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#B4531C] font-semibold flex items-start justify-center">
+                    {t("ACHIEVEMENTS.ECONOMIC_IMPACT")}
                   </div>
                 </div>
               </div>

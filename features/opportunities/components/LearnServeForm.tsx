@@ -53,6 +53,7 @@ import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
+  YupOptionalUrl,
   YupNumberOnly,
   YupRequiredString,
 } from "@/lib/schema";
@@ -91,6 +92,7 @@ interface LearnServeFormValues {
   learnServeFormat: string;
   certificateType: string;
   location: string;
+  location_url: string;
   latitude: string;
   longitude: string;
   meetingLink: string;
@@ -715,6 +717,7 @@ export default function LearnServeForm({
       opportunityData?.[
         selectedLanguage === "ar" ? "location_ar" : "location_en"
       ] || "",
+    location_url: opportunityData?.location_url || "",
     latitude: opportunityData?.latitude?.toString() || "",
     longitude: opportunityData?.longitude?.toString() || "",
     meetingLink: opportunityData?.link || "",
@@ -770,8 +773,9 @@ export default function LearnServeForm({
               return textContent.length > 0;
             }
           ),
+        // Optional: with no due date the backend keeps registration open until
+        // the opportunity's last day (`end_date`).
         dueDate: Yup.string()
-          .concat(YupRequiredString)
           .test(
             "due-date-in-future",
             i18n.t("COMMON.DATE_MUST_BE_FUTURE"),
@@ -847,6 +851,7 @@ export default function LearnServeForm({
           then: () => YupRequiredString,
           otherwise: () => Yup.string(),
         }),
+        location_url: YupOptionalUrl,
         location: Yup.string().when(
           "learnServeFormat",
           ([learnServeFormat], schema) =>
@@ -1032,6 +1037,7 @@ export default function LearnServeForm({
         formData.append("link", values.meetingLink || "");
       } else {
         formData.append("location", values.location || "");
+        formData.append("location_url", values.location_url || "");
         if (values.latitude) formData.append("latitude", values.latitude);
         if (values.longitude) formData.append("longitude", values.longitude);
       }
@@ -1630,6 +1636,13 @@ export default function LearnServeForm({
                             disabled
                           />
                         )}
+                        <Input
+                          name="location_url"
+                          label={t("COMMON.LOCATION_URL")}
+                          placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
+                          type="text"
+                          className="w-full"
+                        />
                       </div>
                       <div className="w-full">
                         <div className="flex w-full xss:flex-col gap-6 xss:gap-0">

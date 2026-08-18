@@ -51,6 +51,7 @@ import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupNumberOnly,
+  YupOptionalUrl,
   YupRequiredString,
   YupStringMaxLength,
   YupWhatsAppLink,
@@ -80,6 +81,7 @@ interface VolunteerFormValues {
   volunteerHoursPerDay: string;
   gender: string;
   location: string;
+  location_url: string;
   link: string;
   isPrivate?: string;
   description: string;
@@ -527,6 +529,7 @@ export default function VolunteerForm({
         ? "private"
         : "public"
       : "",
+    location_url: opportunityData?.location_url || "",
     latitude: opportunityData?.latitude?.toString() || "",
     longitude: opportunityData?.longitude?.toString() || "",
     sponsors: opportunityData?.opportunity_sponsor_images?.length
@@ -633,6 +636,7 @@ export default function VolunteerForm({
         return (!!value && latitude !== undefined) || longitude !== undefined;
       }
     ),
+    location_url: YupOptionalUrl,
     link: YupWhatsAppLink.concat(YupRequiredString),
     description: Yup.string()
       .concat(YupRequiredString)
@@ -723,6 +727,7 @@ export default function VolunteerForm({
         values.nationality === "all" ? "all" : "kuwaitis"
       );
       formData.append("location", values.location);
+      formData.append("location_url", values.location_url);
 
       Object.entries(checkboxValues).forEach(([key, value]) => {
         formData.append(key, String(value));
@@ -1128,7 +1133,15 @@ export default function VolunteerForm({
                         className="w-full"
                       />
                     </div>
-                    <div className="w-full md:w-1/2" />
+                    <div className="w-full md:w-1/2">
+                      <Input
+                        name="location_url"
+                        label={t("COMMON.LOCATION_URL")}
+                        placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
+                        className="w-full"
+                        onFocus={() => setFieldTouched("location_url", true)}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex 2xl:gap-[143px] laptopitm:gap-[100px] lg:gap-[100px] miniscreen:gap-[85px] miniscreen7:gap-[95px] miniscreen6:gap-[120px] msscreen1:gap-[140px] justify-center mobilescreen:gap-1 mobilescreen:flex-col mb-4 mobilescreen:mb-4 checkbox-container">

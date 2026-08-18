@@ -31,6 +31,8 @@ import {
   updateOrganizerProfile,
 } from "@/features/services/api";
 import { socialMediaOptions } from "@/data/Constants";
+import { isLicenseExemptOrgType } from "@/data/orgTypes";
+import { withCacheBust } from "@/lib/helpers";
 import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -231,7 +233,7 @@ export default function OrganizerAccountInformation() {
         const selected = orgTypeOptions.find(
           (o: any) => String(o.value) === String(organizer_type)
         );
-        const isPublic = selected?.rawValue === "Public";
+        const isPublic = isLicenseExemptOrgType(selected?.rawValue);
 
         // When files are provided, always validate size
         if (files && files.length > 0) {
@@ -371,9 +373,15 @@ export default function OrganizerAccountInformation() {
       setUploadError(null);
       setComponentKey((prev) => prev + 1);
 
+      // The API overwrites the picture at the same URL, so the saved one only
+      // shows up after a refresh unless the URL is cache-busted.
       const imageUrl = URL.createObjectURL(croppedImage);
       setProfilePic(imageUrl);
-      updateProfilePic(response?.data?.profile_pic || imageUrl);
+      updateProfilePic(
+        response?.data?.profile_pic
+          ? withCacheBust(response.data.profile_pic)
+          : imageUrl
+      );
 
       // Close the crop modal
       setShowCropModal(false);

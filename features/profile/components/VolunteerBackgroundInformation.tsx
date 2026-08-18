@@ -283,13 +283,17 @@ export default function VolunteerBackgroundInformation({
               label={t("COMMON.VOLUNTEER_OPPORTUNITIES-")}
               color="opportunities"
             />
-            <StatCard
-              icon={asset("profile/statistics/n_Certificate.svg")}
-              alt="Certificate"
-              value={stats.certificates}
-              label={t("COMMON.CERTIFICATE-")}
-              color="certificates"
-            />
+            {/* Hours and volunteer opportunities always show, even at zero;
+                the rest only once the volunteer has something to show. */}
+            {stats.certificates > 0 && (
+              <StatCard
+                icon={asset("profile/statistics/n_Certificate.svg")}
+                alt="Certificate"
+                value={stats.certificates}
+                label={t("COMMON.CERTIFICATE-")}
+                color="certificates"
+              />
+            )}
           </div>
         </div>
       </div>

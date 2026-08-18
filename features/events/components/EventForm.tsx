@@ -43,6 +43,7 @@ import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
+  YupOptionalUrl,
   YupRequiredString,
   YupStringMaxLength,
 } from "@/lib/schema";
@@ -69,6 +70,7 @@ interface EventFormValues {
   gender: string;
   description: string;
   location: string;
+  location_url: string;
   registration_link: string;
   _interests: string[];
   event_images: File[];
@@ -427,6 +429,7 @@ export default function EventForm({
         String(interest.id)
       ) || [],
     event_images: [],
+    location_url: eventData?.location_url || "",
     latitude: eventData?.latitude?.toString() || "",
     longitude: eventData?.longitude?.toString() || "",
     sponsors: eventData?.event_sponsor_images?.length
@@ -493,6 +496,7 @@ export default function EventForm({
       then: (schema) => schema.nullable(),
       otherwise: () => YupFlexibleUrl,
     }),
+    location_url: YupOptionalUrl,
     location: YupRequiredString.test(
       "has-coordinates",
       t("COMMON.INVALID_ADDRESS"),
@@ -601,6 +605,7 @@ export default function EventForm({
         values.age[1] !== null ? values.age[1].toString() : ""
       );
       formData.append("location", values.location);
+      formData.append("location_url", values.location_url);
       if (values.gender) formData.append("gender", values.gender);
       values._interests.forEach((interest) => {
         formData.append("_interests", interest);
@@ -892,6 +897,13 @@ export default function EventForm({
                           onLngChange={(lng) => setFieldValue("longitude", lng)}
                           className="w-full"
                         />
+                        <Input
+                          name="location_url"
+                          label={t("COMMON.LOCATION_URL")}
+                          placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
+                          type="text"
+                          className="w-full"
+                        />
                       </div>
                     </div>
                   </div>
@@ -955,6 +967,13 @@ export default function EventForm({
                           onChange={(val) => setFieldValue("location", val)}
                           onLatChange={(lat) => setFieldValue("latitude", lat)}
                           onLngChange={(lng) => setFieldValue("longitude", lng)}
+                          className="w-full"
+                        />
+                        <Input
+                          name="location_url"
+                          label={t("COMMON.LOCATION_URL")}
+                          placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
+                          type="text"
                           className="w-full"
                         />
                       </div>

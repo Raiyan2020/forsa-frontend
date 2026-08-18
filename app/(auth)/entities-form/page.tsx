@@ -42,6 +42,7 @@ import {
   createPhoneNumberSchema,
 } from "@/lib/schema";
 import { handleGoogleLogin } from "@/lib/helpers";
+import { isLicenseExemptOrgType } from "@/data/orgTypes";
 import dynamic from "next/dynamic";
 const CountryCodeSelect = dynamic(
   () => import("@/components/ui/CountryCodeSelect"),
@@ -117,7 +118,7 @@ function EntitiesAccountPageComponent() {
     license_number: YupDigitsOnlyOptional(100).when("organizer_type", (organizer_type: any, schema: any) => {
       const organizerTypeValue = Array.isArray(organizer_type) ? organizer_type[0] : organizer_type;
       const selected = orgTypeOptions.find((o: any) => String(o.value) === String(organizerTypeValue));
-      const isPublic = selected?.rawValue === "Public";
+      const isPublic = isLicenseExemptOrgType(selected?.rawValue);
       return isPublic ? schema.notRequired() : schema.required(t("COMMON.REQUIRED.FIELD"));
     }),
     nickname: YupStringMaxLength(30)
@@ -135,7 +136,7 @@ function EntitiesAccountPageComponent() {
     documents: Yup.array().test("fileSizeAndRequired", t("COMMON.FILE.TOO.LARGE"), function (files) {
       const organizer_type = this.parent?.organizer_type;
       const selected = orgTypeOptions.find((o: any) => String(o.value) === String(organizer_type));
-      const isPublic = selected?.rawValue === "Public";
+      const isPublic = isLicenseExemptOrgType(selected?.rawValue);
 
       if (isPublic) {
         if (!files || files.length === 0) return true;

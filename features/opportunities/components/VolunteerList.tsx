@@ -1160,6 +1160,11 @@ export default function VolunteerList() {
                               {volunteer.full_name}
                             </span>
                           </div>
+                          {(volunteer.civil_id || volunteer.user?.civil_id) && (
+                            <div className="text-xs text-gray-500">
+                              {volunteer.civil_id || volunteer.user?.civil_id}
+                            </div>
+                          )}
                           <div className="text-sm text-gray-500">
                             {volunteer.email}
                           </div>
@@ -1319,14 +1324,22 @@ export default function VolunteerList() {
                             alt={rowData.full_name}
                             className="w-10 h-10 rounded-full object-cover"
                           />
-                          <span
-                            className="cursor-pointer text-primary-5"
-                            onClick={() =>
-                              goToProfile(user, rowData.user_id || rowData.id)
-                            }
-                          >
-                            {rowData.full_name}
-                          </span>
+                          <div className="flex flex-col">
+                            <span
+                              className="cursor-pointer text-primary-5"
+                              onClick={() =>
+                                goToProfile(user, rowData.user_id || rowData.id)
+                              }
+                            >
+                              {rowData.full_name}
+                            </span>
+                            {/* Reports show the volunteer's civil ID under the name */}
+                            {(rowData.civil_id || user?.civil_id) && (
+                              <span className="text-xs text-gray-500">
+                                {rowData.civil_id || user?.civil_id}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     }

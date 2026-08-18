@@ -157,6 +157,29 @@ export const YupFlexibleUrl = YupRequiredString.test(
   }
 );
 
+// Optional URL — same lenient parsing as YupFlexibleUrl, but blank passes.
+export const YupOptionalUrl = Yup.string().test(
+  "is-valid-optional-url",
+  () => i18n.t("COMMON.INVALID.URL"),
+  function (value) {
+    if (!value || value.trim() === "") {
+      return true;
+    }
+
+    let normalizedValue = value.trim();
+    if (!/^https?:\/\//i.test(normalizedValue)) {
+      normalizedValue = "https://" + normalizedValue;
+    }
+
+    try {
+      new URL(normalizedValue);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+);
+
 // WhatsApp link validation
 export const YupWhatsAppLink = Yup.string().test(
   "is-valid-whatsapp-link",

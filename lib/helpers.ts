@@ -133,6 +133,57 @@ export const fetchAddress = async (
   }
 };
 
+/**
+ * Append a cache-busting query to an uploaded image URL. The API overwrites a
+ * profile picture in place, so the URL is unchanged after a re-upload and the
+ * browser would keep serving the previous file from cache.
+ *
+ * Call this from an event handler or effect — never during render, where the
+ * timestamp would differ between the server and client markup.
+ */
+export const withCacheBust = (url?: string | null): string => {
+  if (!url) return "";
+  return `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+};
+
+/**
+ * Open an opportunity's / event's location: the map link the organiser saved in
+ * `location_url` when there is one, otherwise a Google Maps search built from
+ * the stored coordinates.
+ */
+export const openLocation = (
+  locationUrl?: string | null,
+  latitude?: number | string | null,
+  longitude?: number | string | null
+) => {
+  const url = locationUrl?.trim();
+  if (url) {
+    window.open(
+      /^https?:\/\//i.test(url) ? url : `https://${url}`,
+      "_blank",
+      "noopener"
+    );
+    return;
+  }
+
+  if (
+    latitude === null ||
+    latitude === undefined ||
+    latitude === "" ||
+    longitude === null ||
+    longitude === undefined ||
+    longitude === ""
+  ) {
+    return;
+  }
+
+  window.open(
+    `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+    "_blank",
+    "noopener"
+  );
+};
+
 export const handleShare = async (url: string, t: (key: string) => string) => {
   const shareData = {
     url: url,

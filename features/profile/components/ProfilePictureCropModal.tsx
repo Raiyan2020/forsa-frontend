@@ -7,7 +7,14 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 
-/** Renders the selected crop region to a JPEG File. */
+/**
+ * The API stores whatever it is sent, so the browser is what keeps profile
+ * pictures small: a phone camera crop can be several thousand pixels wide.
+ */
+const MAX_PROFILE_PICTURE_EDGE = 1024;
+const PROFILE_PICTURE_QUALITY = 0.82;
+
+/** Renders the selected crop region to a downscaled, compressed JPEG File. */
 export async function createCroppedImage(
   imageSrc: string,
   pixelCrop: { x: number; y: number; width: number; height: number },
@@ -23,15 +30,20 @@ export async function createCroppedImage(
 
       if (!ctx) return;
 
-      // Ensure we have the exact dimensions for the cropped area
-      canvas.width = pixelCrop.width;
-      canvas.height = pixelCrop.height;
+      // Fit the crop inside MAX_PROFILE_PICTURE_EDGE, never upscaling it
+      const scale = Math.min(
+        1,
+        MAX_PROFILE_PICTURE_EDGE / Math.max(pixelCrop.width, pixelCrop.height)
+      );
+      canvas.width = Math.round(pixelCrop.width * scale);
+      canvas.height = Math.round(pixelCrop.height * scale);
 
       // Clear the canvas so transparency is handled correctly
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingQuality = "high";
 
-      // Draw the cropped portion with high quality
+      // Draw the cropped portion into the (possibly smaller) canvas
       ctx.drawImage(
         image,
         pixelCrop.x,
@@ -40,11 +52,10 @@ export async function createCroppedImage(
         pixelCrop.height,
         0,
         0,
-        pixelCrop.width,
-        pixelCrop.height
+        canvas.width,
+        canvas.height
       );
 
-      // Convert to blob with higher quality (0.9) to preserve details
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -52,7 +63,7 @@ export async function createCroppedImage(
           }
         },
         "image/jpeg",
-        0.9
+        PROFILE_PICTURE_QUALITY
       );
     };
   });

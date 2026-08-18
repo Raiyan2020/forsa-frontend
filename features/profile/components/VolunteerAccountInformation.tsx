@@ -40,6 +40,7 @@ import {
 import {
   formatDateToYYYYMMDD,
   getDefaultProfileImage,
+  withCacheBust,
 } from "@/lib/helpers";
 import {
   YupCivilId,
@@ -530,9 +531,15 @@ export default function VolunteerAccountInformation() {
       setComponentKey((prev) => prev + 1);
       toast.success(t("COMMON.TOAST.PROFILE_PIC_UPDATE_SUCCESSFULLY"));
 
+      // The API overwrites the picture at the same URL, so the saved one only
+      // shows up after a refresh unless the URL is cache-busted.
       const imageUrl = URL.createObjectURL(croppedFile);
       setProfilePic(imageUrl);
-      updateProfilePic(response?.data?.profile_pic || imageUrl);
+      updateProfilePic(
+        response?.data?.profile_pic
+          ? withCacheBust(response.data.profile_pic)
+          : imageUrl
+      );
 
       // Close crop modal
       setShowCropModal(false);

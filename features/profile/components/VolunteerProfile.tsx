@@ -69,7 +69,7 @@ export default function VolunteerProfile() {
           total_certificates={profile?.total_certificates}
           statistics={profile?.statistics}
         />
-        <ProfileDescriptionTabs isVolunteerTeam={false} />
+        <ProfileDescriptionTabs isVolunteerTeam={false} isVolunteer />
       </div>
     </div>
   );

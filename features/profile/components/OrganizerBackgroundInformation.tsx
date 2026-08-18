@@ -252,16 +252,20 @@ export default function OrganizerBackgroundInformation({
               heightClass={cardHeight}
               labelHeightClass={labelHeight}
             />
-            <StatCard
-              icon={asset("profile/statistics/n_learnServeicn.svg")}
-              alt="Learn & serve opportunities"
-              value={learn_opportunity_organized || 0}
-              label={t("COMMON.OPPORTUNITIESORGANIZED--")}
-              color="learnServe"
-              heightClass={cardHeight}
-              labelHeightClass={labelHeight}
-            />
-            {!isVolunteerTeam && (
+            {/* Hours and volunteer opportunities always show, even at zero;
+                development and sponsorship only once they have a value. */}
+            {(learn_opportunity_organized ?? 0) > 0 && (
+              <StatCard
+                icon={asset("profile/statistics/n_learnServeicn.svg")}
+                alt="Development opportunities"
+                value={learn_opportunity_organized || 0}
+                label={t("COMMON.OPPORTUNITIESORGANIZED--")}
+                color="learnServe"
+                heightClass={cardHeight}
+                labelHeightClass={labelHeight}
+              />
+            )}
+            {!isVolunteerTeam && (sponsored_count ?? 0) > 0 && (
               <StatCard
                 icon={asset("profile/statistics/n_sponseredbyus.svg")}
                 alt="Sponsored"

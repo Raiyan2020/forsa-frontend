@@ -53,7 +53,7 @@ export default function Events({ initialEvents = [] }: EventsProps) {
             />
           </h2>
 
-          {navigationVisibility && (
+          {/* {navigationVisibility && ( */}
             <Link
               href="/events-and-activities"
               className="text-primary-801 font-bold lg:text-lg md:text-lg text-base 2xl:text-xl"
@@ -61,7 +61,7 @@ export default function Events({ initialEvents = [] }: EventsProps) {
             >
               {t("COMMON.SHOW.ALL")}
             </Link>
-          )}
+          {/* )} */}
         </div>
         <EventCard
           events={events}

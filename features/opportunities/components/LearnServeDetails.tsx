@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -8,10 +9,9 @@ import moment from "moment";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { FiDownload } from "react-icons/fi";
-import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
+import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
-import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
@@ -25,12 +25,17 @@ import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
 import {
+  closeLearnServeOpportunityRegistration,
   deleteOpportunityImage,
   downloadOpportunityImage,
   getLearnServeOpportunityById,
   updateLearnServeOpportunityImages,
 } from "@/features/services/api";
-import { formatSingleDate, getDefaultProfileImage } from "@/lib/helpers";
+import {
+  formatSingleDate,
+  getDefaultProfileImage,
+  openLocation,
+} from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
   NAV_STATE_KEYS,
@@ -72,6 +77,7 @@ export interface LearnServeOpportunityData {
   end_time: string;
   location_en?: string;
   location_ar?: string;
+  location_url?: string | null;
   latitude?: number | string;
   longitude?: number | string;
   link?: string;
@@ -81,6 +87,8 @@ export interface LearnServeOpportunityData {
   registered_volunteers_count?: number;
   opportunity_status?: string;
   is_creator?: boolean;
+  is_registration_closed?: boolean;
+  is_registration_open?: boolean;
   is_registered?: boolean;
   is_attended?: boolean;
   is_kuwaitis?: boolean;
@@ -153,7 +161,6 @@ export default function LearnServeDetails({
 
   const id = opportunityId;
 
-  const [showMoreDescription, setShowMoreDescription] = useState(false);
   const [open, setOpen] = useState(false);
   const [modalState, setModalState] = useState<1 | 2 | 3>(1);
   const [modalType, setModalType] = useState<"auth" | "consultation">("auth");
@@ -177,6 +184,7 @@ export default function LearnServeDetails({
   const [mandateDetailsData, setMandateDetailsData] = useState<any>(null);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [showCloseRegistration, setShowCloseRegistration] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
@@ -196,6 +204,9 @@ export default function LearnServeDetails({
     mutationFn: updateLearnServeOpportunityImages,
   });
   const deleteImageMutation = useMutation({ mutationFn: deleteOpportunityImage });
+  const closeRegistrationMutation = useMutation({
+    mutationFn: () => closeLearnServeOpportunityRegistration(id),
+  });
   const downloadImageMutation = useMutation({
     mutationFn: downloadOpportunityImage,
   });
@@ -227,6 +238,19 @@ export default function LearnServeDetails({
     console.error("Error fetching opportunity details:", error);
     toast.error(t("COMMON.ERROR_FETCHING_OPPORTUNITY"));
   }, [opportunityQuery.error, selectedLanguage, t, router]);
+
+  // Fancybox previews the post-completion gallery in place of a new browser tab
+  useEffect(() => {
+    const galleryId = `opportunity-gallery-${id}`;
+    NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
+      showClass: "fancybox-zoomIn",
+      hideClass: "fancybox-zoomOut",
+    });
+    return () => {
+      NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`);
+      NativeFancybox.close();
+    };
+  }, [id]);
 
   // A LinkedIn sign-up bounces through /linkedin-callback and lands back here
   // with the new user's profile stashed; pick it up once and clear it.
@@ -334,12 +358,6 @@ export default function LearnServeDetails({
     setShowEmailVerification(false);
   };
 
-  const openGoogleMaps = (latitude: number, longitude: number) => {
-    window.open(
-      `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
-      "_blank"
-    );
-  };
 
   const handleRegisterClick = () => {
     if (opportunityData?.is_creator) {
@@ -384,6 +402,19 @@ export default function LearnServeDetails({
   const handleRepublishClick = () => {
     setNavState(NAV_STATE_KEYS.learnServeForm, { id, isRepublish: true });
     router.push("/learn-and-share-form");
+  };
+
+  /** Creator-only: stop accepting registrations without waiting for the due date. */
+  const handleCloseRegistration = async () => {
+    try {
+      await closeRegistrationMutation.mutateAsync();
+      toast.success(t("COMMON.TOAST.CLOSE_REGISTRATION_SUCCESS"));
+      setShowCloseRegistration(false);
+      refetch();
+    } catch (error) {
+      console.error("Close registration failed:", error);
+      toast.error(t("COMMON.TOAST.CLOSE_REGISTRATION_FAILED"));
+    }
   };
 
   const openDeleteModal = (imageId: number) => {
@@ -462,12 +493,25 @@ export default function LearnServeDetails({
       opportunityData?.opportunity_status === "inprogress" ||
       hasStarted);
 
+  /**
+   * The due date is optional now: without one, registration stays open until
+   * the opportunity's last day. The creator can also close it by hand, which
+   * the backend reports as is_registration_closed / is_registration_open.
+   */
+  const closedByCreator =
+    opportunityData?.is_registration_closed === true ||
+    opportunityData?.is_registration_open === false;
+  const registrationDeadline =
+    opportunityData?.due_date || opportunityData?.end_date || null;
+  const withinRegistrationWindow =
+    !closedByCreator &&
+    (!registrationDeadline ||
+      moment.utc().isSameOrBefore(moment.utc(registrationDeadline), "day"));
+
   const showActionButton =
     (user ? user.is_verified === true : true) &&
     (isCreator ||
-      (moment
-        .utc()
-        .isSameOrBefore(moment.utc(opportunityData?.due_date), "day") &&
+      (withinRegistrationWindow &&
         ((opportunityData?.is_registered &&
           opportunityData?.opportunity_status !== "completed") ||
           (user?.user_type !== "organization" &&
@@ -481,6 +525,10 @@ export default function LearnServeDetails({
                 (opportunityData?.registered_volunteers_count ?? 0) >=
                 (opportunityData?.participants_needed ?? 0))
             )))));
+
+  // Only worth offering while the opportunity is still taking registrations.
+  const canCloseRegistration =
+    isCreator && !isRepostState && withinRegistrationWindow;
 
   const actionButtonLabel = isRepostState
     ? t("COMMON.REPOST")
@@ -496,14 +544,11 @@ export default function LearnServeDetails({
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
     : `/public-profile/${opportunityData?.created_by?.id}`;
 
+  // The description is always shown in full — the View More toggle was removed.
   const description =
     (opportunityData?.primary_language === "ar"
       ? opportunityData?.description_ar
       : opportunityData?.description_en) || "";
-  const visibleDescription =
-    description.length > 300 && !showMoreDescription
-      ? `${description.substring(0, 300)}...`
-      : description;
 
   const format = opportunityData?.format_display?.value_en;
   const isInPerson = format === "IN PERSON";
@@ -515,21 +560,50 @@ export default function LearnServeDetails({
     isInPerson,
   };
 
-  const actionButton = (mobile: boolean) =>
-    showActionButton ? (
-      <Button
-        variant="primary"
-        size="medium"
-        className={
-          mobile
-            ? "whitespace-nowrap my-6 w-full !h-14"
-            : "whitespace-nowrap block xss:hidden"
-        }
-        onClick={isRepostState ? handleRepublishClick : handleRegisterClick}
-      >
-        {actionButtonLabel}
-      </Button>
-    ) : null;
+  const actionButton = (mobile: boolean) => (
+    <div
+      className={
+        mobile ? "flex flex-col" : "flex flex-col items-end gap-2"
+      }
+    >
+      {showActionButton && (
+        <Button
+          variant="primary"
+          size="medium"
+          className={
+            mobile
+              ? "whitespace-nowrap my-6 w-full !h-14"
+              : "whitespace-nowrap block xss:hidden"
+          }
+          onClick={isRepostState ? handleRepublishClick : handleRegisterClick}
+        >
+          {actionButtonLabel}
+        </Button>
+      )}
+
+      {/* The creator can close registration before the due date */}
+      {canCloseRegistration && (
+        <Button
+          variant="secondary"
+          size="medium"
+          className={
+            mobile
+              ? "whitespace-nowrap mb-6 w-full !h-14"
+              : "whitespace-nowrap block xss:hidden"
+          }
+          onClick={() => setShowCloseRegistration(true)}
+        >
+          {t("COMMON.CLOSE_REGISTRATION")}
+        </Button>
+      )}
+
+      {closedByCreator && (
+        <span className="whitespace-nowrap rounded-[20px] bg-[#F1F1F5] px-4 py-2 text-sm font-bold text-secondary-102">
+          {t("COMMON.REGISTRATION_CLOSED")}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div className={`w-full ${selectedLanguage === "ar" ? "rlt" : "ltr"}`}>
@@ -911,14 +985,6 @@ export default function LearnServeDetails({
                 </div>
               </div>
 
-              <div className="flex gap-7 items-center">
-                {authToken && (
-                  <div className="pt-5 mobilescreen:pt-3.5">
-                    <AddToCalendar payload={opportunityData} />
-                  </div>
-                )}
-              </div>
-
               <div className="border-b mb-6">
                 <div className="flex mt-5 mobilescreen:mt-3.5 xss:flex-col">
                   <div className="w-1/2 xss:w-full">
@@ -1044,15 +1110,16 @@ export default function LearnServeDetails({
                                 : "mr-3 left-[3px]"
                               } w-5 h-5 object-contain relative`}
                             src="/assets/homepage/locations.svg"
-                            alt=""
+                            alt=" Location Icon"
                           />
                           <div>
                             <p
                               className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold line-clamp-1 cursor-pointer hover:underline"
                               onClick={() =>
-                                openGoogleMaps(
-                                  Number(opportunityData?.latitude),
-                                  Number(opportunityData?.longitude)
+                                openLocation(
+                                  opportunityData?.location_url,
+                                  opportunityData?.latitude,
+                                  opportunityData?.longitude
                                 )
                               }
                               title={
@@ -1066,9 +1133,7 @@ export default function LearnServeDetails({
                                 (selectedLanguage === "ar"
                                   ? opportunityData?.location_ar
                                   : opportunityData?.location_en) || ""
-                              )
-                                .slice(0, 18)
-                                .concat("...")}
+                              )}
                             </p>
                           </div>
                         </>
@@ -1160,21 +1225,10 @@ export default function LearnServeDetails({
                     />
                     {t("COMMON.DESCRIPTION")}
                   </h3>
-                  {description.length > 300 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreDescription((prev) => !prev)}
-                      className="text-secondary-102 2xl:text-xl lg:text-base text-sm font-bold flex items-center gap-1 xsmall:text-xs"
-                    >
-                      {t("COMMON.VIEW")}{" "}
-                      {showMoreDescription ? t("COMMON.LESS") : t("COMMON.MORE")}{" "}
-                      {showMoreDescription ? <IoIosArrowUp /> : <IoIosArrowDown />}
-                    </button>
-                  )}
                 </div>
                 <div
                   className="2xl:text-lg lg:text-sm text-sm font-normal text-secondary-102"
-                  dangerouslySetInnerHTML={{ __html: visibleDescription }}
+                  dangerouslySetInnerHTML={{ __html: description }}
                 />
               </div>
 
@@ -1265,51 +1319,51 @@ export default function LearnServeDetails({
                 )}
 
               {afterCompletedImages.length > 0 && (
-                <div className="relative mt-6 pb-4">
-                  <div className="w-full overflow-hidden">
-                    <div className="flex overflow-x-auto pb-4 gap-4" id="style-1">
-                      {afterCompletedImages.map((image) => (
-                        <div
-                          key={image.id}
-                          className="relative group flex-shrink-0 min-w-[20px]"
+                <div className="relative mt-6">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+                    {afterCompletedImages.map((image) => (
+                      <div key={image.id} className="relative group">
+                        <a
+                          href={image.image}
+                          data-fancybox={`opportunity-gallery-${id}`}
+                          className="block cursor-zoom-in"
+                          title={t("COMMON.CLICK_TO_VIEW")}
                         >
                           <img
                             src={image.image}
                             alt="Completed opportunity"
-                            className="w-48 h-48 object-cover rounded-lg cursor-pointer"
-                            onClick={() => window.open(image.image, "_blank")}
-                            title={t("COMMON.CLICK_TO_VIEW")}
+                            className="aspect-square w-full rounded-lg object-cover"
                           />
-                          <div
-                            className={`absolute top-2 right-2 ${isCreator ? "flex gap-2" : ""}`}
+                        </a>
+                        <div
+                          className={`absolute top-2 right-2 ${isCreator ? "flex gap-2" : ""}`}
+                        >
+                          <button
+                            type="button"
+                            className="w-6 h-6 flex items-center justify-center rounded-full border border-blue-400 bg-white text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-blue-100"
+                            onClick={() =>
+                              handleDownloadImage(
+                                image.id,
+                                `opportunity_${opportunityData?.id}`
+                              )
+                            }
+                            title={t("COMMON.DOWNLOAD_IMAGE")}
                           >
+                            <FiDownload size={14} />
+                          </button>
+                          {isCreator && (
                             <button
                               type="button"
-                              className="w-6 h-6 flex items-center justify-center rounded-full border border-blue-400 bg-white text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-blue-100"
-                              onClick={() =>
-                                handleDownloadImage(
-                                  image.id,
-                                  `opportunity_${opportunityData?.id}`
-                                )
-                              }
-                              title={t("COMMON.DOWNLOAD_IMAGE")}
+                              className="w-6 h-6 flex items-center justify-center rounded-full border border-red-400 bg-white text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-red-100"
+                              onClick={() => openDeleteModal(image.id)}
+                              title={t("COMMON.DELETE_IMAGE")}
                             >
-                              <FiDownload size={14} />
+                              <MdDelete size={14} />
                             </button>
-                            {isCreator && (
-                              <button
-                                type="button"
-                                className="w-6 h-6 flex items-center justify-center rounded-full border border-red-400 bg-white text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shadow hover:bg-red-100"
-                                onClick={() => openDeleteModal(image.id)}
-                                title={t("COMMON.DELETE_IMAGE")}
-                              >
-                                <MdDelete size={14} />
-                              </button>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1356,6 +1410,39 @@ export default function LearnServeDetails({
             type="button"
             onClick={() => setShowDeleteModal(false)}
             disabled={deleteImageMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showCloseRegistration}
+        onClose={() => setShowCloseRegistration(false)}
+        title={t("COMMON.CLOSE_REGISTRATION")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_CLOSE_REGISTRATION")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleCloseRegistration}
+            disabled={closeRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowCloseRegistration(false)}
+            disabled={closeRegistrationMutation.isPending}
             className="xss:!w-full"
           >
             {t("COMMON.CANCEL")}

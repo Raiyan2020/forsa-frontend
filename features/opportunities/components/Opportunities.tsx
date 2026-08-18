@@ -250,14 +250,14 @@ export default function Opportunities() {
               <h2 className="2xl:text-[40px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-802 font-bold leading-none">
                 {t("COMMON.VOLUNTEER")}
               </h2>
-              {hasOpportunityData && (
+              {/* {hasOpportunityData && ( */}
                 <Link
                   href="/volunteer-opportunities-list"
                   className="text-primary-802 font-bold text-base"
                 >
                   {t("COMMON.SHOW.ALL")}
                 </Link>
-              )}
+              {/* )} */}
             </div>
 
             <VolunteerCard
@@ -278,14 +278,14 @@ export default function Opportunities() {
             <h2 className="2xl:text-[40px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-803 font-bold">
               {t("COMMON.LEARN.SERVE")}
             </h2>
-            {hasLearnServeData && (
+            {/* {hasLearnServeData && ( */}
               <Link
                 href="/learn-and-share-list"
                 className="text-primary-803 font-bold text-base"
               >
                 {t("COMMON.SHOW.ALL")}
               </Link>
-            )}
+            {/* )} */}
           </div>
 
           <VolunteerCard

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -8,10 +9,10 @@ import moment from "moment";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { FiDownload } from "react-icons/fi";
-import { IoIosArrowDown, IoIosArrowUp, IoIosShareAlt } from "react-icons/io";
+import { IoIosShareAlt } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
+import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
-import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
@@ -24,11 +25,12 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages, } from "@/features/services/api";
+import { closeVolunteerOpportunityRegistration, deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages, } from "@/features/services/api";
 import {
   formatSingleDate,
   getDefaultProfileImage,
   handleShare,
+  openLocation,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
@@ -67,6 +69,7 @@ export interface VolunteerOpportunityData {
   end_time: string;
   location_en?: string;
   location_ar?: string;
+  location_url?: string | null;
   latitude?: number | string;
   longitude?: number | string;
   from_age?: number;
@@ -78,8 +81,13 @@ export interface VolunteerOpportunityData {
   opportunity_status?: string;
   registration_link?: string;
   manual_tracking?: boolean;
+  qr_attendance_enabled?: boolean;
+  manual_attendance_enabled?: boolean;
+  preparation_valid_until?: string | null;
   is_creator?: boolean;
   is_registered?: boolean;
+  is_registration_closed?: boolean;
+  is_registration_open?: boolean;
   is_public?: boolean;
   is_kuwaitis?: boolean;
   is_supports_disabled?: boolean;
@@ -170,7 +178,6 @@ export default function VolunteerEvent({
 
   const id = opportunityId;
 
-  const [showMoreDescription, setShowMoreDescription] = useState(false);
   const [open, setOpen] = useState(false);
   const [modalState, setModalState] = useState<ModalState>(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -188,6 +195,7 @@ export default function VolunteerEvent({
     token: string;
   } | null>(null);
 
+  const [showCloseRegistration, setShowCloseRegistration] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -208,6 +216,9 @@ export default function VolunteerEvent({
     mutationFn: updateVolunteerOpportunityImages,
   });
   const deleteImageMutation = useMutation({ mutationFn: deleteOpportunityImage });
+  const closeRegistrationMutation = useMutation({
+    mutationFn: () => closeVolunteerOpportunityRegistration(id),
+  });
   const downloadImageMutation = useMutation({
     mutationFn: downloadOpportunityImage,
   });
@@ -222,6 +233,19 @@ export default function VolunteerEvent({
     setMandateDetailsData(userData);
     setShowVolunteerMandateDetails(true);
   };
+
+  // Fancybox previews the post-completion gallery in place of a new browser tab
+  useEffect(() => {
+    const galleryId = `opportunity-gallery-${id}`;
+    NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
+      showClass: "fancybox-zoomIn",
+      hideClass: "fancybox-zoomOut",
+    });
+    return () => {
+      NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`);
+      NativeFancybox.close();
+    };
+  }, [id]);
 
   // A LinkedIn sign-up bounces through /linkedin-callback and lands back here
   // with the new user's profile stashed; pick it up once and clear it so a
@@ -279,6 +303,19 @@ export default function VolunteerEvent({
     }
   };
 
+  /** Creator-only: stop accepting registrations without waiting for the due date. */
+  const handleCloseRegistration = async () => {
+    try {
+      await closeRegistrationMutation.mutateAsync();
+      toast.success(t("COMMON.TOAST.CLOSE_REGISTRATION_SUCCESS"));
+      setShowCloseRegistration(false);
+      refetch();
+    } catch (error) {
+      console.error("Close registration failed:", error);
+      toast.error(t("COMMON.TOAST.CLOSE_REGISTRATION_FAILED"));
+    }
+  };
+
   const handleShowEmailVerification = (email: string, type: string) => {
     setVerificationEmail(email);
     setOtpType(type);
@@ -301,12 +338,6 @@ export default function VolunteerEvent({
     setShowEmailVerification(false);
   };
 
-  const openGoogleMaps = (latitude: number, longitude: number) => {
-    window.open(
-      `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
-      "_blank"
-    );
-  };
 
   const getTitle = () => {
     switch (modalState) {
@@ -358,14 +389,20 @@ export default function VolunteerEvent({
     setNavState(NAV_STATE_KEYS.registerList, {
       id: opportunityData?.id,
       opportunity_status: opportunityData?.opportunity_status,
-      manual_tracking: opportunityData?.manual_tracking
-        ? moment().isSameOrAfter(
+      // Manual attendance runs alongside QR now; the window closes at
+      // `preparation_valid_until` (a week past the end date) when sent.
+      manual_tracking:
+        (opportunityData?.manual_attendance_enabled ??
+          opportunityData?.manual_tracking ??
+          false) &&
+        moment().isSameOrAfter(
           moment(opportunityData?.start_date).startOf("day")
         ) &&
         moment().isSameOrBefore(
-          moment(opportunityData?.end_date).endOf("day").add(48, "hours")
-        )
-        : false,
+          opportunityData?.preparation_valid_until
+            ? moment(opportunityData.preparation_valid_until).endOf("day")
+            : moment(opportunityData?.end_date).endOf("day").add(48, "hours")
+        ),
       // Deleting registrations is locked once the opportunity has begun
       disableDeleteAfterPeriod: moment().isAfter(
         moment(opportunityData?.start_date).startOf("day")
@@ -496,9 +533,14 @@ export default function VolunteerEvent({
   // state so an otherwise open opportunity keeps its registration action.
   const isCompleted = status === "completed" && !startsInFuture;
   const registrationDeadline = dueDate ?? startDate ?? endDate;
-  const isRegistrationClosed = Boolean(
-    registrationDeadline && nowUtc.isAfter(registrationDeadline, "day")
-  );
+  // The creator can also close registration by hand before the deadline, which
+  // the backend reports through is_registration_closed / is_registration_open.
+  const closedByCreator =
+    opportunityData?.is_registration_closed === true ||
+    opportunityData?.is_registration_open === false;
+  const isRegistrationClosed =
+    closedByCreator ||
+    Boolean(registrationDeadline && nowUtc.isAfter(registrationDeadline, "day"));
   const participantsNeeded = Number(opportunityData?.participants_needed);
   const registeredVolunteers = Number(
     opportunityData?.registered_volunteers_count ?? 0
@@ -527,6 +569,10 @@ export default function VolunteerEvent({
         (opportunityData?.is_registered ||
           (user?.user_type !== "organization" && !isFull))));
 
+  // Only worth offering while the opportunity is still taking registrations.
+  const canCloseRegistration =
+    isCreator && !isCompleted && !isRegistrationClosed && !isRepostState;
+
   const actionButtonLabel = isRepostState
     ? t("COMMON.REPOST")
     : isCreator
@@ -541,27 +587,36 @@ export default function VolunteerEvent({
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
     : `/public-profile/${opportunityData?.created_by?.id}`;
 
+  // The description is always shown in full — the View More toggle was removed.
   const description =
     (opportunityData?.primary_language === "ar"
       ? opportunityData?.description_ar
       : opportunityData?.description_en) || "";
-  const visibleDescription =
-    description.length > 300 && !showMoreDescription
-      ? `${description.substring(0, 300)}...`
-      : description;
 
-  // The QR scanner is available from the start date through two days past the end
+  /**
+   * The QR scanner runs from the start date until the backend's
+   * `preparation_valid_until` (a week past the end date). Older records without
+   * that field fall back to two days past the end date.
+   */
+  const scanWindowEnd = opportunityData?.preparation_valid_until
+    ? moment(opportunityData.preparation_valid_until).endOf("day")
+    : moment(opportunityData?.end_date).add(2, "day").endOf("day");
   const withinScanWindow =
     moment().isSameOrAfter(
       moment(opportunityData?.start_date).startOf("day")
-    ) &&
-    moment().isBefore(moment(opportunityData?.end_date).add(2, "day").endOf("day"));
+    ) && moment().isBefore(scanWindowEnd);
 
-  const canShowScanPermission = isCreator && !opportunityData?.manual_tracking;
+  /**
+   * QR and manual attendance work side by side — `manual_tracking` no longer
+   * hides the scanner. `qr_attendance_enabled` is the switch when the backend
+   * sends it; records without it keep QR available.
+   */
+  const qrAttendanceEnabled = opportunityData?.qr_attendance_enabled !== false;
+  const canShowScanPermission = isCreator && qrAttendanceEnabled;
   const canShowScanQR =
     !isCreator &&
     opportunityData?.has_scan_permission &&
-    !opportunityData?.manual_tracking &&
+    qrAttendanceEnabled &&
     withinScanWindow;
   // A non-creator scanner gets the button only on mobile, where scanning happens
   const shouldShowOnlyMobile = !isCreator && canShowScanQR;
@@ -939,18 +994,38 @@ export default function VolunteerEvent({
                   />
                 </h2>
 
-                {showActionButton && (
-                  <Button
-                    variant="primary"
-                    size="medium"
-                    className="whitespace-nowrap block xss:hidden"
-                    onClick={
-                      isRepostState ? handleRepublishClick : handleRegisterClick
-                    }
-                  >
-                    {actionButtonLabel}
-                  </Button>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                  {showActionButton && (
+                    <Button
+                      variant="primary"
+                      size="medium"
+                      className="whitespace-nowrap block xss:hidden"
+                      onClick={
+                        isRepostState ? handleRepublishClick : handleRegisterClick
+                      }
+                    >
+                      {actionButtonLabel}
+                    </Button>
+                  )}
+
+                  {/* The creator can close registration before the due date */}
+                  {canCloseRegistration && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="whitespace-nowrap block xss:hidden"
+                      onClick={() => setShowCloseRegistration(true)}
+                    >
+                      {t("COMMON.CLOSE_REGISTRATION")}
+                    </Button>
+                  )}
+
+                  {closedByCreator && (
+                    <span className="whitespace-nowrap rounded-[20px] bg-[#F1F1F5] px-4 py-2 text-sm font-bold text-secondary-102">
+                      {t("COMMON.REGISTRATION_CLOSED")}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
@@ -1054,14 +1129,6 @@ export default function VolunteerEvent({
                         ? t("COMMON.AM")
                         : t("COMMON.PM")}
                     </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-[20px] items-center extrasmall:gap-[10px]">
-                {authToken && (
-                  <div className="pt-5 mobilescreen:pt-3.5">
-                    <AddToCalendar payload={opportunityData} />
                   </div>
                 )}
               </div>
@@ -1175,9 +1242,10 @@ export default function VolunteerEvent({
                       <div>
                         <p
                           onClick={() =>
-                            openGoogleMaps(
-                              Number(opportunityData?.latitude),
-                              Number(opportunityData?.longitude)
+                            openLocation(
+                              opportunityData?.location_url,
+                              opportunityData?.latitude,
+                              opportunityData?.longitude
                             )
                           }
                           className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold cursor-pointer hover:underline"
@@ -1305,21 +1373,10 @@ export default function VolunteerEvent({
                     />
                     {t("COMMON.DESCRIPTION")}
                   </h3>
-                  {description.length > 300 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreDescription((prev) => !prev)}
-                      className="text-secondary-102 2xl:text-xl lg:text-base text-sm font-bold flex items-center gap-1 xsmall:text-xs"
-                    >
-                      {t("COMMON.VIEW")}{" "}
-                      {showMoreDescription ? t("COMMON.LESS") : t("COMMON.MORE")}{" "}
-                      {showMoreDescription ? <IoIosArrowUp /> : <IoIosArrowDown />}
-                    </button>
-                  )}
                 </div>
                 <div
                   className="2xl:text-lg lg:text-sm text-sm font-semibold text-secondary-102"
-                  dangerouslySetInnerHTML={{ __html: visibleDescription }}
+                  dangerouslySetInnerHTML={{ __html: description }}
                 />
               </div>
 
@@ -1409,21 +1466,23 @@ export default function VolunteerEvent({
                   </div>
                 )}
 
-              <div className="relative mt-6">
-                <div className="w-full overflow-hidden">
-                  <div className="flex overflow-x-auto pb-4 gap-4" id="style-1">
+              {afterCompletedImages.length > 0 && (
+                <div className="relative mt-6">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                     {afterCompletedImages.map((image) => (
-                      <div
-                        key={image.id}
-                        className="relative group flex-shrink-0 min-w-[20px]"
-                      >
-                        <img
-                          src={image.image}
-                          alt="Completed opportunity"
-                          className="w-48 h-48 object-cover rounded-lg cursor-pointer"
-                          onClick={() => window.open(image.image, "_blank")}
+                      <div key={image.id} className="relative group">
+                        <a
+                          href={image.image}
+                          data-fancybox={`opportunity-gallery-${id}`}
+                          className="block cursor-zoom-in"
                           title={t("COMMON.CLICK_TO_VIEW")}
-                        />
+                        >
+                          <img
+                            src={image.image}
+                            alt="Completed opportunity"
+                            className="aspect-square w-full rounded-lg object-cover"
+                          />
+                        </a>
                         <div
                           className={`absolute top-2 right-2 ${isCreator ? "flex gap-2" : ""}`}
                         >
@@ -1455,7 +1514,7 @@ export default function VolunteerEvent({
                     ))}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1491,6 +1550,39 @@ export default function VolunteerEvent({
             type="button"
             onClick={() => setShowDeleteModal(false)}
             disabled={deleteImageMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showCloseRegistration}
+        onClose={() => setShowCloseRegistration(false)}
+        title={t("COMMON.CLOSE_REGISTRATION")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_CLOSE_REGISTRATION")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleCloseRegistration}
+            disabled={closeRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowCloseRegistration(false)}
+            disabled={closeRegistrationMutation.isPending}
             className="xss:!w-full"
           >
             {t("COMMON.CANCEL")}
