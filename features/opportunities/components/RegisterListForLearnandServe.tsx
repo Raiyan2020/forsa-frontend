@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,12 +17,14 @@ import { Modal } from "@/components/ui/Modal";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
+import CheckInWindowBanner from "./CheckInWindowBanner";
 import {
   deleteLearnServeRegistrationByOpportunity,
   downloadLearnServeRegistrations,
   getLearnServeRegistrations,
   updateLearnServeAttendance,
 } from "@/features/services/api";
+import { getCheckInWindow } from "@/lib/checkInWindow";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
@@ -33,6 +35,13 @@ export interface LearnServeRegisterListState {
   id?: string;
   start_date?: string;
   end_date?: string;
+  // Check-in fields forwarded from the detail screen; see `lib/checkInWindow.ts`.
+  requires_check_in?: boolean;
+  manual_attendance_enabled?: boolean;
+  preparation_valid_until?: string | null;
+  preparation_valid_until_at?: string | null;
+  is_preparation_window_closed?: boolean;
+  preparation_reopened_until?: string | null;
 }
 
 interface RegisteredUser {
@@ -154,24 +163,45 @@ export default function RegisterListForLearnandServe() {
   // Track which pages have already been merged to avoid duplicate rows
   const mergedPagesRef = useRef<Set<number>>(new Set());
 
-  // VolunteerList-style attendance/delete window logic
+  /**
+   * The check-in window is the backend's to define (72h past the end date by
+   * default, admin-adjustable), so it is read from the payload rather than
+   * recomputed. Workshops and consultations set `requires_check_in: false` and
+   * get no attendance control at all.
+   */
+  const checkInWindow = useMemo(
+    () =>
+      getCheckInWindow(
+        navState
+          ? {
+              start_date: navState.start_date,
+              end_date: navState.end_date,
+              requires_check_in: navState.requires_check_in,
+              manual_attendance_enabled: navState.manual_attendance_enabled,
+              preparation_valid_until: navState.preparation_valid_until,
+              preparation_valid_until_at: navState.preparation_valid_until_at,
+              is_preparation_window_closed:
+                navState.is_preparation_window_closed,
+              preparation_reopened_until: navState.preparation_reopened_until,
+            }
+          : null
+      ),
+    [navState]
+  );
+
   const parsedStart = opportunityStartDate
     ? moment(opportunityStartDate).startOf("day")
-    : null;
-  const parsedEnd = opportunityEndDate
-    ? moment(opportunityEndDate).endOf("day").add(48, "hours")
     : null;
   const parsedEndStart = opportunityEndDate
     ? moment(opportunityEndDate).startOf("day")
     : null;
   const now = moment();
 
-  // Attended button: visible only from start of end_date day to end_of_day(end_date)+48h (inclusive)
-  // This means it's only visible on the end_date day and up to 48 hours after
+  // Attendance opens on the end date and runs until the backend's deadline.
   const canMarkAttendance =
-    parsedEndStart && parsedEnd
-      ? now.isSameOrAfter(parsedEndStart) && now.isSameOrBefore(parsedEnd)
-      : false;
+    checkInWindow.requiresCheckIn &&
+    checkInWindow.isOpen &&
+    (parsedEndStart ? now.isSameOrAfter(parsedEndStart) : false);
 
   // Delete: visible always, disabled after start_date begins (strict after)
   const isAfterAttendanceDeadline = parsedStart ? now.isAfter(parsedStart) : false;
@@ -465,31 +495,37 @@ export default function RegisterListForLearnandServe() {
   };
 
   const columns: TableColumn[] = [
-    {
-      label: (
-        <div className="flex items-center justify-center gap-2">
-          <label className="cursor-pointer flex items-center gap-2">
-            <div className="border p-1 border-secondary-100">
-              <div
-                className={`h-4 w-4 relative ${
-                  selectAll ? "bg-[#373737BF]/75" : "bg-white"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={handleSelectAllChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
+    // The select-all/attendance column disappears entirely for the types that
+    // need no check-in (Workshop, Consultation).
+    ...(checkInWindow.requiresCheckIn
+      ? [
+          {
+            label: (
+              <div className="flex items-center justify-center gap-2">
+                <label className="cursor-pointer flex items-center gap-2">
+                  <div className="border p-1 border-secondary-100">
+                    <div
+                      className={`h-4 w-4 relative ${
+                        selectAll ? "bg-[#373737BF]/75" : "bg-white"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={handleSelectAllChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </label>
               </div>
-            </div>
-          </label>
-        </div>
-      ),
-      key: "attendance",
-      type: "attendance",
-      customClassName: "pr-[8px]",
-    },
+            ),
+            key: "attendance",
+            type: "attendance",
+            customClassName: "pr-[8px]",
+          },
+        ]
+      : []),
     { label: t("COMMON.VOLUNTEER.NAME"), key: "full_name", type: "custom" },
     { label: t("COMMON.EMAIL"), key: "user_email", type: "email" },
     { label: t("COMMON.CONTACT_NUMBER"), key: "phone_number", type: "contact" },
@@ -546,14 +582,23 @@ export default function RegisterListForLearnandServe() {
           />
         </div>
 
-        {/* Attendance Recording Information */}
-        <div className="flex justify-center mb-6">
-          <div className="mx-auto px-4 md:px-6 lg:px-8">
-            <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
-              {t("COMMON.ATTENDANCE_RECORDING_INFO")}
-            </p>
-          </div>
-        </div>
+        {/* Attendance Recording Information — hidden entirely for the types
+            that need no check-in (Workshop, Consultation). */}
+        {checkInWindow.requiresCheckIn && (
+          <>
+            <CheckInWindowBanner
+              window={checkInWindow}
+              className="mb-6 max-w-2xl mx-auto"
+            />
+            <div className="flex justify-center mb-6">
+              <div className="mx-auto px-4 md:px-6 lg:px-8">
+                <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
+                  {t("COMMON.ATTENDANCE_RECORDING_INFO")}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="w-full">
           {showInitialLoader ? (

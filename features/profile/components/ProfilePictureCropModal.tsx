@@ -8,13 +8,19 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 
 /**
- * The API stores whatever it is sent, so the browser is what keeps profile
- * pictures small: a phone camera crop can be several thousand pixels wide.
+ * Profile pictures are no longer compressed on the way out — the client
+ * reported visibly soft avatars, and the backend stores the file as it arrives.
+ * The crop is written at its native pixel size and encoded at maximum quality.
+ *
+ * The edge cap is only a crash guard: an unbounded canvas from a modern phone
+ * photo (100MP+) can exhaust memory in mobile Safari. At 4096 it is far above
+ * anything the UI renders (the largest avatar on screen is 300px), so in
+ * practice no realistic photo is resized at all.
  */
-const MAX_PROFILE_PICTURE_EDGE = 1024;
-const PROFILE_PICTURE_QUALITY = 0.82;
+const MAX_PROFILE_PICTURE_EDGE = 4096;
+const PROFILE_PICTURE_QUALITY = 1;
 
-/** Renders the selected crop region to a downscaled, compressed JPEG File. */
+/** Renders the selected crop region to a full-quality JPEG File. */
 export async function createCroppedImage(
   imageSrc: string,
   pixelCrop: { x: number; y: number; width: number; height: number },
@@ -30,7 +36,7 @@ export async function createCroppedImage(
 
       if (!ctx) return;
 
-      // Fit the crop inside MAX_PROFILE_PICTURE_EDGE, never upscaling it
+      // Native crop size, only shrinking if it exceeds the crash guard above
       const scale = Math.min(
         1,
         MAX_PROFILE_PICTURE_EDGE / Math.max(pixelCrop.width, pixelCrop.height)

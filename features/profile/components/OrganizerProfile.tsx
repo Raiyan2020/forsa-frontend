@@ -47,7 +47,6 @@ export default function OrganizerProfile() {
         />
         <OrganizerBackgroundInformation
           company_name={profile?.company_name}
-          sector_display={profile?.sector_display}
           interests={profile?.interest_display}
           instagram_link={profile?.instagram_link}
           whatsapp_link={profile?.whatsapp_link}

@@ -64,6 +64,7 @@ export default function Notification() {
 
   // Local store updates keep the header badge in sync without waiting for a poll.
   const updateReadStatus = useNotificationStore((s) => s.updateReadStatus);
+  const markAllRead = useNotificationStore((s) => s.markAllRead);
   const removeNotification = useNotificationStore((s) => s.removeNotification);
 
   const refetchNotifications = () =>
@@ -157,6 +158,25 @@ export default function Notification() {
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      await markReadMutation.mutateAsync({ mark_all: true, is_read: true });
+
+      setDisplayNotifications((prev) =>
+        prev.map((notification) => ({ ...notification, read: true }))
+      );
+
+      // Zeroes the header badge without waiting for the next poll
+      markAllRead();
+      refetchNotifications();
+
+      toast.success(t("COMMON.TOAST.NOTIFICATION_MARKED_SUCCESS"));
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+      toast.error(t("COMMON.TOAST.NOTIFICATION_MARK_FAILED"));
+    }
+  };
+
   const removeNotificationHandler = async (id: string) => {
     try {
       await deleteMutation.mutateAsync({ notification_ids: [parseInt(id)] });
@@ -225,9 +245,22 @@ export default function Notification() {
       </Modal>
 
       <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] py-[40px] mx-auto">
-        <h2 className="flex">
-          <Title text={t("COMMON.NOTIFICATIONS")} variant="default" />
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex">
+            <Title text={t("COMMON.NOTIFICATIONS")} variant="default" />
+          </h2>
+
+          {displayNotifications.some((notification) => !notification.read) && (
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              disabled={markReadMutation.isPending}
+              className="text-primary-5 hover:text-primary-6 disabled:opacity-50 underline text-base mobilescreen:text-sm"
+            >
+              {t("COMMON.MARK_ALL_AS_READ")}
+            </button>
+          )}
+        </div>
 
         <div className="bg-[#e8e8e8]">
           {displayNotifications.length === 0 ? (

@@ -74,7 +74,7 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
     if (!addressValue) {
       onLatChange?.("");
       onLngChange?.("");
-      helpers.setError(t("COMMON.REQUIRED_FIELD"));
+      helpers.setError(t("COMMON.REQUIRED.FIELD"));
       return;
     }
 

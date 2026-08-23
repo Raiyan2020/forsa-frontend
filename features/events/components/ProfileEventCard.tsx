@@ -328,7 +328,8 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                         width={400}
                         height={300}
                         unoptimized
-                        className="w-full h-[300px] border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
+                        /* Square (1:1) crop, matching the upload form and the other cards. */
+                        className="w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
                       />
 
                       <div className="absolute top-0 right-0 pr-4 pt-4">

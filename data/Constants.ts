@@ -3,11 +3,6 @@ export const gender = [
   { name_en: "Female", name_ar: "أنثى", id: 2, value: "female" },
 ];
 
-export const registernumber = [
-  { name_en: "Government", name_ar: "حكومة", id: 1 },
-  { name_en: "Private", name_ar: "خاص", id: 2 },
-];
-
 export const Categories = [
   { name_en: "Volunteer", name_ar: "متطوع", id: 1 },
   { name_en: "Organized", name_ar: "منظم", id: 2 },
@@ -25,11 +20,11 @@ export const Status = [
   { name_en: "Finished", name_ar: "منتهية", id: 3 },
 ];
 
-export const organizertypes = [
-  { name_en: "Public", name_ar: "عام", id: 1 },
-  { name_en: "Private", name_ar: "خاص", id: 2 },
-  { name_en: "Volunteering Team", name_ar: "فريق التطوع", id: 3, payloadValue: "volunteering_team" },
-];
+// `organizertypes` and `registernumber` used to hold hardcoded organisation
+// types (Public / Private / Government / Company / Community). The backend has
+// since replaced that list with six new values, so hardcoding it is a
+// correctness bug waiting to happen — read `GET /api/choices/org_type/` instead.
+// Both lists were already unused; they are gone so nothing reaches for them.
 
 export const socialMediaOptions = [
   { value: "twitter", name_en: "X", name_ar: "X", id: 2 },
@@ -112,15 +107,38 @@ export const healthConcernOptions = [
   },
 ];
 
+/**
+ * `volunteer_category` on a volunteer opportunity. A fixed backend enum rather
+ * than a `/choices/` lookup, so the labels live here. Only `charity` supports a
+ * beneficiaries count — see `VOLUNTEER_CATEGORY_WITH_BENEFICIARIES`.
+ */
+export const volunteerCategoryOptions = [
+  { value: "environmental", name_en: "Environmental", name_ar: "بيئي" },
+  { value: "charity", name_en: "Charity", name_ar: "خيري" },
+  { value: "organizational", name_en: "Organizational", name_ar: "تنظيمي" },
+];
+
+/**
+ * The backend nulls `beneficiaries_count` for any other category, so the field
+ * is only offered for this one. The detail payload also reports the same thing
+ * through `supports_beneficiaries_count`.
+ */
+export const VOLUNTEER_CATEGORY_WITH_BENEFICIARIES = "charity";
+
 export const opportunityPrivacyOptions = [
   { value: "public", name_en: "Public", name_ar: "عام", id: 1 },
   { value: "private", name_en: "Private", name_ar: "خاص", id: 2 },
 ];
 
+/**
+ * Community post types. "Idea needs support" (`is_funding_required`) was
+ * dropped at the client's request — the create-post toggle went first and every
+ * new post now submits `is_funding_required: false`, so offering it as a filter
+ * only ever matched historical posts. The field is still on the API.
+ */
 export const TypeOfThoughts = [
   { name_en: "Post", name_ar: "مشاركة", id: 1, value: "post" },
   { name_en: "Idea", name_ar: "فكرة", id: 2, value: "proposing_idea" },
-  { name_en: "Idea needs fund", name_ar: "فكرة تحتاج دعم", id: 3, value: "is_funding_required" },
 ]
 
 export const occupationOptions = [

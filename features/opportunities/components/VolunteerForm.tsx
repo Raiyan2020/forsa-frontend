@@ -40,7 +40,11 @@ import {
   getOpportunityById,
   updateVolunteerOpportunity,
 } from "@/features/services/api";
-import { opportunityPrivacyOptions } from "@/data/Constants";
+import {
+  VOLUNTEER_CATEGORY_WITH_BENEFICIARIES,
+  opportunityPrivacyOptions,
+  volunteerCategoryOptions,
+} from "@/data/Constants";
 import i18n from "@/lib/i18n/config";
 import {
   calculateHoursDifference,
@@ -92,6 +96,8 @@ interface VolunteerFormValues {
   longitude: string;
   sponsors: { sponsorId: string; position: number }[];
   nationality: string;
+  volunteerCategory: string;
+  beneficiariesCount: string;
 }
 
 interface VolunteerFormProps {
@@ -328,6 +334,7 @@ export default function VolunteerForm({
       ...(opportunityData.is_relief ? ["relief"] : []),
       ...(opportunityData.is_kuwaitis ? ["interview"] : []),
       ...(opportunityData.is_urgent ? ["urgent"] : []),
+      ...(opportunityData.is_emergency ? ["emergency"] : []),
       ...(opportunityData.is_supports_disabled ? ["disabled"] : []),
     ]);
 
@@ -549,6 +556,11 @@ export default function VolunteerForm({
       opportunityData?.opportunity_nationality === "kuwaitis"
         ? "kuwaitis"
         : "all",
+    volunteerCategory: opportunityData?.volunteer_category || "",
+    beneficiariesCount:
+      opportunityData?.beneficiaries_count != null
+        ? String(opportunityData.beneficiaries_count)
+        : "",
   };
 
   const notInPast = (value?: string) => {
@@ -595,6 +607,14 @@ export default function VolunteerForm({
         }
       ),
     participantsNeeded: YupNumberOnly,
+    volunteerCategory: Yup.string().concat(YupRequiredString),
+    // Only charity opportunities carry a beneficiaries count; the backend nulls
+    // it for the other categories, so it is never required.
+    beneficiariesCount: Yup.string().test(
+      "beneficiaries-count-is-number",
+      i18n.t("COMMON.ONLY_NUMBERS"),
+      (value) => !value || /^\d+$/.test(value)
+    ),
     age: Yup.array()
       .of(Yup.number().nullable())
       .test(
@@ -691,6 +711,10 @@ export default function VolunteerForm({
         is_relief: selectedCheckBoxes.includes("relief"),
         is_kuwaitis: selectedCheckBoxes.includes("interview"),
         is_urgent: selectedCheckBoxes.includes("urgent"),
+        // Emergency priority is independent of the "Outside Kuwait"
+        // (`is_relief`) classification — it only drives the badge and the
+        // top-of-list ordering the API applies.
+        is_emergency: selectedCheckBoxes.includes("emergency"),
         is_supports_disabled: selectedCheckBoxes.includes("disabled"),
       };
 
@@ -728,6 +752,15 @@ export default function VolunteerForm({
       );
       formData.append("location", values.location);
       formData.append("location_url", values.location_url);
+      formData.append("volunteer_category", values.volunteerCategory);
+      // Beneficiaries only exist for charity work — send the field only then, so
+      // a category switch doesn't push a stale count the backend would null out.
+      if (
+        values.volunteerCategory === VOLUNTEER_CATEGORY_WITH_BENEFICIARIES &&
+        values.beneficiariesCount
+      ) {
+        formData.append("beneficiaries_count", values.beneficiariesCount);
+      }
 
       Object.entries(checkboxValues).forEach(([key, value]) => {
         formData.append(key, String(value));
@@ -1144,6 +1177,45 @@ export default function VolunteerForm({
                     </div>
                   </div>
 
+                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col">
+                    <div className="w-full md:w-1/2">
+                      <SelectInput
+                        name="volunteerCategory"
+                        label={t("COMMON.VOLUNTEER_CATEGORY")}
+                        placeholder={t("COMMON.SELECT")}
+                        options={volunteerCategoryOptions.map((option) => ({
+                          value: option.value,
+                          label:
+                            selectedLanguage === "ar"
+                              ? option.name_ar
+                              : option.name_en,
+                        }))}
+                        onChange={(selectedOption) => {
+                          const next = selectedOption?.value || "";
+                          setFieldValue("volunteerCategory", next);
+                          // Leaving charity drops the count the backend would
+                          // null anyway, so the hidden field can't go stale.
+                          if (next !== VOLUNTEER_CATEGORY_WITH_BENEFICIARIES) {
+                            setFieldValue("beneficiariesCount", "");
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="w-full md:w-1/2">
+                      {values.volunteerCategory ===
+                        VOLUNTEER_CATEGORY_WITH_BENEFICIARIES && (
+                        <Input
+                          name="beneficiariesCount"
+                          label={t("COMMON.BENEFICIARIES_COUNT")}
+                          type="text"
+                          onFocus={() =>
+                            setFieldTouched("beneficiariesCount", true)
+                          }
+                        />
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex 2xl:gap-[143px] laptopitm:gap-[100px] lg:gap-[100px] miniscreen:gap-[85px] miniscreen7:gap-[95px] miniscreen6:gap-[120px] msscreen1:gap-[140px] justify-center mobilescreen:gap-1 mobilescreen:flex-col mb-4 mobilescreen:mb-4 checkbox-container">
                     <CheckBox
                       id="interview"
@@ -1175,6 +1247,14 @@ export default function VolunteerForm({
                       checked={selectedCheckBoxes.includes("urgent")}
                       onChange={(checked) =>
                         handleCheckboxChange("urgent", checked)
+                      }
+                    />
+                    <CheckBox
+                      id="emergency"
+                      label={t("COMMON.EMERGENCY_PRIORITY")}
+                      checked={selectedCheckBoxes.includes("emergency")}
+                      onChange={(checked) =>
+                        handleCheckboxChange("emergency", checked)
                       }
                     />
                   </div>
@@ -1286,11 +1366,11 @@ export default function VolunteerForm({
                         )
                       }
                       enableCropping
-                      cropAspectRatio={16 / 9} // Matches the banner display ratio
+                      cropAspectRatio={1} // Square, matching the 1:1 cards
                       cropShape="rect"
                       cropDisplayMode="opportunity"
                       cropWidth={600}
-                      cropHeight={337.5} // 600 ÷ (16/9)
+                      cropHeight={600} // 1:1
                       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                         // With cropping enabled the crop flow handles the file instead
                         event.preventDefault();

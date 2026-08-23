@@ -13,6 +13,13 @@ import apiClient from "@/lib/api/client";
 import { useLanguageStore } from "@/store/languageStore";
 import Loader from "@/components/ui/Loader";
 import Image from "next/image";
+import {
+  getOpportunityButtonLabelKey,
+  getOpportunityButtonState,
+} from "@/lib/opportunityButtonState";
+import OpportunityBadges, {
+  OpportunityVisibilityInfo,
+} from "@/features/opportunities/components/OpportunityBadges";
 
 
 interface OpportunityImage {
@@ -44,6 +51,11 @@ interface VolunteerOpportunityData {
   is_supports_disabled?: boolean;
   is_urgent?: boolean;
   is_relief?: boolean;
+  is_emergency?: boolean;
+  is_public?: boolean;
+  is_registered?: boolean;
+  is_registration_open?: boolean;
+  is_registration_closed?: boolean;
 }
 
 interface LearnServeOpportunityData {
@@ -70,6 +82,11 @@ interface LearnServeOpportunityData {
   is_supports_disabled?: boolean;
   is_urgent?: boolean;
   is_relief?: boolean;
+  is_emergency?: boolean;
+  is_public?: boolean;
+  is_registered?: boolean;
+  is_registration_open?: boolean;
+  is_registration_closed?: boolean;
 }
 
 interface AllOpportunitiesFiltersData {
@@ -297,6 +314,8 @@ export default function VolunteerCard({
     if (buttonText) return buttonText;
     if (!item) return t("COMMON.REGISTER");
 
+    // The creator manages rather than joins: edit while it is still upcoming,
+    // repost once it has started or finished.
     if (currentUser && item.created_by?.id === currentUser.id) {
       if (
         item.opportunity_status === "inprogress" ||
@@ -308,38 +327,26 @@ export default function VolunteerCard({
       return t("COMMON.EDIT_TEXT");
     }
 
-    const dueDate = moment(item.due_date);
-    const today = moment();
+    // `is_registered` is only present for the authenticated viewer, so fall
+    // back to scanning the registered list when the flag is absent.
+    const isRegistered =
+      item.is_registered ??
+      (currentUser && Array.isArray(item.all_registered_user)
+        ? item.all_registered_user.some((user) => user.id === currentUser.id)
+        : undefined);
 
+    const state = getOpportunityButtonState({ ...item, is_registered: isRegistered });
+
+    // Organizations browse other creators' opportunities read-only.
     if (
+      state === "register" &&
       currentUser &&
-      item.all_registered_user &&
-      Array.isArray(item.all_registered_user)
+      currentUser.user_type === "organization"
     ) {
-      const isRegistered = item.all_registered_user.some(
-        (user) => user.id === currentUser.id
-      );
-      if (isRegistered) {
-        if (dueDate.isBefore(today, "day")) {
-          return t("COMMON.CLOSED");
-        }
-        return t("COMMON.UNREGISTER");
-      }
-    }
-
-    if (dueDate.isBefore(today, "day")) {
-      return t("COMMON.CLOSED");
-    }
-
-    if (item.registered_volunteers_count >= item.participants_needed) {
-      return t("COMMON.FULL");
-    }
-
-    if (currentUser && currentUser.user_type === "organization") {
       return t("COMMON.VIEW");
     }
 
-    return t("COMMON.REGISTER");
+    return t(getOpportunityButtonLabelKey(state));
   };
 
   // Inline: this is one section of a page, not the page itself. Re-searches
@@ -400,7 +407,9 @@ export default function VolunteerCard({
                   >
                     <div className="relative">
                       {/* Main Image Container */}
-                      <div className="relative w-full h-[300px] border border-[#484848] border-b-0 rounded-t-[20px] overflow-hidden">
+                      {/* Square (1:1) crop — matches the ratio the upload form
+                          crops to, so the card never letterboxes or stretches. */}
+                      <div className="relative w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] overflow-hidden">
                         <Image
                           src={item?.opportunity_images?.[0]?.image || "/assets/homepage/baner_img.png"}
                           alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}
@@ -411,43 +420,7 @@ export default function VolunteerCard({
                         />
                       </div>
                       {/* Status Icons */}
-                      {(item.is_supports_disabled || item.is_urgent || item.is_relief) && (
-                        <div className="absolute top-0 right-0 pr-4 pt-4 flex flex-col gap-2">
-                          {item.is_urgent && (
-                            <div className="w-8 h-8 relative">
-                              <Image
-                                src="/assets/voluneteerevent/urgent.svg"
-                                alt="Urgent"
-                                fill
-                                sizes="32px"
-                                unoptimized
-                              />
-                            </div>
-                          )}
-                          {item.is_supports_disabled && (
-                            <div className="w-8 h-8 relative">
-                              <Image
-                                src="/assets/voluneteerevent/person_disability_card.svg"
-                                alt="Supports Disabilities"
-                                fill
-                                sizes="32px"
-                                unoptimized
-                              />
-                            </div>
-                          )}
-                          {item.is_relief && (
-                            <div className="w-8 h-8 relative">
-                              <Image
-                                src="/assets/voluneteerevent/relief.svg"
-                                alt="Relief"
-                                fill
-                                sizes="32px"
-                                unoptimized
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <OpportunityBadges item={item} />
                       {/* Date and Time Overlay */}
                       <div className="grid grid-cols-2 text-sm text-gray-600 bg-[#000000B2]/70 absolute w-full bottom-0 h-[39px] items-center">
                         <span className="flex miniscreen3:text-[12px] smallscreen:text-[10px] laptopitms:text-xs text-white justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs:text-xs">
@@ -521,9 +494,15 @@ export default function VolunteerCard({
                           : "border-primary-5"
                       }`}
                     >
-                      <h3 className="2xl:text-[25px] text-lg text-secondary-100 2xl:pb-7 pb-3 font-bold pt-[19px] truncate whitespace-nowrap overflow-hidden">
-                        {selectedLanguage === "ar" ? item.title_ar : item.title_en}
-                      </h3>
+                      <div className="flex items-start gap-2 2xl:pb-7 pb-3 pt-[19px]">
+                        <h3 className="2xl:text-[25px] text-lg text-secondary-100 font-bold truncate whitespace-nowrap overflow-hidden">
+                          {selectedLanguage === "ar" ? item.title_ar : item.title_en}
+                        </h3>
+                        <OpportunityVisibilityInfo
+                          isPublic={item.is_public}
+                          className="mt-1 shrink-0"
+                        />
+                      </div>
                       <div>
                         <div className="grid grid-cols-2 extrasmall:flex-col justify-between pb-[22px]">
                           <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">

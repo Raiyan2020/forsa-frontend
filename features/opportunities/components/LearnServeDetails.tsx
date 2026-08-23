@@ -92,6 +92,18 @@ export interface LearnServeOpportunityData {
   is_registered?: boolean;
   is_attended?: boolean;
   is_kuwaitis?: boolean;
+  /**
+   * `false` for workshops and consultations: their hours still count towards the
+   * statistics, but nobody checks anyone in — the backend marks registrants
+   * attended when the opportunity ends. Course, Class and Internship are the
+   * types that do need a check-in.
+   */
+  requires_check_in?: boolean;
+  manual_attendance_enabled?: boolean;
+  preparation_valid_until?: string | null;
+  preparation_valid_until_at?: string | null;
+  is_preparation_window_closed?: boolean;
+  preparation_reopened_until?: string | null;
   after_completed_images_count?: number;
   gender_display?: ChoiceDisplay;
   format_display?: ChoiceDisplay;
@@ -469,6 +481,16 @@ export default function LearnServeDetails({
       id: opportunityData?.id,
       start_date: opportunityData?.start_date,
       end_date: opportunityData?.end_date,
+      // Workshops and consultations report `requires_check_in: false` — the
+      // backend counts their registrants as attended once the opportunity ends,
+      // so the list must not offer an attendance control at all.
+      requires_check_in: opportunityData?.requires_check_in,
+      manual_attendance_enabled: opportunityData?.manual_attendance_enabled,
+      preparation_valid_until: opportunityData?.preparation_valid_until,
+      preparation_valid_until_at: opportunityData?.preparation_valid_until_at,
+      is_preparation_window_closed:
+        opportunityData?.is_preparation_window_closed,
+      preparation_reopened_until: opportunityData?.preparation_reopened_until,
     });
     router.push(
       CERTIFICATE_TYPES.includes(

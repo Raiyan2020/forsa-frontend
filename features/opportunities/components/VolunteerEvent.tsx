@@ -32,11 +32,19 @@ import {
   handleShare,
   openLocation,
 } from "@/lib/helpers";
+import { getCheckInCountdown, getCheckInWindow } from "@/lib/checkInWindow";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
+import {
+  getOpportunityButtonLabelKey,
+  getOpportunityButtonState,
+} from "@/lib/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ConfirmVolunteerRegistrationModal from "./ConfirmVolunteerRegistrationModal";
+import OpportunityBadges, {
+  OpportunityVisibilityInfo,
+} from "./OpportunityBadges";
 import OpportunitySponsors from "./OpportunitySponsors";
 import UnregisterConfirmationModal from "./UnregisterConfirmationModal";
 import VolunteerRegisterRoleModal, {
@@ -84,6 +92,12 @@ export interface VolunteerOpportunityData {
   qr_attendance_enabled?: boolean;
   manual_attendance_enabled?: boolean;
   preparation_valid_until?: string | null;
+  /** Hour-precise end of the check-in window; prefer it over the date-only field. */
+  preparation_valid_until_at?: string | null;
+  is_preparation_window_closed?: boolean;
+  /** Set when an admin has reopened a window that had already closed. */
+  preparation_reopened_until?: string | null;
+  requires_check_in?: boolean;
   is_creator?: boolean;
   is_registered?: boolean;
   is_registration_closed?: boolean;
@@ -93,6 +107,11 @@ export interface VolunteerOpportunityData {
   is_supports_disabled?: boolean;
   is_relief?: boolean;
   is_urgent?: boolean;
+  is_emergency?: boolean;
+  volunteer_category?: string | null;
+  volunteer_category_display?: { en: string; ar: string } | null;
+  beneficiaries_count?: number | null;
+  supports_beneficiaries_count?: boolean;
   has_scan_permission?: boolean;
   after_completed_images_count?: number;
   gender_display?: ChoiceDisplay;
@@ -389,20 +408,18 @@ export default function VolunteerEvent({
     setNavState(NAV_STATE_KEYS.registerList, {
       id: opportunityData?.id,
       opportunity_status: opportunityData?.opportunity_status,
-      // Manual attendance runs alongside QR now; the window closes at
-      // `preparation_valid_until` (a week past the end date) when sent.
+      // Manual attendance runs alongside QR; the backend owns the deadline.
       manual_tracking:
-        (opportunityData?.manual_attendance_enabled ??
-          opportunityData?.manual_tracking ??
-          false) &&
-        moment().isSameOrAfter(
-          moment(opportunityData?.start_date).startOf("day")
-        ) &&
-        moment().isSameOrBefore(
-          opportunityData?.preparation_valid_until
-            ? moment(opportunityData.preparation_valid_until).endOf("day")
-            : moment(opportunityData?.end_date).endOf("day").add(48, "hours")
-        ),
+        getCheckInWindow(opportunityData).manualEnabled &&
+        getCheckInWindow(opportunityData).isOpen,
+      requires_check_in: opportunityData?.requires_check_in,
+      qr_attendance_enabled: opportunityData?.qr_attendance_enabled,
+      manual_attendance_enabled: opportunityData?.manual_attendance_enabled,
+      preparation_valid_until: opportunityData?.preparation_valid_until,
+      preparation_valid_until_at: opportunityData?.preparation_valid_until_at,
+      is_preparation_window_closed:
+        opportunityData?.is_preparation_window_closed,
+      preparation_reopened_until: opportunityData?.preparation_reopened_until,
       // Deleting registrations is locked once the opportunity has begun
       disableDeleteAfterPeriod: moment().isAfter(
         moment(opportunityData?.start_date).startOf("day")
@@ -573,15 +590,19 @@ export default function VolunteerEvent({
   const canCloseRegistration =
     isCreator && !isCompleted && !isRegistrationClosed && !isRepostState;
 
+  /**
+   * Six states off the API's own flags — Ended / Started / Full / Closed /
+   * Unregister / Register — with the creator's own manage actions taking
+   * precedence, and the unauthenticated "Register now" wording preserved.
+   */
+  const viewerButtonState = getOpportunityButtonState(opportunityData);
   const actionButtonLabel = isRepostState
     ? t("COMMON.REPOST")
     : isCreator
       ? t("COMMON.EDIT_TEXT")
-      : opportunityData?.is_registered
-        ? t("COMMON.UNREGISTER")
-        : authToken
-          ? t("COMMON.REGISTER")
-          : t("COMMON.REGISTER_NOW");
+      : viewerButtonState === "register" && !authToken
+        ? t("COMMON.REGISTER_NOW")
+        : t(getOpportunityButtonLabelKey(viewerButtonState));
 
   const organizerPath = !opportunityData?.created_by?.is_public
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
@@ -594,30 +615,24 @@ export default function VolunteerEvent({
       : opportunityData?.description_en) || "";
 
   /**
-   * The QR scanner runs from the start date until the backend's
-   * `preparation_valid_until` (a week past the end date). Older records without
-   * that field fall back to two days past the end date.
+   * The attendance window, its deadline and whether it is still open all come
+   * from the backend — the default is 72 hours past the end date and admins can
+   * change it, so nothing is recomputed here. See `lib/checkInWindow.ts`.
    */
-  const scanWindowEnd = opportunityData?.preparation_valid_until
-    ? moment(opportunityData.preparation_valid_until).endOf("day")
-    : moment(opportunityData?.end_date).add(2, "day").endOf("day");
-  const withinScanWindow =
-    moment().isSameOrAfter(
-      moment(opportunityData?.start_date).startOf("day")
-    ) && moment().isBefore(scanWindowEnd);
+  const checkInWindow = getCheckInWindow(opportunityData);
+  const checkInCountdown = getCheckInCountdown(checkInWindow);
 
   /**
    * QR and manual attendance work side by side — `manual_tracking` no longer
-   * hides the scanner. `qr_attendance_enabled` is the switch when the backend
-   * sends it; records without it keep QR available.
+   * hides the scanner. Workshops and consultations set
+   * `requires_check_in: false` and get no attendance surface at all.
    */
-  const qrAttendanceEnabled = opportunityData?.qr_attendance_enabled !== false;
-  const canShowScanPermission = isCreator && qrAttendanceEnabled;
+  const canShowScanPermission = isCreator && checkInWindow.qrEnabled;
   const canShowScanQR =
     !isCreator &&
     opportunityData?.has_scan_permission &&
-    qrAttendanceEnabled &&
-    withinScanWindow;
+    checkInWindow.qrEnabled &&
+    checkInWindow.isOpen;
   // A non-creator scanner gets the button only on mobile, where scanning happens
   const shouldShowOnlyMobile = !isCreator && canShowScanQR;
 
@@ -752,11 +767,14 @@ export default function VolunteerEvent({
       </Modal>
 
       <div className="relative w-full">
+        {/* `object-cover` crops to the strip without ever stretching, so the
+            uploaded square keeps its proportions. */}
         <img
           className="w-full h-[320px] object-cover"
           src={opportunityData?.opportunity_images?.[0]?.image}
           alt=""
         />
+        {opportunityData && <OpportunityBadges item={opportunityData} />}
       </div>
 
       <div className="w-[90%] mobilescreen:w-[100%] py-[40px] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] lg:mx-0 md:mx-auto mx-auto">
@@ -936,7 +954,7 @@ export default function VolunteerEvent({
                               {t("COMMON.SCAN_PERMISSION")}
                             </span>
                           </Button>
-                          {withinScanWindow && (
+                          {checkInWindow.isOpen && (
                             <Button
                               variant="primary"
                               size="medium"
@@ -991,6 +1009,11 @@ export default function VolunteerEvent({
                     variant="default"
                     hasMargin={false}
                     className="2xl:leading-[50px] lg:leading-[40px] md:leading-[42px] mediumscreen1:leading-[44px] mobilescreen:leading-[32px] text-start"
+                  />
+                  <OpportunityVisibilityInfo
+                    isPublic={opportunityData?.is_public}
+                    showLabel
+                    className="text-secondary-102"
                   />
                 </h2>
 
@@ -1344,6 +1367,58 @@ export default function VolunteerEvent({
                     ) : (
                       <div />
                     )}
+
+                    {/* Emergency priority is independent of the "Outside
+                        Kuwait" classification, so it gets its own row. */}
+                    {opportunityData?.is_emergency && (
+                      <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
+                        <span className="bg-[#D32F2F] text-white text-xs font-bold rounded-full px-3 py-1 leading-tight">
+                          {t("COMMON.EMERGENCY_PRIORITY_BADGE")}
+                        </span>
+                        <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                          {t("COMMON.EMERGENCY_PRIORITY")}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Volunteering category, and the beneficiaries count that
+                        only charity opportunities carry. */}
+                    {opportunityData?.volunteer_category_display && (
+                      <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
+                        <img
+                          className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                          src="/assets/homepage/health.svg"
+                          alt=""
+                        />
+                        <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                          {t("COMMON.VOLUNTEER_CATEGORY")}
+                        </p>
+                        <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                          {
+                            opportunityData.volunteer_category_display[
+                              selectedLanguage === "ar" ? "ar" : "en"
+                            ]
+                          }
+                        </p>
+                      </div>
+                    )}
+
+                    {opportunityData?.supports_beneficiaries_count &&
+                      opportunityData?.beneficiaries_count != null && (
+                        <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
+                          <img
+                            className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                            src="/assets/homepage/person.svg"
+                            alt=""
+                          />
+                          <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                            {t("COMMON.BENEFICIARIES_COUNT")}
+                          </p>
+                          <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                            {opportunityData.beneficiaries_count}
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
 

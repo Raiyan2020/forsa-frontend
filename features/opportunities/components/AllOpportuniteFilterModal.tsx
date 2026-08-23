@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Formik, Form, Field } from "formik";
 import Toggle from "@/components/ui/Toggle";
 import SelectInput from "@/components/ui/SelectInput";
+import GroupedSelectInput from "@/components/ui/GroupedSelectInput";
 import BirthDateField from "@/components/ui/BirthDateField";
 import { InterestTagsInput } from "@/components/ui/InterestTagsInput";
 import FilterCheckBox from "@/components/ui/FilterCheckBox";
@@ -97,6 +98,15 @@ const OpportuniteFilterModal = ({
     "Internship",
   ];
 
+  /**
+   * Internship ("field training") is classified under Events rather than
+   * Development. That is presentation only — it is still a
+   * `learn_serve_opportunity` on the API and keeps the same routes — so it is
+   * expressed by grouping it separately in this dropdown, and by sorting it last
+   * so it never reads as one of the development types.
+   */
+  const EVENT_CLASSIFIED_TYPES = ["Internship"];
+
   type TypeOption = {
     label: string;
     value: number | string;
@@ -117,10 +127,37 @@ const OpportuniteFilterModal = ({
           typeOrder.indexOf(a.value_en) - typeOrder.indexOf(b.value_en)
       ) || [];
 
-  const typeOptions =
+  const visibleTypeOptions =
     !showVolunteerFields && showLearnServeFields
       ? rawTypeOptions.filter((option: TypeOption) => option.value_en !== "Volunteer")
       : rawTypeOptions;
+
+  const eventClassifiedOptions = visibleTypeOptions.filter(
+    (option: TypeOption) => EVENT_CLASSIFIED_TYPES.includes(option.value_en)
+  );
+  const otherTypeOptions = visibleTypeOptions.filter(
+    (option: TypeOption) => !EVENT_CLASSIFIED_TYPES.includes(option.value_en)
+  );
+
+  // Only introduce the group headings when there is actually something to group.
+  const typeOptions = eventClassifiedOptions.length
+    ? [
+        ...otherTypeOptions.map((option: TypeOption) => ({
+          ...option,
+          value: String(option.value),
+        })),
+        {
+          label: t("COMMON.EVENTS"),
+          options: eventClassifiedOptions.map((option: TypeOption) => ({
+            ...option,
+            value: String(option.value),
+          })),
+        },
+      ]
+    : visibleTypeOptions.map((option: TypeOption) => ({
+        ...option,
+        value: String(option.value),
+      }));
 
   const genderOptions =
     genderData?.data?.map((item: ChoiceItem) => ({
@@ -169,7 +206,7 @@ const OpportuniteFilterModal = ({
                 >
                   {!(showVolunteerFields && !showLearnServeFields) && (
                     <div className="col-span-1">
-                      <SelectInput
+                      <GroupedSelectInput
                         name="type"
                         label={t("COMMON.TYPE")}
                         options={typeOptions}

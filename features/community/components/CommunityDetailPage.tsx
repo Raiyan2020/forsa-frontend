@@ -230,7 +230,8 @@ export default function CommunityDetailPage({ id }: { id: string }) {
 
   // Handle tag click
   const handleTagClick = (tag: string) => {
-    router.push(`/Community-List?tag=${tag}`);
+    // Encoded because Arabic hashtags are the common case here.
+    router.push(`/Community-List?tag=${encodeURIComponent(tag)}`);
   };
 
   const handleConfirmDelete = async () => {

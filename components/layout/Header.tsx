@@ -164,11 +164,9 @@ const Header = () => {
                 icon="/assets/auth/qrcode.svg"
                 label={t("COMMON.QRCODE")}
               />
-              <DropdownItem
-                href="/calendar"
-                icon="/assets/auth/mycalander.svg"
-                label={t("COMMON.MY.CALENDAR")}
-              />
+              {/* "My calendar" was removed from the menu at the client's
+                  request. The /calendar route still exists so any bookmark or
+                  Add-to-Calendar link keeps working. */}
               <DropdownItem
                 href="/achievement-reports"
                 icon="/assets/auth/file-text.svg"
@@ -186,11 +184,6 @@ const Header = () => {
                 href="/entities-profile"
                 icon="/assets/auth/volunteerprofile.svg"
                 label={t("COMMON.ORGANIZATION.PROFILE")}
-              />
-              <DropdownItem
-                href="/calendar"
-                icon="/assets/auth/mycalander.svg"
-                label={t("COMMON.MY.CALENDAR")}
               />
             </>
           )}

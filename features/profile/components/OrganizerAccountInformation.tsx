@@ -143,12 +143,8 @@ export default function OrganizerAccountInformation() {
     enabled: !!selectedLanguage,
   });
 
-  // Fetch sector options
-  const { data: sectorData, isLoading: sectorLoading } = useQuery({
-    queryKey: ["sector-choices", selectedLanguage],
-    queryFn: () => getDropdownChoicesRequest("sector"),
-    enabled: !!selectedLanguage,
-  });
+  // The sector dropdown is gone from the UI, so its choices are no longer
+  // fetched either — one request less on every profile edit.
 
   const { data: tagsData, isLoading: tagsLoading } = useQuery({
     queryKey: ["user-interest-choices", selectedLanguage],
@@ -161,12 +157,6 @@ export default function OrganizerAccountInformation() {
       label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
       value: item.id.toString(),
       rawValue: item.value_en,
-    })) || [];
-
-  const sectorOptions =
-    sectorData?.data?.map((item: any) => ({
-      label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
-      value: item.id.toString(),
     })) || [];
 
   const tagOptions =
@@ -604,7 +594,7 @@ export default function OrganizerAccountInformation() {
   };
 
   if (!authToken) return <div>{t("COMMON.PLEASE_LOGIN")}</div>;
-  if (isAccountLoading || isProfileLoading || sectorLoading || orgTypeLoading) {
+  if (isAccountLoading || isProfileLoading || orgTypeLoading) {
     return <Loader />;
   }
   if (accountError || profileError) {
@@ -834,16 +824,13 @@ export default function OrganizerAccountInformation() {
                               </div>
                             )}
                         </div>
-                        <div className="w-full selectfiled">
-                          <SelectInput
-                            name="sector"
-                            label={t("COMMON.SECTOR")}
-                            options={sectorOptions}
-                            onChange={(selectedOption) =>
-                              setFieldValue("sector", selectedOption?.value || "")
-                            }
-                          />
-                        </div>
+                        {/*
+                          Sector was dropped from the UI at the client's
+                          request. The field is still on the API (8 resources
+                          read it) and will be removed there in a separate pass,
+                          so the value carried on the profile is preserved and
+                          resubmitted untouched — only the input is gone.
+                        */}
                       </div>
 
                       {/* Entity Type */}

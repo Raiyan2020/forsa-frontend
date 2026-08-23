@@ -1809,11 +1809,11 @@ export default function LearnServeForm({
                           )
                         }
                         enableCropping
-                        cropAspectRatio={16 / 9} // Matches the banner display ratio
+                        cropAspectRatio={1} // Square, matching the 1:1 cards
                         cropShape="rect"
                         cropDisplayMode="opportunity"
                         cropWidth={600}
-                        cropHeight={337.5} // 600 ÷ (16/9)
+                        cropHeight={600} // 1:1
                         onChange={(
                           event: React.ChangeEvent<HTMLInputElement>
                         ) => {

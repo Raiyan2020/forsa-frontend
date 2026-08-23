@@ -181,7 +181,7 @@ export default function CompleteDetails() {
     // Uploaded license is optional for public organizations; validate sizes when present
     documents: Yup.array().test(
       "fileSizeAndRequired",
-      t("COMMON.FILE.TOO_LARGE"),
+      t("COMMON.FILE.TOO.LARGE"),
       function (files) {
         const organizer_type = this.parent?.organizer_type;
         const selected = orgTypeOptions.find(
@@ -198,7 +198,7 @@ export default function CompleteDetails() {
 
         if (!files || files.length === 0) {
           return this.createError({
-            message: t("COMMON.REQUIRED.FIELD") || t("COMMON.FILE.TOO_LARGE"),
+            message: t("COMMON.REQUIRED.FIELD") || t("COMMON.FILE.TOO.LARGE"),
           });
         }
         return files.every(

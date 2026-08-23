@@ -13,6 +13,13 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import DeleteOpportunityModal from "@/features/opportunities/components/DeleteOpportunityModal";
+import OpportunityBadges, {
+  OpportunityVisibilityInfo,
+} from "@/features/opportunities/components/OpportunityBadges";
+import {
+  getOpportunityButtonLabelKey,
+  getOpportunityButtonState,
+} from "@/lib/opportunityButtonState";
 import {
   getAllOpportunities,
   getUserOpportunities,
@@ -51,6 +58,11 @@ interface BaseOpportunityData {
   is_supports_disabled?: boolean;
   is_urgent?: boolean;
   is_relief?: boolean;
+  is_emergency?: boolean;
+  is_public?: boolean;
+  is_registered?: boolean;
+  is_registration_open?: boolean;
+  is_registration_closed?: boolean;
 }
 
 interface VolunteerOpportunityData extends BaseOpportunityData {
@@ -310,40 +322,27 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
       return t("COMMON.EDIT_TEXT");
     }
 
-    const dueDate = moment(item.due_date);
-    const today = moment();
+    // 4. `is_registered` is only present for the authenticated viewer, so fall
+    //    back to scanning the registered list when the flag is absent.
+    const isRegistered =
+      item.is_registered ??
+      (currentUser && Array.isArray(item.all_registered_user)
+        ? item.all_registered_user.some((user) => user.id === currentUser.id)
+        : undefined);
 
-    // 4. If the user is already registered:
-    if (currentUser && Array.isArray(item.all_registered_user)) {
-      const isRegistered = item.all_registered_user.some(
-        (user) => user.id === currentUser.id
-      );
-      if (isRegistered) {
-        // If registered and the window has closed, show "Closed"
-        if (dueDate.isBefore(today, "day")) {
-          return t("COMMON.CLOSED");
-        }
-        return t("COMMON.UNREGISTER");
-      }
-    }
+    // 5. Ended / Started / Unregister / Full / Closed / Register
+    const state = getOpportunityButtonState({ ...item, is_registered: isRegistered });
 
-    // 5. If the due date has passed, show "Closed"
-    if (dueDate.isBefore(today, "day")) {
-      return t("COMMON.CLOSED");
-    }
-
-    // 6. If the opportunity is full, show "Full"
-    if (item.registered_volunteers_count >= item.participants_needed) {
-      return t("COMMON.FULL");
-    }
-
-    // 7. If the user is an organization, show "View"
-    if (currentUser && currentUser.user_type === "organization") {
+    // 6. Organizations browse other creators' opportunities read-only.
+    if (
+      state === "register" &&
+      currentUser &&
+      currentUser.user_type === "organization"
+    ) {
       return t("COMMON.VIEW");
     }
 
-    // 8. Default: "Register"
-    return t("COMMON.REGISTER");
+    return t(getOpportunityButtonLabelKey(state));
   };
 
   const detailHref = (item: OpportunityData) =>
@@ -451,51 +450,13 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
                         width={400}
                         height={300}
                         unoptimized
-                        className="w-full h-[300px] border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
+                        /* Square (1:1) crop — matches the ratio the upload form
+                           crops to, so the card never letterboxes or stretches. */
+                        className="w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
                       />
 
                       {/* Status Icons */}
-                      {(item.is_supports_disabled ||
-                        item.is_urgent ||
-                        item.is_relief) && (
-                        <div className="absolute top-0 right-0 pr-4 pt-4 flex flex-col gap-2">
-                          {item.is_urgent && (
-                            <div className="w-8 h-8">
-                              <Image
-                                src={asset("voluneteerevent/urgent.svg")}
-                                alt="Urgent"
-                                width={32}
-                                height={32}
-                                className="w-full h-full"
-                              />
-                            </div>
-                          )}
-                          {item.is_supports_disabled && (
-                            <div className="w-8 h-8">
-                              <Image
-                                src={asset(
-                                  "voluneteerevent/person_disability_card.svg"
-                                )}
-                                alt="Supports Disabilities"
-                                width={32}
-                                height={32}
-                                className="w-full h-full"
-                              />
-                            </div>
-                          )}
-                          {item.is_relief && (
-                            <div className="w-8 h-8">
-                              <Image
-                                src={asset("voluneteerevent/relief.svg")}
-                                alt="Relief"
-                                width={32}
-                                height={32}
-                                className="w-full h-full"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <OpportunityBadges item={item} />
 
                       <div className="grid grid-cols-2 text-sm text-gray-600 bg-[#000000B2]/70 absolute w-full bottom-0 h-[39px] items-center">
                         <span className="flex miniscreen3:text-[12px] xs3:text-[10px] laptopitms:text-xs text-white justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs2:text-[11px]">
@@ -549,6 +510,10 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
                           {title.length > 10
                             ? `${title.substring(0, 10)}...`
                             : title}
+                          <OpportunityVisibilityInfo
+                            isPublic={item.is_public}
+                            className="ms-2"
+                          />
                         </h3>
                         {/* Hide status when using new API for the "organized" tab in volunteer profile */}
                         {!(useNewApi && filter_type === "organized") &&

@@ -109,14 +109,110 @@ export default function Achievements() {
     chartData?.learn_serve_opportunities_completed;
   const relief_trips = chartData?.outside_kuwait_trips ?? chartData?.relief_trips;
 
-  // Economic impact = volunteer hours × the backend's KWD rate (6 by default).
-  // Prefer the computed value from the API and only fall back to the formula.
+  // Economic impact = volunteer hours × the backend's KWD rate. The rate is
+  // admin-editable, so it is always read from the payload; the literal is only a
+  // last resort for a response that predates the field.
   const economicImpactRate = chartData?.economic_impact_rate_kwd ?? 6;
   const economicImpact =
     chartData?.economic_impact_kwd ??
     (typeof totalVolunteerHours === "number"
       ? totalVolunteerHours * economicImpactRate
       : 0);
+
+  /**
+   * Beneficiaries = people helped by charity volunteer opportunities plus
+   * learners who actually attended a course. The backend does the arithmetic;
+   * `beneficiaries_breakdown` is offered as the tooltip detail.
+   */
+  const beneficiariesCount = chartData?.beneficiaries_count;
+  const beneficiariesBreakdown = chartData?.beneficiaries_breakdown;
+  const beneficiariesTooltip = beneficiariesBreakdown
+    ? [
+        `${t("ACHIEVEMENTS.VOL_OPP_COMPLETED")}: ${
+          beneficiariesBreakdown.volunteer_opportunities ?? 0
+        }`,
+        `${t("ACHIEVEMENTS.COURSE_LEARNERS")}: ${
+          beneficiariesBreakdown.course_learners ?? 0
+        }`,
+      ].join("\n")
+    : undefined;
+
+  /**
+   * Volunteer opportunities are always shown, even at zero. Everything else
+   * appears only once it has a value — the client asked for empty counters to
+   * disappear rather than read as a real zero.
+   */
+  const statCards: Array<{
+    key: string;
+    value: string;
+    label: string;
+    tooltip?: string;
+    className: string;
+    valueClassName: string;
+  }> = [
+    {
+      key: "volunteer-opportunities",
+      value: String(vol_opp_completed || 0),
+      label: t("ACHIEVEMENTS.VOL_OPP_COMPLETED"),
+      className: "bg-[#9F6DEE4D]/30 text-[#9F6DEE]",
+      valueClassName: "text-[#9F6DEE]",
+    },
+    ...(learnserve_opp_completed
+      ? [
+          {
+            key: "development",
+            value: String(learnserve_opp_completed),
+            label: t("ACHIEVEMENTS.LEARN_SERVE_COMPLETED"),
+            className: "bg-[#7A92FF] text-[#29246D]",
+            valueClassName: "text-[#29246D]",
+          },
+        ]
+      : []),
+    ...(relief_trips
+      ? [
+          {
+            key: "outside-kuwait",
+            value: String(relief_trips),
+            label: t("ACHIEVEMENTS.RELIEF_TRIP"),
+            className: "bg-[#D9EF61] text-[#4E5B08]",
+            valueClassName: "text-[#4E5B08]",
+          },
+        ]
+      : []),
+    ...(beneficiariesCount
+      ? [
+          {
+            key: "beneficiaries",
+            value: Number(beneficiariesCount).toLocaleString(),
+            label: t("ACHIEVEMENTS.BENEFICIARIES"),
+            tooltip: beneficiariesTooltip,
+            className: "bg-[#70B4C24D]/30 text-[#1F6675]",
+            valueClassName: "text-[#1F6675]",
+          },
+        ]
+      : []),
+    ...(economicImpact
+      ? [
+          {
+            key: "economic-impact",
+            value: `${economicImpact.toLocaleString()} ${t("COMMON.KWD")}`,
+            label: t("ACHIEVEMENTS.ECONOMIC_IMPACT"),
+            className: "bg-[#FC95554D]/30 text-[#B4531C]",
+            valueClassName: "text-[#B4531C]",
+          },
+        ]
+      : []),
+  ];
+
+  // Keeps the row on one line whatever survived the zero-filter above.
+  const statGridColumns =
+    {
+      1: "lg:grid-cols-1",
+      2: "lg:grid-cols-2",
+      3: "lg:grid-cols-3",
+      4: "lg:grid-cols-4",
+      5: "lg:grid-cols-5",
+    }[statCards.length] ?? "lg:grid-cols-4";
 
   const buildLeaderboardTitle = (
     section: LeaderboardType,
@@ -223,39 +319,29 @@ export default function Achievements() {
                   reliefTrips={relief_trips}
                 />
               </div>
-              <div className="grid gap-[15px] lg:grid-cols-4 md:grid-cols-2 xss:grid-cols-1">
-                <div className="bg-[#9F6DEE4D]/30 rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
-                  <div className="text-xl font-semibold text-[#9F6DEE] pb-3 h-[40px]">
-                    {vol_opp_completed || 0}
+              {/* Mobile keeps all the surviving counters on one row rather than
+                  stacking them, so it scrolls sideways instead of downwards. */}
+              <div
+                className={`grid gap-[15px] ${statGridColumns} md:grid-cols-2 grid-flow-col auto-cols-[minmax(140px,1fr)] md:grid-flow-row md:auto-cols-auto overflow-x-auto md:overflow-visible pb-2 md:pb-0`}
+              >
+                {statCards.map((card) => (
+                  <div
+                    key={card.key}
+                    className={`${card.className} rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center`}
+                    title={card.tooltip}
+                  >
+                    <div
+                      className={`text-xl font-semibold ${card.valueClassName} pb-3 h-[40px]`}
+                    >
+                      {card.value}
+                    </div>
+                    <div
+                      className={`2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm ${card.valueClassName} font-semibold flex items-start justify-center`}
+                    >
+                      {card.label}
+                    </div>
                   </div>
-                  <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#9F6DEE] font-semibold flex items-start justify-center">
-                    {t("ACHIEVEMENTS.VOL_OPP_COMPLETED")}
-                  </div>
-                </div>
-                <div className="bg-[#7A92FF] rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
-                  <div className="text-xl text-[#29246D] font-semibold pb-3 h-[40px]">
-                    {learnserve_opp_completed || 0}
-                  </div>
-                  <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#29246D] font-semibold flex items-start justify-center">
-                    {t("ACHIEVEMENTS.LEARN_SERVE_COMPLETED")}
-                  </div>
-                </div>
-                <div className="bg-[#D9EF61] rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
-                  <div className="text-xl text-[#4E5B08] font-semibold pb-3 h-[40px]">
-                    {relief_trips || 0}
-                  </div>
-                  <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#4E5B08] font-semibold flex items-start justify-center">
-                    {t("ACHIEVEMENTS.RELIEF_TRIP")}
-                  </div>
-                </div>
-                <div className="bg-[#FC95554D]/30 rounded-[20px] 2xl:p-5 p-5 laptopmain:p-2 lg:p-2 text-center w-full md:w-auto h-[137px] flex flex-col justify-center">
-                  <div className="text-xl text-[#B4531C] font-semibold pb-3 h-[40px]">
-                    {economicImpact.toLocaleString()} {t("COMMON.KWD")}
-                  </div>
-                  <div className="2xl:h-[100px] laptop:h-[50px] laptopmain:h-[40px] lg:h-[50px] h-auto 2xl:text-base laptop:text-base laptopmain:text-sm text-[#B4531C] font-semibold flex items-start justify-center">
-                    {t("ACHIEVEMENTS.ECONOMIC_IMPACT")}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 

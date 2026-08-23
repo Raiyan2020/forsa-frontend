@@ -258,7 +258,8 @@ function InnerPost({ data, refetch }: PostData) {
   };
 
   const handleTagClick = (tag: string) => {
-    router.push(`/Community-List?tag=${tag}`);
+    // Encoded because Arabic hashtags are the common case here.
+    router.push(`/Community-List?tag=${encodeURIComponent(tag)}`);
   };
 
   return (

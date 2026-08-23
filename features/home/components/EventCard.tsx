@@ -218,7 +218,8 @@ export default function EventCard({
           <div className="2xl:px-5 px-3 mobilescreen:px-[13px] mb-[5px] mobilescreen:pb-11" key={item.id}>
             <div className="border-[#484848] relative rounded-t-[20px] border-t-[1px] border-l-[1px] border-r-[1px]">
               <Link href={`/event-details/${item.id}`}>
-                <div className="relative w-full h-[300px] rounded-t-[20px] overflow-hidden">
+                {/* Square (1:1) crop, matching the upload form and the other cards. */}
+                <div className="relative w-full aspect-square rounded-t-[20px] overflow-hidden">
                   <Image
                     src={item?.event_images?.[0]?.image || "/assets/homepage/baner_img.png"}
                     alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}

@@ -45,7 +45,15 @@ interface ProfileStatistics {
 interface ProfileData {
   id: string | number;
   nickname?: string;
-  full_name?: string;
+  /**
+   * The public identity to show. `full_name` is deliberately `null` for
+   * volunteers on this endpoint — the client asked for real names to stay
+   * private — so this is the field to render, never `full_name`.
+   */
+  display_name?: string | null;
+  full_name?: string | null;
+  /** Free-text status line, e.g. "university student". */
+  current_status?: string | null;
   manual_id?: string;
   profile_pic?: string | null;
   registration_number?: string;
@@ -196,7 +204,7 @@ function ProfileHeader({
         <div className="flex items-center gap-[50px] mobilescreen:w-full mobilescreen:flex-col mobilescreen:gap-8">
           <Image
             src={profile.profile_pic || defaultImage}
-            alt={profile.nickname || profile.full_name || "Profile"}
+            alt={profile.display_name || profile.nickname || "Profile"}
             width={168}
             height={168}
             className="h-[168px] w-[168px] rounded-full border-[5px] border-primary-5 object-cover"
@@ -207,8 +215,9 @@ function ProfileHeader({
               <h1 className="text-lg font-bold text-primary-5 mobilescreen:text-base">
                 {t("COMMON.NICKNAME")}
               </h1>
+              {/* `display_name` first — `full_name` is null here by design. */}
               <p className="font-normal text-primary-5">
-                {profile.nickname || profile.full_name || "—"}
+                {profile.display_name || profile.nickname || "—"}
               </p>
               {secondaryValue && (
                 <>
@@ -401,20 +410,29 @@ function BackgroundAndAchievements({
         <div className="lg:w-1/2">
           <Title text={t("COMMON.ABOUT.ME")} hasMargin={false} className="mb-6 text-start" />
           <div className="space-y-5 text-lg text-primary-5 lg:w-[80%]">
-            <p>
-              <strong>
-                {t(userType === "organization" ? "COMMON.COMPANYNAME" : "COMMON.FULL_NAME")} :{" "}
-              </strong>
-              {userType === "organization"
-                ? profile.company_name || profile.full_name || "—"
-                : profile.full_name || "—"}
-            </p>
-            {userType === "organization" && profile.sector_display && (
+            {/*
+              Organizations still show their name; volunteers do not. This
+              endpoint returns `full_name: null` for volunteers on purpose, so
+              their identity here is the nickname/badge/status/interests set
+              rendered above and below instead.
+            */}
+            {userType === "organization" && (
               <p>
-                <strong>{t("COMMON.SECTOR")} : </strong>
-                {profile.sector_display[language === "ar" ? "value_ar" : "value_en"]}
+                <strong>{t("COMMON.COMPANYNAME")} : </strong>
+                {profile.company_name || profile.full_name || "—"}
               </p>
             )}
+            {userType === "volunteer" && profile.current_status && (
+              <p>
+                <strong>{t("COMMON.CURRENT_STATUS")} : </strong>
+                {profile.current_status}
+              </p>
+            )}
+            {/*
+              Sector was dropped from the UI at the client's request. The field
+              still exists on the API (used by 8 resources) and will be removed
+              there separately, so nothing reads `sector_display` here any more.
+            */}
             {userType === "volunteer" && occupation && (
               <p>
                 <strong>{t("COMMON.ENTER.OCCIPATION")} : </strong>
@@ -441,7 +459,14 @@ function BackgroundAndAchievements({
         </div>
         <div className="mt-10 w-full lg:mt-0 lg:w-1/2">
           <Title text={t("COMMON.ACHIEVEMENT")} hasMargin={false} className="mb-6 text-start" />
-          <div className={`grid gap-[30px] md:grid-cols-3 ${cards.length === 4 ? "xl:grid-cols-2" : "xl:grid-cols-3"}`}>
+          {/* Mobile keeps the counters on one row — the client asked for the
+              four to sit side by side rather than stack — scrolling sideways
+              when they don't fit. */}
+          <div
+            className={`grid gap-[30px] mobilescreen:gap-3 grid-flow-col auto-cols-[minmax(120px,1fr)] overflow-x-auto pb-2 md:grid-flow-row md:auto-cols-auto md:overflow-visible md:pb-0 md:grid-cols-3 ${
+              cards.length === 4 ? "xl:grid-cols-2" : "xl:grid-cols-3"
+            }`}
+          >
             {cards.map((card) => (
               <AchievementCard
                 key={card.icon}
@@ -553,10 +578,19 @@ function PublicProfileListings({
   userId,
   userType,
   isVolunteerTeam,
+  sponsoredCount,
+  developmentCount,
 }: {
   userId: string;
   userType: PublicProfileResponse["user_type"];
   isVolunteerTeam: boolean;
+  /** Drives whether the "Sponsor" tag appears — see the note on its button. */
+  sponsoredCount: number;
+  /**
+   * Development opportunities this profile organised. `null` when the profile
+   * has no such counter (volunteers), in which case the chip always shows.
+   */
+  developmentCount: number | null;
 }) {
   const { t } = useTranslation();
   const language = useLanguageStore((state) => state.language);
@@ -762,7 +796,10 @@ function PublicProfileListings({
               >
                 {t(isVolunteer ? "COMMON.ATTENDED--" : "COMMON.ORGANIZER_TAG")}
               </button>
-              {!isVolunteerTeam && !isVolunteer && (
+              {/* A zero sponsorship counter hides its counter card, so the tag
+                  that would open an empty list goes with it — the same rule the
+                  certificates tab follows. */}
+              {!isVolunteerTeam && !isVolunteer && sponsoredCount > 0 && (
                 <button
                   type="button"
                   onClick={() => setMode("sponsored")}
@@ -776,7 +813,15 @@ function PublicProfileListings({
               {/* All / Volunteer / Development — events are one type already */}
               {section === "opportunities" && (
                 <div className="flex gap-2">
-                  {OPPORTUNITY_TYPE_TABS.map((type) => (
+                  {OPPORTUNITY_TYPE_TABS.filter(
+                    // A zero development counter hides its counter card, so the
+                    // chip that would filter to an empty list goes too. `null`
+                    // means the profile has no such counter — keep the chip.
+                    (type) =>
+                      type.value !== "development" ||
+                      developmentCount === null ||
+                      developmentCount > 0
+                  ).map((type) => (
                     <button
                       key={type.value}
                       type="button"
@@ -922,6 +967,8 @@ export default function CommonProfile({ id }: { id: string }) {
           userId={String(profile.id)}
           userType={response.user_type}
           isVolunteerTeam={Boolean(response.is_volunteer_team)}
+          sponsoredCount={profile.sponsored ?? 0}
+          developmentCount={profile.learn_opportunity_organized ?? null}
         />
       </div>
     </div>

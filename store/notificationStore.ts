@@ -6,6 +6,7 @@ interface NotificationState {
   setNotifications: (n: any[]) => void;
   setUnreadCount: (count: number) => void;
   updateReadStatus: (id: number, isRead: boolean) => void;
+  markAllRead: () => void;
   removeNotification: (id: number) => void;
 }
 
@@ -33,6 +34,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         n.id === id ? { ...n, is_read: isRead } : n
       ),
       unreadCount: newCount,
+    });
+  },
+
+  /** Optimistic twin of `POST /notifications/mark-read/ {mark_all: true}`. */
+  markAllRead: () => {
+    set({
+      notifications: get().notifications.map((n) => ({ ...n, is_read: true })),
+      unreadCount: 0,
     });
   },
 

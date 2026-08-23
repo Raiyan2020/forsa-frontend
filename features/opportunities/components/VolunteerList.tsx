@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
 import InfiniteScroll from "react-infinite-scroll-component";
 import Select from "react-select";
 import { toast } from "sonner";
-import { FaPlus } from "react-icons/fa6";
+import { FaCheck, FaPen, FaPlus, FaRotateLeft } from "react-icons/fa6";
 import { RiDeleteBin5Fill } from "react-icons/ri";
+import { RxCross1 } from "react-icons/rx";
 
 import { Button } from "@/components/ui/Button";
 import DateRangePicker from "@/components/ui/DateRangePicker";
@@ -25,13 +26,19 @@ import {
   getRolesOfOpportunity,
   getTeams,
   getVolunteerRegistrations,
+  markManualVolunteerAttendance,
   markVolunteerAttendance,
+  undoVolunteerAttendance,
+  updateVolunteerAttendanceHours,
   updateVolunteerRegistration,
 } from "@/features/services/api";
+import { getApiErrorMessage } from "@/lib/api/errors";
+import { getCheckInWindow } from "@/lib/checkInWindow";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRoleModalStore } from "@/store/roleModalStore";
+import CheckInWindowBanner from "./CheckInWindowBanner";
 import TeamModal from "./TeamModal";
 import VolunteerFilterModal from "./VolunteerFilterModal";
 import VolunteerRoleModal from "./VolunteerRoleModal";
@@ -47,6 +54,84 @@ export interface VolunteerListState {
   start_time?: string;
   end_time?: string;
   participants_needed?: number;
+  // Check-in window fields, forwarded verbatim so this screen can render the
+  // countdown and lock the controls without refetching the opportunity.
+  requires_check_in?: boolean;
+  qr_attendance_enabled?: boolean;
+  manual_attendance_enabled?: boolean;
+  preparation_valid_until?: string | null;
+  preparation_valid_until_at?: string | null;
+  is_preparation_window_closed?: boolean;
+  preparation_reopened_until?: string | null;
+}
+
+/**
+ * Hours and undo act on an *attendance record*, not a registration, so they
+ * need that record's id. The registrations payload only reports which dates a
+ * volunteer attended (`date_wise_attended`), so we read an id from whichever
+ * richer shape the backend happens to send and fall back to the ids returned by
+ * our own manual check-ins.
+ *
+ * TODO(backend): have `GET /volunteer-opportunity-registrations/` return the
+ * attendance id and logged hours per date. Until it does, editing hours and
+ * undoing a check-in only work for rows checked in during this session.
+ */
+interface AttendanceRecordRef {
+  id: string | number;
+  total_hours?: number | null;
+}
+
+/** The attendance-carrying fields a registration row might expose. */
+interface AttendanceBearingRow {
+  attendance_id?: string | number | null;
+  attendance_date?: string | null;
+  total_hours?: number | null;
+  attendance?: AttendanceEntry | null;
+  attendances?: AttendanceEntry[] | null;
+  date_wise_attendance?: AttendanceEntry[] | null;
+}
+
+interface AttendanceEntry {
+  id?: string | number | null;
+  attendance_date?: string | null;
+  date?: string | null;
+  total_hours?: number | null;
+}
+
+/** One volunteer's outcome from a fanned-out manual check-in. */
+interface ManualAttendanceResult {
+  volunteerUuid: string;
+  record: AttendanceEntry | null;
+}
+
+function readAttendanceRecord(
+  row: AttendanceBearingRow | null | undefined,
+  apiDate: string
+): AttendanceRecordRef | null {
+  // Preferred shape: a per-date list of full attendance records.
+  const perDate = row?.date_wise_attendance ?? row?.attendances;
+  if (Array.isArray(perDate)) {
+    const match = perDate.find(
+      (entry) => entry?.attendance_date === apiDate || entry?.date === apiDate
+    );
+    if (match?.id != null) {
+      return { id: match.id, total_hours: match.total_hours ?? null };
+    }
+  }
+
+  // Single-record shapes, only trustworthy when they name the same date.
+  const single = row?.attendance;
+  if (
+    single?.id != null &&
+    (single.attendance_date ?? single.date) === apiDate
+  ) {
+    return { id: single.id, total_hours: single.total_hours ?? null };
+  }
+  if (row?.attendance_id != null && row?.attendance_date === apiDate) {
+    return { id: row.attendance_id, total_hours: row.total_hours ?? null };
+  }
+
+  return null;
 }
 
 interface Team {
@@ -107,7 +192,39 @@ export default function VolunteerList() {
 
   const opportunityId = navState?.id;
   const opportunity_status = navState?.opportunity_status;
-  const manual_tracking = navState?.manual_tracking;
+
+  /**
+   * The backend owns the check-in deadline (72h by default, admin-adjustable),
+   * so the window is derived from its fields rather than recomputed here.
+   * `manual_tracking` was already resolved upstream; the window re-checks it so
+   * the controls lock the moment the deadline passes without a page reload.
+   */
+  const checkInWindow = useMemo(
+    () =>
+      getCheckInWindow(
+        navState
+          ? {
+              start_date: navState.start_date,
+              end_date: navState.end_date,
+              requires_check_in: navState.requires_check_in,
+              qr_attendance_enabled: navState.qr_attendance_enabled,
+              manual_attendance_enabled: navState.manual_attendance_enabled,
+              manual_tracking: navState.manual_tracking,
+              preparation_valid_until: navState.preparation_valid_until,
+              preparation_valid_until_at: navState.preparation_valid_until_at,
+              is_preparation_window_closed:
+                navState.is_preparation_window_closed,
+              preparation_reopened_until: navState.preparation_reopened_until,
+            }
+          : null
+      ),
+    [navState]
+  );
+
+  // Manual check-in is offered only while the window is genuinely open.
+  const manual_tracking = Boolean(
+    navState?.manual_tracking && checkInWindow.isOpen
+  );
   const opportunity_start_date = navState?.start_date;
   const opportunity_end_date = navState?.end_date;
   const opportunity_start_time = navState?.start_time;
@@ -158,6 +275,39 @@ export default function VolunteerList() {
   const [selectAllAttendanceMode, setSelectAllAttendanceMode] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>("");
 
+  /**
+   * Attendance records created or edited in this session, keyed
+   * `<volunteer_uuid>|<YYYY-MM-DD>`. This is what makes the hours field and the
+   * undo button usable today — the registrations payload does not yet carry
+   * attendance ids (see `readAttendanceRecord`).
+   */
+  const [sessionAttendance, setSessionAttendance] = useState<
+    Record<string, AttendanceRecordRef>
+  >({});
+  /** uuid|date currently being edited inline, and its draft value. */
+  const [editingHoursKey, setEditingHoursKey] = useState<string | null>(null);
+  const [hoursDraft, setHoursDraft] = useState("");
+  /** Row awaiting undo confirmation. */
+  const [pendingUndo, setPendingUndo] = useState<{
+    attendanceId: string | number;
+    key: string;
+    volunteerName: string;
+  } | null>(null);
+
+  const attendanceKey = (volunteerUuid: string, apiDate: string) =>
+    `${volunteerUuid}|${apiDate}`;
+
+  /** Session-recorded ids win — they are the freshest thing we know. */
+  const resolveAttendanceRecord = useCallback(
+    (
+      row: (AttendanceBearingRow & { volunteer_uuid?: string }) | null | undefined,
+      apiDate: string
+    ): AttendanceRecordRef | null =>
+      sessionAttendance[attendanceKey(row?.volunteer_uuid ?? "", apiDate)] ??
+      readAttendanceRecord(row, apiDate),
+    [sessionAttendance]
+  );
+
   // Guards against the auto-load effect firing repeatedly
   const isAutoLoadingRef = useRef(false);
   // Tracks which registration pages have been merged, so a re-render can't
@@ -178,6 +328,15 @@ export default function VolunteerList() {
   });
   const markAttendanceMutation = useMutation({
     mutationFn: markVolunteerAttendance,
+  });
+  const markManualAttendanceMutation = useMutation({
+    mutationFn: markManualVolunteerAttendance,
+  });
+  const updateAttendanceHoursMutation = useMutation({
+    mutationFn: updateVolunteerAttendanceHours,
+  });
+  const undoAttendanceMutation = useMutation({
+    mutationFn: undoVolunteerAttendance,
   });
 
   useEffect(() => {
@@ -741,6 +900,13 @@ export default function VolunteerList() {
     setSelectAllAttendance(allSelected);
   };
 
+  /**
+   * Marks the selected volunteers present through the dedicated manual endpoint
+   * (`POST /volunteer-attendance/manual/`), which runs alongside QR scanning
+   * rather than replacing it. That endpoint takes one volunteer per call, so the
+   * bulk selection fans out and the results are reported in aggregate; the hours
+   * are left off so the backend derives them from the opportunity's duration.
+   */
   const handleMarkAttendanceClick = async () => {
     if (!opportunityId || selectedAttendance.length === 0) {
       toast.error(t("COMMON.SELECT_USERS_TO_MARK"));
@@ -748,20 +914,47 @@ export default function VolunteerList() {
     }
 
     const attendanceDate = toApiDate(selectedDate);
-    try {
-      const response = await markAttendanceMutation.mutateAsync({
-        opportunity_id: opportunityId,
-        volunteer_ids: selectedAttendance,
-        attendance_date: attendanceDate,
+
+    const results = await Promise.allSettled(
+      selectedAttendance.map(
+        (volunteerUuid): Promise<ManualAttendanceResult> =>
+          markManualAttendanceMutation
+            .mutateAsync({
+              opportunity_id: opportunityId,
+              volunteer_uuid: volunteerUuid,
+              attendance_date: attendanceDate,
+            })
+            .then((response) => ({
+              volunteerUuid,
+              record: response?.data ?? null,
+            }))
+      )
+    );
+
+    const succeeded = results.filter(
+      (result): result is PromiseFulfilledResult<ManualAttendanceResult> =>
+        result.status === "fulfilled"
+    );
+    const failed = results.length - succeeded.length;
+
+    if (succeeded.length > 0) {
+      // Keep the returned attendance ids so hours and undo work immediately.
+      setSessionAttendance((previous) => {
+        const next = { ...previous };
+        succeeded.forEach(({ value }) => {
+          if (value.record?.id != null) {
+            next[attendanceKey(value.volunteerUuid, attendanceDate)] = {
+              id: value.record.id,
+              total_hours: value.record.total_hours ?? null,
+            };
+          }
+        });
+        return next;
       });
-
-      if (response?.status !== "success") return;
-
-      toast.success(t("COMMON.USERS_MARKED_AS_ATTENDED"));
 
       // Patch the rows in place rather than refetching — a reset here would
       // race the loader and blank the table.
-      const attendedSet = new Set(selectedAttendance);
+      const attendedSet = new Set(succeeded.map(({ value }) => value.volunteerUuid));
       setAllRegistrations((previous) =>
         previous.map((volunteer) => {
           if (!attendedSet.has(volunteer.volunteer_uuid)) return volunteer;
@@ -774,13 +967,104 @@ export default function VolunteerList() {
         })
       );
 
-      setSelectedAttendance([]);
-      setSelectAllAttendance(false);
-      setSelectAllAttendanceMode(false);
-    } catch (error: any) {
-      const data = error?.response?.data;
+      toast.success(t("COMMON.USERS_MARKED_AS_ATTENDED"));
+    }
+
+    if (failed > 0) {
+      const firstFailure = results.find(
+        (result): result is PromiseRejectedResult => result.status === "rejected"
+      );
       toast.error(
-        data?.message_en || data?.message || t("COMMON.FAILED_TO_MARK_ATTENDED")
+        getApiErrorMessage(
+          firstFailure?.reason,
+          selectedLanguage,
+          t("COMMON.FAILED_TO_MARK_ATTENDED")
+        )
+      );
+    }
+
+    setSelectedAttendance([]);
+    setSelectAllAttendance(false);
+    setSelectAllAttendanceMode(false);
+  };
+
+  /** Inline hours correction — works on manual and QR records alike. */
+  const handleSaveHours = async (
+    attendanceId: string | number,
+    key: string,
+    rawValue: string
+  ) => {
+    const hours = Number(rawValue);
+    if (!rawValue.trim() || Number.isNaN(hours) || hours < 0 || hours > 24) {
+      toast.error(t("COMMON.ATTENDANCE_HOURS_RANGE"));
+      return;
+    }
+
+    try {
+      const response = await updateAttendanceHoursMutation.mutateAsync({
+        attendance_id: attendanceId,
+        total_hours: hours,
+      });
+      setSessionAttendance((previous) => ({
+        ...previous,
+        [key]: {
+          id: attendanceId,
+          total_hours: response?.data?.total_hours ?? hours,
+        },
+      }));
+      setEditingHoursKey(null);
+      toast.success(t("COMMON.TOAST.ATTENDANCE_HOURS_SUCCESS"));
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(
+          error,
+          selectedLanguage,
+          t("COMMON.TOAST.ATTENDANCE_HOURS_FAILED")
+        )
+      );
+    }
+  };
+
+  /**
+   * Clears a check-in and returns the hours. The volunteer can then be marked
+   * present again for the same day with corrected hours — that round trip is
+   * the whole point of the endpoint.
+   */
+  const handleConfirmUndo = async () => {
+    if (!pendingUndo) return;
+    const { attendanceId, key } = pendingUndo;
+    const [volunteerUuid, apiDate] = key.split("|");
+
+    try {
+      await undoAttendanceMutation.mutateAsync(attendanceId);
+
+      setSessionAttendance((previous) => {
+        const next = { ...previous };
+        delete next[key];
+        return next;
+      });
+      setAllRegistrations((previous) =>
+        previous.map((volunteer) =>
+          volunteer.volunteer_uuid === volunteerUuid
+            ? {
+                ...volunteer,
+                date_wise_attended: (volunteer.date_wise_attended || []).filter(
+                  (date: string) => date !== apiDate
+                ),
+              }
+            : volunteer
+        )
+      );
+
+      setPendingUndo(null);
+      toast.success(t("COMMON.TOAST.ATTENDANCE_UNDO_SUCCESS"));
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(
+          error,
+          selectedLanguage,
+          t("COMMON.TOAST.ATTENDANCE_UNDO_FAILED")
+        )
       );
     }
   };
@@ -944,6 +1228,17 @@ export default function VolunteerList() {
       : []),
     { label: t("COMMON.TEAM"), key: "team", type: "dropdown" },
     { label: t("COMMON.ROLE"), key: "role", type: "role" },
+    // Logged hours and the undo affordance only make sense where check-in
+    // happens at all — workshops and consultations skip both.
+    ...(checkInWindow.requiresCheckIn
+      ? [
+          {
+            label: t("COMMON.ATTENDANCE_HOURS"),
+            key: "attendance_hours",
+            type: "attendance_hours",
+          },
+        ]
+      : []),
     { label: t("COMMON.ACTION"), key: "actions", type: "actions" },
   ];
 
@@ -1019,6 +1314,43 @@ export default function VolunteerList() {
           setShowMismatchModal={setShowMismatchModal}
           onclose={closeRoleModal}
         />
+      </Modal>
+
+      <Modal
+        open={pendingUndo !== null}
+        onClose={() => setPendingUndo(null)}
+        title={t("COMMON.UNDO_ATTENDANCE_TITLE")}
+        size="small"
+        footer={
+          <div className="flex xss:flex-col justify-center w-full gap-5">
+            <Button
+              variant="primary"
+              size="medium"
+              className="xss:!w-full"
+              disabled={undoAttendanceMutation.isPending}
+              onClick={handleConfirmUndo}
+            >
+              {t("COMMON.CONFIRM")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="medium"
+              className="xss:!w-full"
+              onClick={() => setPendingUndo(null)}
+            >
+              {t("COMMON.CANCEL")}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-center text-secondary-100">
+          {pendingUndo?.volunteerName && (
+            <span className="block font-bold pb-2">
+              {pendingUndo.volunteerName}
+            </span>
+          )}
+          {t("COMMON.UNDO_ATTENDANCE_CONFIRM")}
+        </p>
       </Modal>
 
       <Modal
@@ -1270,13 +1602,36 @@ export default function VolunteerList() {
             </div>
           </div>
 
-          <div className="flex justify-center mb-6">
-            <div className="mx-auto px-4 md:px-6 lg:px-8">
-              <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
-                {t("COMMON.CONFIRM_ATTENDANCE")}
-              </p>
+          {/* How long is left to record attendance, or that the window shut. */}
+          <CheckInWindowBanner
+            window={checkInWindow}
+            className="mb-6 max-w-2xl mx-auto"
+          />
+
+          {checkInWindow.requiresCheckIn && (
+            <div className="flex justify-center mb-6">
+              <div className="mx-auto px-4 md:px-6 lg:px-8">
+                <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
+                  {t("COMMON.CONFIRM_ATTENDANCE")}
+                </p>
+
+                {/* QR and manual are offered together — the organizer picks. */}
+                {checkInWindow.qrEnabled && checkInWindow.isOpen && (
+                  <div className="flex justify-center">
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      onClick={() =>
+                        router.push(`/scan-qr?opportunity_id=${opportunityId}`)
+                      }
+                    >
+                      {t("COMMON.SCAN_QR_CODE")}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="selectfiled voulnteerlist relative">
             <div
@@ -1473,6 +1828,117 @@ export default function VolunteerList() {
                               </div>
                             </div>
                           </label>
+                        </div>
+                      );
+                    }
+
+                    if (column.type === "attendance_hours") {
+                      const apiDate = toApiDate(selectedDate);
+                      const isAttended = (
+                        rowData.date_wise_attended || []
+                      ).includes(apiDate);
+
+                      if (!isAttended) {
+                        return <span className="text-gray-400">-</span>;
+                      }
+
+                      const record = resolveAttendanceRecord(rowData, apiDate);
+                      const key = attendanceKey(rowData.volunteer_uuid, apiDate);
+
+                      // No id means no way to address the record — show the
+                      // hours read-only until the API sends attendance ids.
+                      if (!record) {
+                        return (
+                          <span className="text-secondary-102">
+                            {rowData.total_hours ?? "-"}
+                          </span>
+                        );
+                      }
+
+                      if (editingHoursKey === key) {
+                        return (
+                          <div className="flex items-center gap-1 justify-center">
+                            <input
+                              type="number"
+                              min={0}
+                              max={24}
+                              step="0.5"
+                              value={hoursDraft}
+                              autoFocus
+                              onChange={(event) =>
+                                setHoursDraft(event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  void handleSaveHours(record.id, key, hoursDraft);
+                                }
+                                if (event.key === "Escape") {
+                                  setEditingHoursKey(null);
+                                }
+                              }}
+                              className="w-16 border border-primary-5 rounded px-1 py-0.5 text-center"
+                              aria-label={t("COMMON.ATTENDANCE_HOURS")}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleSaveHours(record.id, key, hoursDraft)
+                              }
+                              disabled={updateAttendanceHoursMutation.isPending}
+                              className="text-primary-5 disabled:opacity-50"
+                              aria-label={t("COMMON.SAVE")}
+                            >
+                              <FaCheck size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingHoursKey(null)}
+                              className="text-secondary-102"
+                              aria-label={t("COMMON.CANCEL")}
+                            >
+                              <RxCross1 size={14} />
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="flex items-center gap-2 justify-center">
+                          <span className="text-secondary-102">
+                            {record.total_hours ?? rowData.total_hours ?? "-"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingHoursKey(key);
+                              setHoursDraft(
+                                record.total_hours != null
+                                  ? String(record.total_hours)
+                                  : ""
+                              );
+                            }}
+                            className="text-primary-5 hover:text-primary-5/80"
+                            title={t("COMMON.EDIT_HOURS")}
+                            aria-label={t("COMMON.EDIT_HOURS")}
+                          >
+                            <FaPen size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPendingUndo({
+                                attendanceId: record.id,
+                                key,
+                                volunteerName:
+                                  rowData.full_name || rowData.user_full_name || "",
+                              })
+                            }
+                            className="text-[#D32F2F] hover:text-[#D32F2F]/80"
+                            title={t("COMMON.UNDO_ATTENDANCE")}
+                            aria-label={t("COMMON.UNDO_ATTENDANCE")}
+                          >
+                            <FaRotateLeft size={12} />
+                          </button>
                         </div>
                       );
                     }

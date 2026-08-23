@@ -12,6 +12,13 @@ import Button from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useLanguageStore } from "@/store/languageStore";
 import apiClient from "@/lib/api/client";
+import {
+  getOpportunityButtonLabelKey,
+  getOpportunityButtonState,
+} from "@/lib/opportunityButtonState";
+import OpportunityBadges, {
+  OpportunityVisibilityInfo,
+} from "./OpportunityBadges";
 import DeleteOpportunityModal from "./DeleteOpportunityModal";
 import { AllOpportunitiesFiltersData } from "./AllOpportuniteFilterModal";
 
@@ -44,6 +51,11 @@ interface VolunteerOpportunityData {
   is_supports_disabled?: boolean;
   is_urgent?: boolean;
   is_relief?: boolean;
+  is_emergency?: boolean;
+  is_public?: boolean;
+  is_registered?: boolean;
+  is_registration_open?: boolean;
+  is_registration_closed?: boolean;
 }
 
 interface LearnServeOpportunityData {
@@ -70,6 +82,11 @@ interface LearnServeOpportunityData {
   is_supports_disabled?: boolean;
   is_urgent?: boolean;
   is_relief?: boolean;
+  is_emergency?: boolean;
+  is_public?: boolean;
+  is_registered?: boolean;
+  is_registration_open?: boolean;
+  is_registration_closed?: boolean;
 }
 
 interface VolunteerCardProps {
@@ -189,6 +206,9 @@ export default function OpportunitiesListCard({
   const [allOpportunities, setAllOpportunities] = useState<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  // `meta.pagination.total` is the count across every page, not just the ones
+  // loaded so far — that's the number the result line has to show.
+  const [totalResults, setTotalResults] = useState<number | null>(null);
 
   // Calculate optimal limit based on grid columns
   const calculateOptimalLimit = useCallback((cols: number): number => {
@@ -221,6 +241,8 @@ export default function OpportunitiesListCard({
     if (buttonText) return buttonText;
     if (!item) return t("COMMON.REGISTER");
 
+    // The creator manages rather than joins: edit while it is still upcoming,
+    // repost once it has started or finished.
     if (currentUser && item.created_by?.id === currentUser.id) {
       if (
         item.opportunity_status === "inprogress" ||
@@ -232,37 +254,26 @@ export default function OpportunitiesListCard({
       return t("COMMON.EDIT_TEXT");
     }
 
-    const dueDate = moment(item.due_date);
-    const today = moment();
+    // `is_registered` is only present for the authenticated viewer, so fall
+    // back to scanning the registered list when the flag is absent.
+    const isRegistered =
+      item.is_registered ??
+      (currentUser && Array.isArray(item.all_registered_user)
+        ? item.all_registered_user.some((user) => user.id === currentUser.id)
+        : undefined);
 
-    if (currentUser && item.all_registered_user && Array.isArray(item.all_registered_user)) {
-      const isRegistered = item.all_registered_user.some((user) => user.id === currentUser.id);
-      if (isRegistered) {
-        if (dueDate.isBefore(today, "day")) {
-          return t("COMMON.CLOSED");
-        }
-        return t("COMMON.UNREGISTER");
-      }
-    }
+    const state = getOpportunityButtonState({ ...item, is_registered: isRegistered });
 
-    if (dueDate.isBefore(today, "day")) {
-      return t("COMMON.CLOSED");
-    }
-
-    const isVolunteerOpp = "registered_volunteers_count" in item;
-    const registeredCount = isVolunteerOpp
-      ? (item as VolunteerOpportunityData).registered_volunteers_count
-      : (item as LearnServeOpportunityData).registered_volunteers_count;
-
-    if (registeredCount >= item.participants_needed) {
-      return t("COMMON.FULL");
-    }
-
-    if (currentUser && currentUser.user_type === "organization") {
+    // Organizations browse other creators' opportunities read-only.
+    if (
+      state === "register" &&
+      currentUser &&
+      currentUser.user_type === "organization"
+    ) {
       return t("COMMON.VIEW");
     }
 
-    return t("COMMON.REGISTER");
+    return t(getOpportunityButtonLabelKey(state));
   };
 
   const fetchOpportunities = useCallback(
@@ -331,6 +342,9 @@ export default function OpportunitiesListCard({
         }
 
         setHasMore(page < (responseData?.meta?.pagination?.total_pages || 1));
+
+        const total = responseData?.meta?.pagination?.total;
+        setTotalResults(typeof total === "number" ? total : null);
       } catch (error) {
         console.error("Error fetching opportunities", error);
       } finally {
@@ -468,6 +482,12 @@ export default function OpportunitiesListCard({
           ))}
         </div>
       ) : (
+        <>
+        {totalResults !== null && (
+          <p className="pb-4 text-secondary-102 text-base mobilescreen:text-sm">
+            {t("COMMON.RESULTS_COUNT", { total: totalResults })}
+          </p>
+        )}
         <InfiniteScroll
           dataLength={allOpportunities.length}
           next={loadMore}
@@ -522,51 +542,14 @@ export default function OpportunitiesListCard({
                           : `/volunteer-event-detail/${item.id}`
                       }
                     >
+                      {/* Square (1:1) crop — matches the ratio the upload form
+                          crops to, so the card never letterboxes or stretches. */}
                       <img
                         src={item.opportunity_images[0]?.image}
                         alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}
-                        className="w-full h-[300px] border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
+                        className="w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
                       />
-                      {(("is_supports_disabled" in item &&
-                        typeof item.is_supports_disabled === "boolean") ||
-                        ("is_urgent" in item && typeof item.is_urgent === "boolean") ||
-                        ("is_relief" in item && typeof item.is_relief === "boolean")) && (
-                        <div className="absolute top-0 right-0 pr-4 pt-4 flex flex-col gap-2">
-                          {"is_urgent" in item &&
-                            typeof item.is_urgent === "boolean" &&
-                            item.is_urgent === true && (
-                              <div className="w-8 h-8">
-                                <img
-                                  src="/assets/voluneteerevent/urgent.svg"
-                                  alt="Urgent"
-                                  className="w-full h-full"
-                                />
-                              </div>
-                            )}
-                          {"is_supports_disabled" in item &&
-                            typeof item.is_supports_disabled === "boolean" &&
-                            item.is_supports_disabled === true && (
-                              <div className="w-8 h-8">
-                                <img
-                                  src="/assets/voluneteerevent/person_disability_card.svg"
-                                  alt="Supports Disabilities"
-                                  className="w-full h-full"
-                                />
-                              </div>
-                            )}
-                          {"is_relief" in item &&
-                            typeof item.is_relief === "boolean" &&
-                            item.is_relief === true && (
-                              <div className="w-8 h-8">
-                                <img
-                                  src="/assets/voluneteerevent/relief.svg"
-                                  alt="Relief"
-                                  className="w-full h-full"
-                                />
-                              </div>
-                            )}
-                        </div>
-                      )}
+                      <OpportunityBadges item={item} />
                       <div className="grid grid-cols-2 text-sm text-gray-600 bg-[#000000B2]/70 absolute w-full bottom-0 h-[39px] items-center">
                         <span className="flex text-white justify-center gap-2 items-center text-sm">
                           <img
@@ -635,9 +618,15 @@ export default function OpportunitiesListCard({
                           : `/volunteer-event-detail/${item.id}`
                       }
                     >
-                      <h3 className="text-lg text-secondary-100 pb-3 font-bold pt-[19px] truncate">
-                        {selectedLanguage === "ar" ? item.title_ar : item.title_en}
-                      </h3>
+                      <div className="flex items-start gap-2 pb-3 pt-[19px]">
+                        <h3 className="text-lg text-secondary-100 font-bold truncate">
+                          {selectedLanguage === "ar" ? item.title_ar : item.title_en}
+                        </h3>
+                        <OpportunityVisibilityInfo
+                          isPublic={item.is_public}
+                          className="mt-1 shrink-0"
+                        />
+                      </div>
                       <div className="grid grid-cols-2 justify-between pb-[22px]">
                         <div className="flex items-center text-secondary-102 text-sm gap-2 leading-tight">
                           {isLearnServe ? (
@@ -783,6 +772,7 @@ export default function OpportunitiesListCard({
             )}
           </div>
         </InfiniteScroll>
+        </>
       )}
     </>
   );

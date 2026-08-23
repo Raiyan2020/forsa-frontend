@@ -249,6 +249,16 @@ const EventListCard: React.FC<EventCardProps> = ({
           {t("COMMON.NO_EVENTS_AVAILABLE")}
         </div>
       ) : (
+        <>
+        {/* `meta.pagination.total` is the count across every page, not just the
+            ones loaded so far — that's the number to show. */}
+        {typeof eventData?.meta?.pagination?.total === "number" && (
+          <p className="pb-4 text-secondary-102 text-base mobilescreen:text-sm">
+            {t("COMMON.RESULTS_COUNT", {
+              total: eventData.meta.pagination.total,
+            })}
+          </p>
+        )}
         <InfiniteScroll
           dataLength={allEvents.length}
           next={loadMore}
@@ -295,7 +305,8 @@ const EventListCard: React.FC<EventCardProps> = ({
                           />
                         </div>
                       )}
-                    <div className="relative w-full h-[300px]">
+                    {/* Square (1:1) crop, matching the upload form and the other cards. */}
+                    <div className="relative w-full aspect-square">
                       <Image
                         src={item?.event_images[0]?.image || "/placeholder.jpg"}
                         alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}
@@ -483,6 +494,7 @@ const EventListCard: React.FC<EventCardProps> = ({
             ))}
           </div>
         </InfiniteScroll>
+        </>
       )}
     </>
   );

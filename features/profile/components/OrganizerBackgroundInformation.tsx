@@ -24,12 +24,6 @@ const convertDecimalHoursToDisplay = (
 
 interface BackgroundInformationProps {
   company_name?: string;
-  sector_display?: {
-    id: number;
-    choice_type: string;
-    value_en: string;
-    value_ar: string;
-  } | null;
   interests?: {
     id: number;
     value_en: string;
@@ -101,7 +95,6 @@ function StatCard({
 
 export default function OrganizerBackgroundInformation({
   company_name,
-  sector_display,
   interests,
   instagram_link,
   facebook_link,
@@ -150,18 +143,11 @@ export default function OrganizerBackgroundInformation({
               </span>
             </div>
 
-            {sector_display && (
-              <div className="pb-5 items-center">
-                <h3 className="font-bold inline-block text-primary-5 text-lg laptopmain:text-xl xss:text-base">
-                  {t("COMMON.SECTOR")} :
-                </h3>
-                <span className="text-primary-5 text-lg xss:text-base">
-                  {currentLanguage === "en"
-                    ? sector_display.value_en
-                    : sector_display.value_ar}
-                </span>
-              </div>
-            )}
+            {/*
+              Sector was dropped from the UI at the client's request. The field
+              still exists on the API and will be removed there separately, so
+              `sector_display` is simply no longer rendered.
+            */}
 
             {interests && interests.length > 0 && (
               <div className="flex flex-wrap gap-2 pb-5 items-start flex-col">
