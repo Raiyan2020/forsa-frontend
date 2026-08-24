@@ -7,7 +7,13 @@
  * all. The client asked for six states driven by the API's own flags, so the
  * decision lives here and the components only render it.
  *
- * Evaluation order (first match wins):
+ * The backend now computes this itself and returns it as `action_state`
+ * (confirmed live on `/list-volunteer-opportunities/` as of 2026-08-24), so
+ * that value is used whenever present — it's authoritative and sidesteps the
+ * order ambiguity below entirely. The local heuristic remains only as a
+ * fallback for payloads that predate the field (or omit it).
+ *
+ * Fallback evaluation order (first match wins):
  *
  *   Ended → Started → Unregister → Full → Closed → Register
  *
@@ -17,8 +23,10 @@
  * volunteer on a full opportunity — their own registration is part of what
  * makes it full, so they would see "Full" and never get an unregister button.
  * `Full` and `Closed` answer "can *I* still join?", which is only meaningful
- * for someone not already registered. Ask the client to confirm.
+ * for someone not already registered.
  */
+
+import { toNumber } from "@/lib/helpers";
 
 export type OpportunityButtonState =
   | "ended"
@@ -28,14 +36,25 @@ export type OpportunityButtonState =
   | "unregister"
   | "register";
 
+const OPPORTUNITY_BUTTON_STATES: ReadonlySet<string> = new Set([
+  "ended",
+  "started",
+  "full",
+  "closed",
+  "unregister",
+  "register",
+]);
+
 /** The subset of an opportunity/event payload the rule reads. */
 export interface OpportunityButtonSource {
+  action_state?: string | null;
   opportunity_status?: string | null;
   is_registered?: boolean | null;
   is_registration_open?: boolean | null;
   is_registration_closed?: boolean | null;
-  registered_volunteers_count?: number | null;
-  participants_needed?: number | null;
+  /** The API sends these as Arabic-Indic digit strings under `ar` — run through `toNumber()`. */
+  registered_volunteers_count?: number | string | null;
+  participants_needed?: number | string | null;
 }
 
 /** i18n key each state renders with. */
@@ -58,6 +77,10 @@ export function getOpportunityButtonState(
 ): OpportunityButtonState {
   if (!item) return "register";
 
+  if (item.action_state && OPPORTUNITY_BUTTON_STATES.has(item.action_state)) {
+    return item.action_state as OpportunityButtonState;
+  }
+
   if (item.opportunity_status === "completed") return "ended";
   if (item.opportunity_status === "inprogress") return "started";
 
@@ -65,14 +88,9 @@ export function getOpportunityButtonState(
   // see the note above.
   if (item.is_registered) return "unregister";
 
-  const registered = item.registered_volunteers_count;
-  const needed = item.participants_needed;
-  if (
-    typeof registered === "number" &&
-    typeof needed === "number" &&
-    needed > 0 &&
-    registered >= needed
-  ) {
+  const registered = toNumber(item.registered_volunteers_count);
+  const needed = toNumber(item.participants_needed);
+  if (needed > 0 && registered >= needed) {
     return "full";
   }
 

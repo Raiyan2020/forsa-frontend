@@ -132,19 +132,29 @@ export default function LoginForm({
     } catch (err: any) {
       const fieldErrors = getApiFieldErrors(err, selectedLanguage);
       const messages = Object.values(fieldErrors);
-      // An unverified account is rejected at login; send it to the OTP step
-      // instead of a dead-end toast.
-      const isInactive = messages.some((message) =>
-        /is not active|غير مفع|غير نشط/i.test(message)
-      );
+      // An unverified account is rejected at login (403, `data.action ===
+      // "verify_otp"`) — send it to the OTP step instead of a dead-end toast.
+      // That structured field is the authoritative signal; the message-text
+      // regex is kept only as a fallback for a response shape that omits it.
+      // It's already stale once — the API's wording is "is not activated",
+      // which this pattern doesn't match ("active" != "activat[ed]") — so
+      // don't let it become the only path again.
+      const errorData = err?.response?.data?.data;
+      const isInactive =
+        errorData?.action === "verify_otp" ||
+        messages.some((message) => /is not activ|غير مفع|غير نشط/i.test(message));
 
       if (isInactive) {
+        const email = errorData?.email || values.email || "";
+        const otpType = errorData?.otp_type || "register";
         toast.error(t("COMMON.TOAST.USER_NOT_ACTIVE"));
         if (isModal && onShowEmailVerification) {
           onClose?.();
-          onShowEmailVerification(values.email || "", "register");
+          onShowEmailVerification(email, otpType);
         } else {
-          router.push(`/email-verification?email=${encodeURIComponent(values.email)}&otp_type=register`);
+          router.push(
+            `/email-verification?email=${encodeURIComponent(email)}&otp_type=${encodeURIComponent(otpType)}`
+          );
         }
       } else if (messages.length > 0) {
         messages.forEach((message) => toast.error(message));

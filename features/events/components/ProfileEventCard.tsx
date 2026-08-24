@@ -13,7 +13,7 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import { getAllOpportunities } from "@/features/services/api";
-import { formatDateRange } from "@/lib/helpers";
+import { formatDateRange, toNumber } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 import { FiltersData } from "@/features/profile/components/ProfileFilterForm";
 import DeleteEventModal from "./DeleteEventModal";
@@ -226,8 +226,10 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
 
     // If registration is required and event is full
     if (item.registration_required) {
-      const registeredCount = Number(item.registered_volunteers_count) || 0;
-      if (registeredCount >= item.participants_needed) {
+      // The API sends these as Arabic-Indic digit strings under `ar` — see
+      // `toNumber()`'s doc comment in lib/helpers.ts.
+      const registeredCount = toNumber(item.registered_volunteers_count);
+      if (registeredCount >= toNumber(item.participants_needed)) {
         return t("COMMON.FULL");
       }
       return t("COMMON.REGISTER");

@@ -12,7 +12,7 @@ import Link from "next/link";
 import Image from "next/image";
 import moment from "moment";
 import "moment/locale/ar";
-import { formatDateRange } from "@/lib/helpers";
+import { formatDateRange, toNumber } from "@/lib/helpers";
 import { Eye } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import DeleteEventModal from "./DeleteEventModal";
@@ -210,8 +210,10 @@ const EventListCard: React.FC<EventCardProps> = ({
     }
 
     if (item.registration_required) {
-      const registeredCount = Number(item.registered_volunteers_count) || 0;
-      if (registeredCount >= item.participants_needed) {
+      // The API sends these as Arabic-Indic digit strings under `ar` — see
+      // `toNumber()`'s doc comment in lib/helpers.ts.
+      const registeredCount = toNumber(item.registered_volunteers_count);
+      if (registeredCount >= toNumber(item.participants_needed)) {
         return t("COMMON.FULL");
       }
       return t("COMMON.REGISTER");

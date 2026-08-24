@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useLanguageStore } from "@/store/languageStore";
 import Loader from "@/components/ui/Loader";
 import Image from "next/image";
+import { toNumber } from "@/lib/helpers";
 
 
 interface EventImage {
@@ -179,8 +180,10 @@ export default function EventCard({
       return t("COMMON.CLOSED");
     }
     if (item.registration_required) {
-      const registeredCount = Number(item.registered_volunteers_count) || 0;
-      return registeredCount >= item.participants_needed ? t("COMMON.FULL") : t("COMMON.REGISTER");
+      // The API sends these as Arabic-Indic digit strings under `ar` — see
+      // `toNumber()`'s doc comment in lib/helpers.ts.
+      const registeredCount = toNumber(item.registered_volunteers_count);
+      return registeredCount >= toNumber(item.participants_needed) ? t("COMMON.FULL") : t("COMMON.REGISTER");
     }
     return t("COMMON.DETAILS");
   };

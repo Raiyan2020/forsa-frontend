@@ -535,8 +535,10 @@ export const getAchievementReports = (params?: any) =>
 
 // ─── Banner Images ───────────────────────────────────────────────────────────
 
-export const getBannerImages = () =>
-  apiClient.get("/banner-images/").then((r) => r.data);
+export const getBannerImages = (placement?: "home" | "opportunities" | "development" | "events") =>
+  apiClient
+    .get("/banner-images/", { params: placement ? { placement } : undefined })
+    .then((r) => r.data);
 
 // ─── Community ───────────────────────────────────────────────────────────────
 

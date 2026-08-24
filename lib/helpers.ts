@@ -10,6 +10,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+/**
+ * Several Fursa API endpoints localize numeric fields into Arabic-Indic digit
+ * strings when Arabic is the active language — e.g. `total_certificates`
+ * comes back as `"٢"` instead of `2` — which silently breaks a plain `> 0`
+ * check or any arithmetic (`Number("٢")` is `NaN`, and `"٢" > 0` is therefore
+ * `false`). Run a value through this before comparing or doing math on it;
+ * keep the original value for display, since it's already correctly
+ * localized there.
+ */
+export const toNumber = (value: unknown): number => {
+  if (typeof value === "number") return value;
+  if (typeof value !== "string") return 0;
+  const normalized = value.replace(/[٠-٩]/g, (digit) =>
+    String(ARABIC_INDIC_DIGITS.indexOf(digit))
+  );
+  const parsed = parseFloat(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 export const maskEmail = (email: string) => {
   if (!email) return "";
   const [name, domain] = email.split("@");

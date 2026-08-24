@@ -21,6 +21,7 @@ import {
   getLearnServeOpportunitiesList,
 } from "@/features/services/api";
 import { useAuthStore } from "@/store/authStore";
+import PlacementBanner from "@/components/shared/PlacementBanner";
 import moment from "moment";
 
 export default function Opportunities() {
@@ -217,6 +218,9 @@ export default function Opportunities() {
 
       <div className="border-t border-[#000] opp-itm opp-itm-shadow">
         <div className="2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto relative">
+          <div className="2xl:px-5 px-3 mobilescreen:px-[13px]">
+            <PlacementBanner placement="opportunities" />
+          </div>
           <div className="flex justify-between items-center mobilescreen:flex-col mobilescreen:gap-5 2xl:px-5 px-3 mobilescreen:px-[13px]">
             <div className="w-[668px] mobilescreen:w-[100%]">
               <Searchbar
@@ -228,6 +232,7 @@ export default function Opportunities() {
             </div>
             {user &&
               user?.is_verified === true &&
+              (user as any)?.is_banned !== true &&
               user?.user_type === "organization" && (
                 <Button
                   variant="primary"

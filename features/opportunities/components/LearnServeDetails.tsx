@@ -35,6 +35,7 @@ import {
   formatSingleDate,
   getDefaultProfileImage,
   openLocation,
+  toNumber,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
@@ -225,8 +226,8 @@ export default function LearnServeDetails({
 
   const remainingParticipants = Math.max(
     0,
-    (Number(opportunityData?.participants_needed) || 0) -
-    (Number(opportunityData?.registered_volunteers_count) || 0)
+    toNumber(opportunityData?.participants_needed) -
+    toNumber(opportunityData?.registered_volunteers_count)
   );
 
   useEffect(() => {

@@ -34,7 +34,7 @@ import {
 } from "@/features/services/api";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { getCheckInWindow } from "@/lib/checkInWindow";
-import { getDefaultProfileImage } from "@/lib/helpers";
+import { getDefaultProfileImage, toNumber } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRoleModalStore } from "@/store/roleModalStore";
@@ -1245,7 +1245,7 @@ export default function VolunteerList() {
   const registeredCount =
     registrations?.meta?.pagination?.total || allRegistrations.length || 0;
   const isParticipantsFull = Boolean(
-    participants_needed && Number(registeredCount) >= Number(participants_needed)
+    participants_needed && registeredCount >= toNumber(participants_needed)
   );
 
   const displayedVolunteers = showVolunteersModal ? allVolunteers : [];

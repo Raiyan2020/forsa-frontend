@@ -31,6 +31,7 @@ import {
   getDefaultProfileImage,
   handleShare,
   openLocation,
+  toNumber,
 } from "@/lib/helpers";
 import { getCheckInCountdown, getCheckInWindow } from "@/lib/checkInWindow";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
@@ -244,8 +245,8 @@ export default function VolunteerEvent({
 
   const remainingParticipants = Math.max(
     0,
-    (Number(opportunityData?.participants_needed) || 0) -
-    (Number(opportunityData?.registered_volunteers_count) || 0)
+    toNumber(opportunityData?.participants_needed) -
+    toNumber(opportunityData?.registered_volunteers_count)
   );
 
   const handleShowVolunteerMandateDetails = (userData: any) => {
@@ -558,14 +559,12 @@ export default function VolunteerEvent({
   const isRegistrationClosed =
     closedByCreator ||
     Boolean(registrationDeadline && nowUtc.isAfter(registrationDeadline, "day"));
-  const participantsNeeded = Number(opportunityData?.participants_needed);
-  const registeredVolunteers = Number(
-    opportunityData?.registered_volunteers_count ?? 0
+  const participantsNeeded = toNumber(opportunityData?.participants_needed);
+  const registeredVolunteers = toNumber(
+    opportunityData?.registered_volunteers_count
   );
   const isFull =
-    Number.isFinite(participantsNeeded) &&
-    participantsNeeded > 0 &&
-    registeredVolunteers >= participantsNeeded;
+    participantsNeeded > 0 && registeredVolunteers >= participantsNeeded;
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );

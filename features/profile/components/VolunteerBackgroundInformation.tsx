@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import Title from "@/components/shared/Title";
 import { healthConcernOptions, occupationOptions } from "@/data/Constants";
 import { useLanguageStore } from "@/store/languageStore";
+import { toNumber } from "@/lib/helpers";
 
 const asset = (path: string) => `/assets/${path}`;
 
@@ -15,7 +16,7 @@ const asset = (path: string) => `/assets/${path}`;
  * converting the fraction to minutes.
  */
 const convertDecimalHoursToDisplay = (
-  decimalHours: number | null | undefined
+  decimalHours: number | string | null | undefined
 ): string => {
   if (decimalHours === null || decimalHours === undefined) {
     return "0";
@@ -49,15 +50,19 @@ interface VolunteerBackgroundInformationProps {
   whatsapp_link?: string | null;
   linkedin_link?: string | null;
   twitter_link?: string | null;
-  /** Flat counters, used when the response carries no `statistics` object. */
-  total_volunteer_hours?: number;
-  total_opportunities?: number;
-  total_certificates?: number;
+  /**
+   * Flat counters, used when the response carries no `statistics` object.
+   * The API sends these as plain numbers under `en` but as Arabic-Indic
+   * digit strings under `ar` — run through `toNumber()` before comparing.
+   */
+  total_volunteer_hours?: number | string;
+  total_opportunities?: number | string;
+  total_certificates?: number | string;
   statistics?: {
     all_time?: {
-      total_hours?: number;
-      total_opportunities?: number;
-      total_certificates?: number;
+      total_hours?: number | string;
+      total_opportunities?: number | string;
+      total_certificates?: number | string;
     };
   };
   /** The public profile hides health concerns. */
@@ -284,8 +289,10 @@ export default function VolunteerBackgroundInformation({
               color="opportunities"
             />
             {/* Hours and volunteer opportunities always show, even at zero;
-                the rest only once the volunteer has something to show. */}
-            {stats.certificates > 0 && (
+                the rest only once the volunteer has something to show. The
+                API localizes this into an Arabic-Indic digit string under
+                `ar` — see `toNumber()`'s doc comment in lib/helpers.ts. */}
+            {toNumber(stats.certificates) > 0 && (
               <StatCard
                 icon={asset("profile/statistics/n_Certificate.svg")}
                 alt="Certificate"

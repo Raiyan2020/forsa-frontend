@@ -24,7 +24,7 @@ import {
   getUserOpportunities,
 } from "@/features/services/api";
 import { occupationOptions } from "@/data/Constants";
-import { formatDateRange, getDefaultProfileImage } from "@/lib/helpers";
+import { formatDateRange, getDefaultProfileImage, toNumber } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface LocalizedValue {
@@ -33,12 +33,18 @@ interface LocalizedValue {
   value_ar?: string;
 }
 
+/**
+ * These numeric fields come back as plain numbers under `en`, but as
+ * Arabic-Indic digit strings (e.g. `"٢"`) under `ar` — see `toNumber()` in
+ * `lib/helpers.ts`. Typed `number | string` here so a `> 0` gate on one of
+ * them has to go through that helper rather than compiling by accident.
+ */
 interface ProfileStatistics {
   all_time?: {
-    total_hours?: number;
-    total_opportunities?: number;
-    total_certificates?: number;
-    opportunities_organized?: number;
+    total_hours?: number | string;
+    total_opportunities?: number | string;
+    total_certificates?: number | string;
+    opportunities_organized?: number | string;
   };
 }
 
@@ -69,14 +75,14 @@ interface ProfileData {
   whatsapp_link?: string | null;
   instagram_link?: string | null;
   linkedin_link?: string | null;
-  organization_hours?: number | null;
-  learn_opportunity_organized?: number | null;
-  vol_opportunity_organized?: number | null;
-  sponsored?: number | null;
-  total_volunteer_hours?: number;
-  total_opportunities?: number;
-  total_certificates?: number;
-  opportunities_organized?: number;
+  organization_hours?: number | string | null;
+  learn_opportunity_organized?: number | string | null;
+  vol_opportunity_organized?: number | string | null;
+  sponsored?: number | string | null;
+  total_volunteer_hours?: number | string;
+  total_opportunities?: number | string;
+  total_certificates?: number | string;
+  opportunities_organized?: number | string;
   statistics?: ProfileStatistics;
 }
 
@@ -356,8 +362,10 @@ function BackgroundAndAchievements({
       color: "border-primary-502 text-primary-502",
     },
     // Hours and volunteer opportunities always show, even at zero; development
-    // and sponsorship appear only once they have a value.
-    ...((profile.learn_opportunity_organized ?? 0) > 0
+    // and sponsorship appear only once they have a value. The API localizes
+    // these into Arabic-Indic digit strings under `ar`, so the gate compares
+    // through `toNumber()` rather than the raw value — see its doc comment.
+    ...(toNumber(profile.learn_opportunity_organized) > 0
       ? [
           {
             icon: "profile/statistics/n_learnServeicn.svg",
@@ -367,7 +375,7 @@ function BackgroundAndAchievements({
           },
         ]
       : []),
-    ...(!isVolunteerTeam && (profile.sponsored ?? 0) > 0
+    ...(!isVolunteerTeam && toNumber(profile.sponsored) > 0
       ? [
           {
             icon: "profile/statistics/n_sponseredbyus.svg",
@@ -391,7 +399,7 @@ function BackgroundAndAchievements({
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
-    ...(volunteerStats.certificates > 0
+    ...(toNumber(volunteerStats.certificates) > 0
       ? [
           {
             icon: "profile/statistics/n_Certificate.svg",
@@ -967,8 +975,12 @@ export default function CommonProfile({ id }: { id: string }) {
           userId={String(profile.id)}
           userType={response.user_type}
           isVolunteerTeam={Boolean(response.is_volunteer_team)}
-          sponsoredCount={profile.sponsored ?? 0}
-          developmentCount={profile.learn_opportunity_organized ?? null}
+          sponsoredCount={toNumber(profile.sponsored)}
+          developmentCount={
+            profile.learn_opportunity_organized == null
+              ? null
+              : toNumber(profile.learn_opportunity_organized)
+          }
         />
       </div>
     </div>

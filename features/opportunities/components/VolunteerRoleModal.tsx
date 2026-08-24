@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRoleModalStore } from "@/store/roleModalStore";
+import { toNumber } from "@/lib/helpers";
 import CreateVolunteerRoleModal from "./CreateVolunteerRoleModal";
 import DeleteVolunteerRoleModal from "./DeleteVolunteerRoleModal";
 import ParticipantsMismatchModal from "./ParticipantsMismatchModal";
@@ -83,12 +84,13 @@ export default function VolunteerRoleModal({
   const totalRoleParticipants =
     roles?.data?.reduce(
       (sum: number, role: any) =>
-        sum + (Number(role.total_participants_needed) || 0),
+        sum + toNumber(role.total_participants_needed),
       0
     ) || 0;
 
-  const opportunityParticipants =
-    Number(opportunityData?.data?.participants_needed) || 0;
+  const opportunityParticipants = toNumber(
+    opportunityData?.data?.participants_needed
+  );
   const hasValidParticipants =
     opportunityParticipants === totalRoleParticipants;
 

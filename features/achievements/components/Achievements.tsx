@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import moment from "moment";
@@ -138,10 +138,19 @@ export default function Achievements() {
     : undefined;
 
   /**
-   * Volunteer opportunities are always shown, even at zero. Everything else
-   * appears only once it has a value — the client asked for empty counters to
-   * disappear rather than read as a real zero.
+   * The backend flags which counters to show via `counter_visibility` on the
+   * statistics payload — volunteer hours/opportunities are always true there,
+   * the rest true only once they have a value (confirmed live 2026-08-24).
+   * Falls back to the previous zero-value heuristic for a payload that
+   * predates the field.
    */
+  const counterVisibility = chartData?.counter_visibility as
+    | Record<string, boolean>
+    | undefined;
+
+  const showCounter = (key: string, hasValue: boolean) =>
+    counterVisibility ? counterVisibility[key] === true : hasValue;
+
   const statCards: Array<{
     key: string;
     value: string;
@@ -157,33 +166,33 @@ export default function Achievements() {
       className: "bg-[#9F6DEE4D]/30 text-[#9F6DEE]",
       valueClassName: "text-[#9F6DEE]",
     },
-    ...(learnserve_opp_completed
+    ...(showCounter("development", Boolean(learnserve_opp_completed))
       ? [
           {
             key: "development",
-            value: String(learnserve_opp_completed),
+            value: String(learnserve_opp_completed || 0),
             label: t("ACHIEVEMENTS.LEARN_SERVE_COMPLETED"),
             className: "bg-[#7A92FF] text-[#29246D]",
             valueClassName: "text-[#29246D]",
           },
         ]
       : []),
-    ...(relief_trips
+    ...(showCounter("outside_kuwait", Boolean(relief_trips))
       ? [
           {
             key: "outside-kuwait",
-            value: String(relief_trips),
+            value: String(relief_trips || 0),
             label: t("ACHIEVEMENTS.RELIEF_TRIP"),
             className: "bg-[#D9EF61] text-[#4E5B08]",
             valueClassName: "text-[#4E5B08]",
           },
         ]
       : []),
-    ...(beneficiariesCount
+    ...(showCounter("beneficiaries", Boolean(beneficiariesCount))
       ? [
           {
             key: "beneficiaries",
-            value: Number(beneficiariesCount).toLocaleString(),
+            value: Number(beneficiariesCount || 0).toLocaleString(),
             label: t("ACHIEVEMENTS.BENEFICIARIES"),
             tooltip: beneficiariesTooltip,
             className: "bg-[#70B4C24D]/30 text-[#1F6675]",
@@ -191,7 +200,7 @@ export default function Achievements() {
           },
         ]
       : []),
-    ...(economicImpact
+    ...(showCounter("economic_impact", Boolean(economicImpact))
       ? [
           {
             key: "economic-impact",
@@ -417,59 +426,86 @@ export default function Achievements() {
   );
 }
 
+/**
+ * Podium slots, keyed by rank. Every dimension is a plain size class — the old
+ * layout stacked negative percentage offsets on absolutely positioned heads,
+ * which drifted at every breakpoint and pushed the Arabic labels out of their
+ * pedestals. Here the head sits *above* the pedestal in normal flow and only
+ * the rank pill is absolute, so the columns can never overlap.
+ */
+const PODIUM_SLOTS = {
+  1: {
+    rank: "1",
+    bar: "bg-[#29246D]",
+    ring: "ring-[#29246D]",
+    pillText: "text-[#29246D]",
+    valueColor: "text-[#D9EF61]",
+    labelColor: "text-[#D9EF61]/85",
+    shadow: "shadow-[0_20px_45px_-22px_rgba(41,36,109,0.75)]",
+    height: "h-[132px] xsl:h-[210px] md:h-[280px] lg:h-[330px] 2xl:h-[400px]",
+    avatar: "w-[68px] h-[68px] xsl:w-24 xsl:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32",
+    initials: "bg-[#29246D] text-[#D9EF61]",
+  },
+  2: {
+    rank: "2",
+    bar: "bg-[#D9EF61]",
+    ring: "ring-[#C4DC3F]",
+    pillText: "text-[#4E5B08]",
+    valueColor: "text-[#29246D]",
+    labelColor: "text-[#29246D]/70",
+    shadow: "shadow-[0_18px_40px_-24px_rgba(78,91,8,0.55)]",
+    height: "h-[96px] xsl:h-[160px] md:h-[215px] lg:h-[255px] 2xl:h-[310px]",
+    avatar: "w-[56px] h-[56px] xsl:w-20 xsl:h-20 md:w-24 md:h-24 lg:w-[104px] lg:h-[104px]",
+    initials: "bg-[#D9EF61] text-[#4E5B08]",
+  },
+  3: {
+    rank: "3",
+    bar: "bg-[#70B4C2]",
+    ring: "ring-[#5AA0AF]",
+    pillText: "text-[#1F6675]",
+    valueColor: "text-white",
+    labelColor: "text-white/85",
+    shadow: "shadow-[0_18px_40px_-24px_rgba(31,102,117,0.55)]",
+    height: "h-[76px] xsl:h-[130px] md:h-[180px] lg:h-[215px] 2xl:h-[260px]",
+    avatar: "w-[56px] h-[56px] xsl:w-20 xsl:h-20 md:w-24 md:h-24 lg:w-[104px] lg:h-[104px]",
+    initials: "bg-[#70B4C2] text-white",
+  },
+} as const;
+
+type PodiumSlot = (typeof PODIUM_SLOTS)[keyof typeof PODIUM_SLOTS];
+
+const CrownIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    className="w-5 h-5 xsl:w-6 xsl:h-6 md:w-7 md:h-7 text-[#E8B10D] drop-shadow-sm"
+    fill="currentColor"
+  >
+    <path d="M3 8.2a1.2 1.2 0 0 1 1.94-.94l3.1 2.48 2.86-4.77a1.28 1.28 0 0 1 2.2 0l2.86 4.77 3.1-2.48A1.2 1.2 0 0 1 21 8.2l-1.36 8.15A1.6 1.6 0 0 1 18.06 17.7H5.94a1.6 1.6 0 0 1-1.58-1.35L3 8.2Z" />
+    <rect x="5.6" y="19" width="12.8" height="2.2" rx="1.1" />
+  </svg>
+);
+
 const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
   data,
   type,
   t,
 }) => {
-  const getTopThree = () => {
-    const topThree = [...(data || [])].slice(0, 3);
-    while (topThree.length < 3) {
-      topThree.push(null);
-    }
-    return topThree;
-  };
-  const { i18n } = useTranslation();
+  const topThree: (LeaderboardItem | null)[] = [
+    ...(data || []).slice(0, 3),
+    null,
+    null,
+    null,
+  ].slice(0, 3);
 
-  const topThree = getTopThree();
-  const podiumOrder = [topThree[1], topThree[0], topThree[2]];
+  // Rendered left-to-right as 2 – 1 – 3; the grid mirrors itself under `dir=rtl`.
+  const podiumOrder = [
+    { item: topThree[1], slot: PODIUM_SLOTS[2] },
+    { item: topThree[0], slot: PODIUM_SLOTS[1] },
+    { item: topThree[2], slot: PODIUM_SLOTS[3] },
+  ];
 
-  const getPodiumConfig = (position: 0 | 1 | 2) => {
-    const configs = {
-      0: {
-        bg: "bg-[#D9EF61]",
-        border: "border-[#d9ef61]",
-        rank: "2",
-        height: "lg:h-[395px] xsl:h-[200px] md:h-[300px] xss:h-[92px]",
-        topOffset: "lg:top-[-65%] xsl:top-[-80%] md:top-[-65%] xss:top-[-155%]",
-        textColor: "text-primary-5",
-      },
-      1: {
-        bg: "bg-[#29246D]",
-        border: "border-[#29246D]",
-        rank: "1",
-        height: "lg:h-[508px] xsl:h-[350px] md:h-[450px] xss:h-[125px]",
-        topOffset: "lg:top-[-50%] md:top-[-45%] xsl:top-[-45%] xss:top-[-116%]",
-        textColor: "text-primary-505",
-      },
-      2: {
-        bg: "bg-[#70B4C2]",
-        border: "border-[#70B4C2]",
-        rank: "3",
-        height: "lg:h-[395px] xsl:h-[200px] md:h-[300px] xss:h-[92px]",
-        topOffset: "lg:top-[-65%] xsl:top-[-80%] md:top-[-65%] xss:top-[-155%]",
-        textColor: "text-white",
-      },
-    } as const;
-    return configs[position];
-  };
-
-  const getDisplayValue = (item: {
-    total_hours?: number;
-    executed_opportunities?: number;
-    sponsored_count?: number;
-  }) => {
-    if (!item) return "0";
+  const getDisplayValue = (item: LeaderboardItem) => {
     switch (type) {
       case "individuals":
         return item.total_hours || 0;
@@ -478,7 +514,7 @@ const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
       case "companies":
         return item.sponsored_count || 0;
       default:
-        return "0";
+        return 0;
     }
   };
 
@@ -495,153 +531,123 @@ const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
     }
   };
 
-  const getProfileImage = (item: {
-    profile_pic?: string;
-    gender_display?: { value_en: string };
-  }) => {
-    if (!item) return null;
-
-    if (type === "individuals" && !item.profile_pic) {
+  const getProfileImage = (item: LeaderboardItem) => {
+    if (item.profile_pic) return item.profile_pic;
+    if (type === "individuals") {
       return getDefaultProfileImage(
         item.gender_display?.value_en,
         dummyimg4,
         dummyimg,
         dummyimg2
       );
-    } else if ((type === "teams" || type === "companies") && !item.profile_pic) {
-      return dummyimg2;
     }
-
-    return item.profile_pic || null;
+    return dummyimg2;
   };
 
-  const getName = (item: {
-    nickname?: string;
-    name?: string;
-    organization_name?: string;
-  }) => {
+  const getName = (item: LeaderboardItem | null) => {
     if (!item) return t("COMMON.NO_DATA");
     return (
-      item.nickname ||
+      (item as { nickname?: string }).nickname ||
       item.name ||
       item.organization_name ||
       t("COMMON.NO_DATA")
     );
   };
 
-  const renderProfileImage = (
-    item: {
-      nickname?: string;
-      organization_name?: string;
-      profile_pic?: string;
-      gender_display?: { value_en: string };
-    },
-    config: { border: string }
-  ) => {
+  const getProfileHref = (item: LeaderboardItem) =>
+    item.user_type === "volunteer" && !item.is_public
+      ? `/volunteer-private-profile/${item.user_id}`
+      : `/public-profile/${item.user_id || item.organization_id}`;
+
+  const renderAvatar = (item: LeaderboardItem, slot: PodiumSlot) => {
     const profilePic = getProfileImage(item);
+    const name = getName(item);
+    const shared = `${slot.avatar} rounded-full object-cover bg-white ring-2 ${slot.ring} ring-offset-2 ring-offset-white shadow-[0_10px_25px_-12px_rgba(41,36,109,0.45)] transition-transform duration-200 group-hover:-translate-y-1`;
+
     if (profilePic) {
-      return (
-        <img
-          src={profilePic}
-          alt={getName(item)}
-          className={`object-cover border ${config.border} rounded-[100px] p-[3px] xss:w-20 xss:h-20 xsl:w-24 xsl:h-24 lg:w-[142px] lg:h-[142px] md:w-24 md:h-24 mobilescreen:w-18 mobilescreen:h-18`}
-        />
-      );
-    } else {
-      return (
-        <div
-          className={`p-[3px] lg:w-[150px] lg:h-[150px] md:w-[110px] md:h-[110px] xsl:w-[80px] xsl:h-[80px] xss:w-[40px] xss:h-[40px] border ${config.border} rounded-[100px]`}
-        >
-          <div
-            className={`flex flex-cols items-center justify-center object-cover bg-primary-5 lg:w-[142px] lg:h-[142px] md:h-[102px] md:w-[102px] w-[100px] h-[100px] xss:w-[33px] xsl:w-[72px] xsl:h-[72px] xss:h-[33px] m-auto rounded-[100px]`}
-          >
-            <p className="text-base font-bold mobilescreen:text-[5px]">
-              {getName(item).charAt(0).toUpperCase()}
-            </p>
-          </div>
-        </div>
-      );
+      return <img src={profilePic} alt={name} className={shared} />;
     }
+
+    return (
+      <div
+        className={`${shared} ${slot.initials} flex items-center justify-center text-xl md:text-2xl font-bold`}
+      >
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
   };
 
   if (!data || data.length === 0) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500 text-lg">{t("COMMON.NO_DATA_AVAILABLE")}</p>
+      <div className="rounded-[24px] border border-dashed border-[#D5D2E8] bg-[#FAFAFD] py-12 text-center">
+        <p className="text-[#8B87A6] text-base md:text-lg">
+          {t("COMMON.NO_DATA_AVAILABLE")}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-3 items-end gap-0 mb-4 lg:pt-[290px] xsl:pt-[200px] md:pt-[210px] xss:pt-[180px]">
-      {podiumOrder?.map((item: LeaderboardItem | null, index) => {
-        const config = getPodiumConfig(index as 0 | 1 | 2);
-        const displayValue = item ? getDisplayValue(item) : 0;
-        const name = item ? getName(item) : t("COMMON.NO_DATA");
+    <div className="mt-8 md:mt-12 mb-6 grid grid-cols-3 items-end gap-2 xsl:gap-4 md:gap-5">
+      {podiumOrder.map(({ item, slot }) => {
+        const name = getName(item);
+        const isEmpty = !item || name === t("COMMON.NO_DATA");
+
+        const head = isEmpty ? (
+          <div className="flex flex-col items-center gap-2 pb-4 md:pb-6">
+            <div
+              className={`${slot.avatar} rounded-full border border-dashed border-[#D5D2E8] bg-[#FAFAFD]`}
+            />
+            <span className="text-[11px] xsl:text-sm md:text-base font-semibold text-[#A8A4C0]">
+              {t("COMMON.NO_DATA")}
+            </span>
+          </div>
+        ) : (
+          <Link
+            href={getProfileHref(item)}
+            className="group flex flex-col items-center gap-2 pb-4 md:pb-6 outline-none focus-visible:ring-2 focus-visible:ring-[#29246D]/40 rounded-2xl px-1"
+          >
+            {slot.rank === "1" && <CrownIcon />}
+            {renderAvatar(item, slot)}
+            <span className="max-w-full text-center text-[11px] xsl:text-sm md:text-base lg:text-lg font-bold text-primary-5 leading-snug line-clamp-2 break-words group-hover:underline decoration-2 underline-offset-4">
+              {name}
+            </span>
+          </Link>
+        );
 
         return (
-          <div
-            key={index}
-            className={`${config.bg} relative rounded-t-[30px] ${config.height} text-white border border-gray-100 flex items-center justify-between`}
-          >
-            {item && name !== t("COMMON.NO_DATA") ? (
-              <Link
-                href={
-                  item?.user_type === "volunteer" && !item?.is_public
-                    ? `/volunteer-private-profile/${item?.user_id}`
-                    : `/public-profile/${item?.user_id || item?.organization_id}`
-                }
-                className="w-full h-full"
-              >
-                <div
-                  className={`overflow-hidden absolute ${config.topOffset} flex justify-center mx-auto w-full pb-[100px]`}
-                >
-                  <div className="relative flex justify-center flex-col items-center">
-                    {item && (
-                      <div className="i01 relative">
-                        {renderProfileImage(item, config)}
-                      </div>
-                    )}
+          <div key={slot.rank} className="flex flex-col items-center justify-end">
+            {head}
 
-                    <h3 className="text-center text-secondary-100 2xl:text-xl lg:text-lg md:text-base font-bold pt-4 xss:text-xs xsl:text-sm">
-                      {name}
-                    </h3>
-                  </div>
-                </div>
-              </Link>
-            ) : (
-              <div
-                className={`overflow-hidden absolute ${config.topOffset} flex justify-center mx-auto w-full pb-[100px]`}
-              >
-                <div className="relative flex justify-center flex-col items-center">
-                  {item && <div>{renderProfileImage(item, config)}</div>}
-                  <h3 className="text-center text-secondary-100 2xl:text-xl lg:text-lg md:text-base font-bold pt-4 xss:text-xs xsl:text-sm">
-                    {name}
-                  </h3>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-center font-bold absolute md:top-[-40px] lg:top-[-40px] xsl:top-[-20px] xss:top-[-10px] w-full">
+            <div
+              className={`relative w-full ${slot.height} rounded-t-[18px] xsl:rounded-t-[26px] md:rounded-t-[32px] flex items-center justify-center px-1 ${
+                isEmpty
+                  ? "bg-[#F4F3F9] border border-b-0 border-dashed border-[#D5D2E8]"
+                  : `${slot.bar} ${slot.shadow}`
+              }`}
+            >
+              {/* Rank pill straddles the pedestal edge — a fixed translate, so it
+                  never drifts the way the old percentage offsets did. */}
               <span
-                className={`lg:w-[177px] xsl:w-[100px] xsl:h-[40px] md:w-[150px] xss:w-[42px] xss:h-[19px] lg:h-[76px] md:h-[76px] bg-[#E7E5FF] border ${config.border} rounded-[40px] text-[#29246D] text-center flex justify-center flex-col font-bold lg:text-[40px] md:text-[40px] xss:text-xs`}
+                className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full bg-white ring-1 ${slot.ring} ${slot.pillText} shadow-[0_6px_16px_-6px_rgba(41,36,109,0.35)] w-8 h-8 xsl:w-11 xsl:h-11 md:w-14 md:h-14 lg:w-16 lg:h-16 text-sm xsl:text-xl md:text-2xl lg:text-3xl font-bold`}
               >
-                <p className={`relative ${i18n.language === "ar" ? "top-[0px]" : "top-0"}`}>
-                  {config.rank}
-                </p>
+                {slot.rank}
               </span>
-            </div>
 
-            <div className="flex flex-col justify-center mx-auto 2xl:gap-12 lg:gap-6 xss:gap-2">
-              <h3 className={`${config.textColor} font-bold 2xl:text-[70px] xsl:text-[50px] lg:text-[40px] md:text-[40px] xss:text-base text-center`}>
-                {displayValue}
-              </h3>
-              <p
-                className={`2xl:text-[40px] lg:text-[24px] md:text-2xl xsl:text-lg ${config.textColor} xss:text-xs text-center`}
-                style={{ lineHeight: "normal" }}
-              >
-                {getDisplayLabel()}
-              </p>
+              {!isEmpty && (
+                <div className="flex flex-col items-center justify-center gap-0.5 md:gap-1 pt-3 md:pt-5 text-center">
+                  <span
+                    className={`${slot.valueColor} font-bold leading-none text-xl xsl:text-4xl md:text-5xl lg:text-[56px] 2xl:text-[64px] tabular-nums`}
+                  >
+                    {getDisplayValue(item).toLocaleString()}
+                  </span>
+                  <span
+                    className={`${slot.labelColor} font-medium leading-snug text-[10px] xsl:text-sm md:text-base lg:text-lg`}
+                  >
+                    {getDisplayLabel()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -709,79 +715,61 @@ const LeaderboardTable: React.FC<LeaderboardTableProps> = ({
     return item.profile_pic || img2;
   };
 
+  /**
+   * One row body, shared by the linked and the unlinked variant so the two can
+   * never drift apart the way the duplicated markup used to.
+   */
+  const renderRow = (item: TableItem, rank: number) => (
+    <>
+      <div className="flex items-center gap-3 md:gap-5 min-w-0">
+        <span className="w-7 md:w-9 shrink-0 text-center text-base md:text-xl font-bold text-[#A8A4C0] tabular-nums">
+          {rank}
+        </span>
+        <img
+          src={getProfileImage(item)}
+          alt={getName(item)}
+          className="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-full object-cover bg-white ring-1 ring-[#E7E5FF]"
+        />
+        <span className="min-w-0 truncate text-sm md:text-lg font-semibold text-[#4A4665]">
+          {getName(item)}
+        </span>
+      </div>
+      <div className="shrink-0 rounded-full bg-[#E7E5FF] px-3 md:px-5 py-2 md:py-2.5">
+        <span className="text-xs md:text-base font-bold text-[#5A5380] whitespace-nowrap">
+          {getDisplayValue(item)}
+        </span>
+      </div>
+    </>
+  );
+
   return (
-    <div className="overflow-x-auto mobilescreen:pr-0">
-      <table className="table-auto w-full border-separate border-spacing-y-4">
-        <tbody>
-          {tableData.map((item: TableItem, index) => {
-            return (
-              <tr key={item.user_id || item.organization_id || index}>
-                {getName(item) !== t("COMMON.NO_DATA") ? (
-                  <td className="p-0">
-                    <Link
-                      href={
-                        item?.user_type === "volunteer" && !item?.is_public
-                          ? `/volunteer-private-profile/${item?.user_id}`
-                          : `/public-profile/${item?.user_id || item?.organization_id}`
-                      }
-                      className="flex items-center justify-between py-4 mobilescreen:py-2 px-7 mobilescreen:px-3 rounded-[15px] border border-[#A6A6A6] h-[95px] w-full cursor-pointer hover:bg-gray-50"
-                    >
-                      <div className="flex items-center overflow-hidden max-w-full">
-                        <span className="text-[#696969] text-xl font-bold min-w-[1.5rem]">
-                          {startRank + index}
-                        </span>
-                        <div className="ml-[49px] mobilescreen:ml-2 mobilescreen:mr-2 mr-[13px]">
-                          <img
-                            src={getProfileImage(item)}
-                            alt={getName(item)}
-                            className="w-12 h-12 object-cover xss:w-[34px] xss:h-[34px] rounded-full overflow-hidden"
-                          />
-                        </div>
-                        <div className="xs:truncate xs:overflow-hidden xs:max-w-[60px] max-w-none">
-                          <span className="text-[#696969] text-xl xss:text-xs font-medium xss:truncate xss:whitespace-nowrap xss:overflow-hidden truncate-none block">
-                            {getName(item)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-[13px] rounded-[10px] text-sm font-medium bg-[#E7E5FF] px-3 xss:gap-1 h-[60px] xss:h-[45px] justify-center">
-                        <span className="text-[#988FA0] font-bold lg:text-lg md:text-lg xss:text-xs">
-                          {getDisplayValue(item)}
-                        </span>
-                      </div>
-                    </Link>
-                  </td>
-                ) : (
-                  <td className="flex items-center justify-between py-4 mobilescreen:py-2 px-7 mobilescreen:px-[13px] rounded-[15px] border border-[#A6A6A6] h-[95px] w-full">
-                    <div className="flex items-center overflow-hidden max-w-full">
-                      <span className="text-[#696969] text-xl font-bold min-w-[1.5rem]">
-                        {startRank + index}
-                      </span>
-                      <div className="ml-[49px] mobilescreen:ml-2 mobilescreen:mr-2 mr-[13px]">
-                        <img
-                          src={getProfileImage(item)}
-                          alt={getName(item)}
-                          className="w-12 h-12 object-cover xss:w-[34px] xss:h-[34px] rounded-full overflow-hidden"
-                        />
-                      </div>
-                      <div className="xs:truncate xs:overflow-hidden xs:max-w-[60px] max-w-none">
-                        <span className="text-[#696969] text-xl xss:text-xs font-medium xss:truncate xss:whitespace-nowrap xss:overflow-hidden truncate-none block">
-                          {getName(item)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-[13px] rounded-[10px] text-sm font-medium bg-[#E7E5FF] px-3 xss:gap-[10px] h-[60px] xss:h-[45px] justify-center">
-                      <span className="text-[#988FA0] font-bold lg:text-lg md:text-lg xss:text-xs">
-                        {getDisplayValue(item)}
-                      </span>
-                    </div>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <ul className="flex flex-col gap-3 md:gap-4">
+      {tableData.map((item: TableItem, index) => {
+        const rank = startRank + index;
+        const isLinked = getName(item) !== t("COMMON.NO_DATA");
+        const rowClass =
+          "flex items-center justify-between gap-3 rounded-[18px] border border-[#E4E2F0] bg-white px-4 md:px-7 py-3 md:py-4 min-h-[72px] md:min-h-[88px]";
+
+        return (
+          <li key={item.user_id || item.organization_id || index}>
+            {isLinked ? (
+              <Link
+                href={
+                  item?.user_type === "volunteer" && !item?.is_public
+                    ? `/volunteer-private-profile/${item?.user_id}`
+                    : `/public-profile/${item?.user_id || item?.organization_id}`
+                }
+                className={`${rowClass} transition-all duration-200 hover:border-[#C9C4E6] hover:shadow-[0_10px_28px_-18px_rgba(41,36,109,0.45)]`}
+              >
+                {renderRow(item, rank)}
+              </Link>
+            ) : (
+              <div className={rowClass}>{renderRow(item, rank)}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 };
 

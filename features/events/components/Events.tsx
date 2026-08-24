@@ -13,6 +13,7 @@ import AllEventFilterModal, {
   AllEventsFiltersData,
 } from "./AllEventFilterModal";
 import { useAuthStore } from "@/store/authStore";
+import PlacementBanner from "@/components/shared/PlacementBanner";
 import EventListCard from "./EventListCard";
 
 export default function Events() {
@@ -122,6 +123,7 @@ export default function Events() {
 
       <div className="border-t border-[#000] opp-itm-shadow">
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] mx-auto 2xl:py-[70px] py-[40px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] mobilescreen:py-[40px] relative">
+          <PlacementBanner placement="events" />
           <div className="flex justify-between items-center mobilescreen:flex-col mobilescreen:gap-5">
             <div className="w-[668px] mobilescreen:w-[100%]">
               <Searchbar

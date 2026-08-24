@@ -12,6 +12,7 @@ import Title from "@/components/shared/Title";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
 import { Modal } from "@/components/ui/Modal";
 import { useAuthStore } from "@/store/authStore";
+import PlacementBanner from "@/components/shared/PlacementBanner";
 import OpportunityTypeModal from "./OpportunityTypeModal";
 import OpportunitiesListCard from "./OpportunitiesListCard";
 import OpportuniteFilterModal, { AllOpportunitiesFiltersData } from "./AllOpportuniteFilterModal";
@@ -163,6 +164,7 @@ export default function LearnServeList() {
       <div className="border-t border-[#000] opp-itm-shadow">
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] py-[40px] mx-auto 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] mobilescreen:py-[40px] relative">
           <div id={scrollToTopId}></div>
+          <PlacementBanner placement="development" />
           <div className="flex justify-between items-center mobilescreen:flex-col mobilescreen:gap-5">
             <div className="w-[668px] mobilescreen:w-[100%]">
               <Searchbar
