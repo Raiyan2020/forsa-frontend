@@ -47,8 +47,8 @@ export default function ForgotPasswordForm({
     { resetForm }: FormikHelpers<typeof initialValues>
   ) => {
     try {
-      await forgotPasswordMutation.mutateAsync(values);
-      toast.success(t("COMMON.TOAST.EMAIL_SENT_SUCCESSFULLY"));
+      const response = await forgotPasswordMutation.mutateAsync(values);
+      toast.success(response?.msg || t("COMMON.TOAST.EMAIL_SENT_SUCCESSFULLY"));
       resetForm();
       if (onShowEmailVerification) {
         onShowEmailVerification(values.email || "", "password");

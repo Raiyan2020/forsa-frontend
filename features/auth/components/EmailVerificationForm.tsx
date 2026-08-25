@@ -59,7 +59,8 @@ export default function EmailVerificationForm({
     mutationFn: resendOtpRequest,
   });
 
-  const initialTimer = Number(process.env.NEXT_PUBLIC_OTP_TIMER) || 1800;
+  // Resend cooldown is capped at 1 minute regardless of the configured value.
+  const initialTimer = Math.min(Number(process.env.NEXT_PUBLIC_OTP_TIMER) || 1800, 60);
   const [timer, setTimer] = useState(initialTimer);
   const [isResendDisabled, setIsResendDisabled] = useState(true);
   const [otpError, setOtpError] = useState<string | null>(null);
@@ -211,11 +212,11 @@ export default function EmailVerificationForm({
   const resendOtp = async () => {
     try {
       if (isResendDisabled) return;
-      await resendOtpMutation.mutateAsync({
+      const response = await resendOtpMutation.mutateAsync({
         email,
         type: otp_type,
       });
-      toast.success(t("COMMON.TOAST.OTP_RESENT_SUCCESSFULLY"));
+      toast.success(response?.msg || t("COMMON.TOAST.OTP_RESENT_SUCCESSFULLY"));
       setTimer(initialTimer);
       setIsResendDisabled(true);
     } catch (error: any) {

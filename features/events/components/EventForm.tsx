@@ -902,7 +902,8 @@ export default function EventForm({
                           label={t("COMMON.LOCATION_URL")}
                           placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
                           type="text"
-                          className="w-full"
+                          className="w-full text-left"
+                          dir="ltr"
                         />
                       </div>
                     </div>
@@ -974,7 +975,8 @@ export default function EventForm({
                           label={t("COMMON.LOCATION_URL")}
                           placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
                           type="text"
-                          className="w-full"
+                          className="w-full text-left"
+                          dir="ltr"
                         />
                       </div>
                     </div>

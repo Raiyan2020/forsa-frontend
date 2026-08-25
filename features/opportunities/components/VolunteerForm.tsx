@@ -1171,8 +1171,9 @@ export default function VolunteerForm({
                         name="location_url"
                         label={t("COMMON.LOCATION_URL")}
                         placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
-                        className="w-full"
+                        className="w-full text-left"
                         onFocus={() => setFieldTouched("location_url", true)}
+                        dir="ltr"
                       />
                     </div>
                   </div>

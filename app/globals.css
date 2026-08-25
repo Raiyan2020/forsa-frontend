@@ -4,6 +4,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Safety net against page-level horizontal overflow. Several third-party
+ * widgets on form pages (Google Places' `.pac-container`, react-select
+ * dropdowns, the date/time pickers) size and position themselves outside
+ * this app's control — if any of them ever computes a wrong width/offset,
+ * it drags the whole document wider instead of just clipping itself.
+ * `clip` (not `hidden`) keeps this from creating its own scroll container,
+ * which would otherwise break `position: fixed` elements on iOS Safari.
+ */
+html,
+body {
+  overflow-x: clip;
+}
+
 /* @font-face {
   font-family: "Tajawal";
   src: url("../src/fonts/tajawal/Tajawal-Regular.ttf") format("truetype");

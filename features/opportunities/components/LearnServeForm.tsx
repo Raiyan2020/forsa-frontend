@@ -1641,7 +1641,8 @@ export default function LearnServeForm({
                           label={t("COMMON.LOCATION_URL")}
                           placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
                           type="text"
-                          className="w-full"
+                          className="w-full text-left"
+                          dir="ltr"
                         />
                       </div>
                       <div className="w-full">

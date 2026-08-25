@@ -2,7 +2,7 @@
 
 import { useField } from "formik";
 import { useState, useCallback } from "react";
-import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
+import { Autocomplete } from "@react-google-maps/api";
 import Input from "./Input";
 import { useTranslation } from "react-i18next";
 
@@ -18,8 +18,16 @@ interface AutocompleteInputProps {
   className?: string;
 }
 
-const libraries: "places"[] = ["places"];
-
+/**
+ * Every call site renders this inside `<GoogleMapsProvider>`, which already
+ * guarantees the script is loaded before `children` mounts — so this used to
+ * ALSO call `useJsApiLoader` itself, loading the Maps JS API a second,
+ * independent time via a different mechanism (`@googlemaps/js-api-loader`
+ * rather than `<LoadScript>`'s own injector). Google's own script detects
+ * that and logs "You have included the Google Maps JavaScript API multiple
+ * times on this page", which is a documented source of unpredictable widget
+ * behaviour. Removed; this component now simply trusts its provider.
+ */
 const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   name,
   label,
@@ -33,13 +41,6 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
   const [, , helpers] = useField(name);
   const { t } = useTranslation();
-
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: apiKey,
-    libraries,
-  });
 
   const onLoad = (autoC: google.maps.places.Autocomplete) => {
     setAutocomplete(autoC);
@@ -105,8 +106,6 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
       event.preventDefault();
     }
   };
-
-  if (!isLoaded) return <div>{t("COMMON.LOADING")}</div>;
 
   return (
     <Autocomplete onLoad={onLoad} onPlaceChanged={onPlaceChanged}>
