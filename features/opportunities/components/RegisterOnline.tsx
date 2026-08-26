@@ -161,7 +161,7 @@ export default function RegisterOnline({
 
     try {
       await registerMutation.mutateAsync({
-        opportunity: opportunityId,
+        opportunity_id: opportunityId,
         time_slot_id: values.selectedSlotId,
       });
 

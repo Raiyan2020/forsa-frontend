@@ -315,7 +315,12 @@ export const updateLearnServeOpportunity = ({ id, data }: { id: string; data: an
 export const updateLearnServeOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
   apiClient.patch(`/learn-serve-opportunities/${id}/update_images/`, formData).then((r) => r.data);
 
-export const registerForLearnServeOpportunity = (data: any) =>
+export interface LearnServeRegistrationPayload {
+  opportunity_id: string | number;
+  time_slot_id?: number;
+}
+
+export const registerForLearnServeOpportunity = (data: LearnServeRegistrationPayload) =>
   apiClient.post("/learn-serve-opportunity-registrations/", data).then((r) => r.data);
 
 export const unregisterFromLearnServeOpportunity = (id: string) =>

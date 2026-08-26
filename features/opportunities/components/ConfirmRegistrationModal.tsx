@@ -44,7 +44,7 @@ export default function ConfirmRegistrationModal({
     if (!opportunityId) return;
     try {
       const response = await registerMutation.mutateAsync({
-        opportunity: opportunityId,
+        opportunity_id: opportunityId,
       });
 
       // The API also rejects with HTTP 200 + `key: "fail"`, so the envelope —
