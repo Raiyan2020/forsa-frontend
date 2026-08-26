@@ -16,14 +16,17 @@ interface TimePickerProps {
 }
 
 const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
-  ({
-    name,
-    label,
-    className = "",
-    disabled = false,
-    autoSetTime = false,
-    ...props
-  }) => {
+  (
+    {
+      name,
+      label,
+      className = "",
+      disabled = false,
+      autoSetTime = false,
+      ...props
+    },
+    ref
+  ) => {
     const [field, meta, helpers] = useField(name);
     const [isFocused, setIsFocused] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -36,7 +39,6 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
     const selectedLanguage = useLanguageStore((s) => s.language);
     const isRtl = selectedLanguage === "ar";
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
     const visibleInputRef = useRef<HTMLInputElement>(null);
 
     // Repeat the base lists so the columns scroll "infinitely"
@@ -452,7 +454,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
         {isDropdownOpen && (
           <div
             dir="ltr"
-            className="absolute top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden w-48 left-0"
+            className="absolute top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-[1100] overflow-hidden w-48 left-0"
           >
             <style>{`
               .timepicker-scroll::-webkit-scrollbar { display: none; }
@@ -538,7 +540,7 @@ const TimePicker = forwardRef<HTMLInputElement, TimePickerProps>(
         <input
           {...field}
           {...props}
-          ref={inputRef}
+          ref={ref}
           type="time"
           name={name}
           value={field.value || ""}

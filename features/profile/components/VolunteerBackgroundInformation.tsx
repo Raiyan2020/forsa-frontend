@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/Badge";
 import Title from "@/components/shared/Title";
 import { healthConcernOptions, occupationOptions } from "@/data/Constants";
 import { useLanguageStore } from "@/store/languageStore";
-import { toNumber } from "@/lib/helpers";
 
 const asset = (path: string) => `/assets/${path}`;
 
@@ -52,8 +51,6 @@ interface VolunteerBackgroundInformationProps {
   twitter_link?: string | null;
   /**
    * Flat counters, used when the response carries no `statistics` object.
-   * The API sends these as plain numbers under `en` but as Arabic-Indic
-   * digit strings under `ar` — run through `toNumber()` before comparing.
    */
   total_volunteer_hours?: number | string;
   total_opportunities?: number | string;
@@ -288,19 +285,13 @@ export default function VolunteerBackgroundInformation({
               label={t("COMMON.VOLUNTEER_OPPORTUNITIES-")}
               color="opportunities"
             />
-            {/* Hours and volunteer opportunities always show, even at zero;
-                the rest only once the volunteer has something to show. The
-                API localizes this into an Arabic-Indic digit string under
-                `ar` — see `toNumber()`'s doc comment in lib/helpers.ts. */}
-            {toNumber(stats.certificates) > 0 && (
-              <StatCard
-                icon={asset("profile/statistics/n_Certificate.svg")}
-                alt="Certificate"
-                value={stats.certificates}
-                label={t("COMMON.CERTIFICATE-")}
-                color="certificates"
-              />
-            )}
+            <StatCard
+              icon={asset("profile/statistics/n_Certificate.svg")}
+              alt="Certificate"
+              value={stats.certificates}
+              label={t("COMMON.CERTIFICATE-")}
+              color="certificates"
+            />
           </div>
         </div>
       </div>

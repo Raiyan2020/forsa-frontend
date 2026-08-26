@@ -189,10 +189,12 @@ export const YupWhatsAppLink = Yup.string().test(
       return true;
     }
 
-    let normalizedValue = value.trim();
+    const normalizedValue = value.trim();
 
-    if (!/^https?:\/\//i.test(normalizedValue)) {
-      normalizedValue = 'https://' + normalizedValue;
+    // The scheme is required, not inferred — "wa.me/123..." on its own is
+    // rejected rather than silently treated as "https://wa.me/123...".
+    if (!/^https:\/\//i.test(normalizedValue)) {
+      return false;
     }
 
     try {

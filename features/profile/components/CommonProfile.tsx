@@ -361,21 +361,13 @@ function BackgroundAndAchievements({
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
-    // Hours and volunteer opportunities always show, even at zero; development
-    // and sponsorship appear only once they have a value. The API localizes
-    // these into Arabic-Indic digit strings under `ar`, so the gate compares
-    // through `toNumber()` rather than the raw value — see its doc comment.
-    ...(toNumber(profile.learn_opportunity_organized) > 0
-      ? [
-          {
-            icon: "profile/statistics/n_learnServeicn.svg",
-            value: profile.learn_opportunity_organized ?? 0,
-            label: t("COMMON.OPPORTUNITIESORGANIZED--"),
-            color: "border-primary-503 text-primary-503",
-          },
-        ]
-      : []),
-    ...(!isVolunteerTeam && toNumber(profile.sponsored) > 0
+    {
+      icon: "profile/statistics/n_learnServeicn.svg",
+      value: profile.learn_opportunity_organized ?? 0,
+      label: t("COMMON.OPPORTUNITIESORGANIZED--"),
+      color: "border-primary-503 text-primary-503",
+    },
+    ...(!isVolunteerTeam
       ? [
           {
             icon: "profile/statistics/n_sponseredbyus.svg",
@@ -399,16 +391,12 @@ function BackgroundAndAchievements({
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
-    ...(toNumber(volunteerStats.certificates) > 0
-      ? [
-          {
-            icon: "profile/statistics/n_Certificate.svg",
-            value: volunteerStats.certificates,
-            label: t("COMMON.CERTIFICATE-"),
-            color: "border-primary-503 text-primary-503",
-          },
-        ]
-      : []),
+    {
+      icon: "profile/statistics/n_Certificate.svg",
+      value: volunteerStats.certificates,
+      label: t("COMMON.CERTIFICATE-"),
+      color: "border-primary-503 text-primary-503",
+    },
   ];
   const cards = userType === "organization" ? organizationCards : volunteerCards;
 
@@ -856,7 +844,6 @@ function PublicProfileListings({
             </div>
           </div>
         )}
-
         {loading ? (
           <Loader inline className="py-20" />
         ) : section === "certificates" ? (

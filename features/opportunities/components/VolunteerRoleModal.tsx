@@ -80,11 +80,12 @@ export default function VolunteerRoleModal({
     refetchOnMount: "always",
   });
 
-  // Calculate total participants from roles
+  // Calculate total participants from roles. The API names this field
+  // `participants_needed` on the role object itself (confirmed against a
+  // live `/volunteer-opportunity-roles/` response) — not `total_participants_needed`.
   const totalRoleParticipants =
     roles?.data?.reduce(
-      (sum: number, role: any) =>
-        sum + toNumber(role.total_participants_needed),
+      (sum: number, role: any) => sum + toNumber(role.participants_needed),
       0
     ) || 0;
 
@@ -148,7 +149,7 @@ export default function VolunteerRoleModal({
       label: t("COMMON.INSTRUCTION"),
       key: selectedLanguage === "ar" ? "instructions_ar" : "instructions_en",
     },
-    { label: t("COMMON.NEEDED"), key: "total_participants_needed" },
+    { label: t("COMMON.NEEDED"), key: "participants_needed" },
     { label: t("COMMON.ACTION"), key: "Action" },
   ];
 
@@ -204,7 +205,7 @@ export default function VolunteerRoleModal({
             return (
               <span
                 className={
-                  column.key === "total_participants_needed"
+                  column.key === "participants_needed"
                     ? `${
                         selectedLanguage === "ar"
                           ? "mr-[7px] text-right"
@@ -240,10 +241,8 @@ export default function VolunteerRoleModal({
         <Button
           variant="primary"
           size="medium"
-          className={`xss:!w-full ${
-            !hasValidParticipants ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          onClick={hasValidParticipants ? handleSaveClick : undefined}
+          className={`xss:!w-full `}
+          onClick={handleSaveClick}
           disabled={!hasValidParticipants}
         >
           {t("COMMON.SAVE")}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Field,
   FieldArray,
@@ -18,12 +19,10 @@ import { FaMinus, FaPlus } from "react-icons/fa";
 import * as Yup from "yup";
 
 import AgeRange from "@/components/ui/AgeRange";
-import AutocompleteInput from "@/components/ui/AutocompleteInput";
 import { Button } from "@/components/ui/Button";
 import CheckBox from "@/components/ui/CheckBox";
 import DatePickerInput from "@/components/ui/DateField";
 import DisabledButtonWithTooltip from "@/components/ui/DisabledButtonWithTooltip";
-import { GoogleMapsProvider } from "@/components/ui/GoogleMapsProvider";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
@@ -47,6 +46,7 @@ import {
   getTimeSlots,
   updateLearnServeOpportunity,
 } from "@/features/services/api";
+import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
@@ -109,6 +109,12 @@ interface LearnServeFormProps {
   autoSetTimeOnClick?: boolean; // Auto-set time fields to 12:00 on first click
 }
 
+// Leaflet touches `window` at import time, so it can't be part of the SSR pass.
+const LocationMapPicker = dynamic(
+  () => import("@/components/ui/LocationMapPicker"),
+  { ssr: false }
+);
+
 interface OpportunityDetails {
   startDate: string;
   endDate: string;
@@ -166,24 +172,20 @@ function LearnServeFormEffects({
   const setTimeSlots = useTimeSlotsStore((s) => s.setTimeSlots);
   const clearTimeSlots = useTimeSlotsStore((s) => s.clearTimeSlots);
 
-  // Update location based on selected language whenever language changes
+  // Sync location once opportunityData arrives (it loads after mount).
+  // `map_desc` is a single language-agnostic field — no per-language lookup.
   useEffect(() => {
     if (!opportunityData || !id) return;
-    const locationValue =
-      opportunityData[
-        selectedLanguage === "ar" ? "location_ar" : "location_en"
-      ];
-    if (locationValue) {
-      setFieldValue("location", locationValue);
-      // Preserve the latitude and longitude from opportunityData
-      if (opportunityData.latitude) {
-        setFieldValue("latitude", opportunityData.latitude.toString());
-      }
-      if (opportunityData.longitude) {
-        setFieldValue("longitude", opportunityData.longitude.toString());
-      }
+    if (opportunityData.map_desc) {
+      setFieldValue("location", opportunityData.map_desc);
     }
-  }, [opportunityData, selectedLanguage, setFieldValue, id]);
+    if (opportunityData.latitude) {
+      setFieldValue("latitude", opportunityData.latitude.toString());
+    }
+    if (opportunityData.longitude) {
+      setFieldValue("longitude", opportunityData.longitude.toString());
+    }
+  }, [opportunityData, setFieldValue, id]);
 
   // When editing with coordinates but no stored location text, reverse-geocode
   // them so the field isn't left empty.
@@ -192,8 +194,7 @@ function LearnServeFormEffects({
       if (
         opportunityData?.latitude &&
         opportunityData?.longitude &&
-        !opportunityData?.location_en &&
-        !opportunityData?.location_ar
+        !opportunityData?.map_desc
       ) {
         const result = await fetchAddress(
           Number(opportunityData.latitude),
@@ -713,10 +714,7 @@ export default function LearnServeForm({
     learningType: opportunityData?.learning_type_display?.id || "",
     learnServeFormat: opportunityData?.format_display?.id || "",
     certificateType: opportunityData?.certificate_type_display?.id || "",
-    location:
-      opportunityData?.[
-        selectedLanguage === "ar" ? "location_ar" : "location_en"
-      ] || "",
+    location: opportunityData?.map_desc || "",
     location_url: opportunityData?.location_url || "",
     latitude: opportunityData?.latitude?.toString() || "",
     longitude: opportunityData?.longitude?.toString() || "",
@@ -927,20 +925,10 @@ export default function LearnServeForm({
     ]
   );
 
-  const reportSubmitError = (error: any, isUpdate: boolean) => {
-    const data = error?.response?.data;
-    if (data?.errors && Object.keys(data.errors).length > 0) {
-      Object.keys(data.errors).forEach((key) => {
-        toast.error(
-          data.errors[key][selectedLanguage] ||
-            t("COMMON.TOAST.CREATE_OPPORTUNITY_FAILED")
-        );
-      });
-    } else if (data?.message_en || data?.message_ar) {
-      toast.error(
-        data[`message_${selectedLanguage}`] ||
-          t("COMMON.TOAST.CREATE_OPPORTUNITY_FAILED")
-      );
+  const reportSubmitError = (error: unknown, isUpdate: boolean) => {
+    const messages = getApiErrorMessages(error, selectedLanguage);
+    if (messages.length > 0) {
+      messages.forEach((message) => toast.error(message));
     } else {
       toast.error(
         isUpdate && !isRepublish
@@ -963,8 +951,22 @@ export default function LearnServeForm({
       const formattedStartTime = `${values.startTime}:00`;
       const formattedEndTime = `${values.endTime}:00`;
 
+      // The API requires both languages' title/description regardless of
+      // which one the org is actually typing in. The untouched language
+      // falls back to whatever was already stored (edit) or duplicates the
+      // typed value (create) — there's only one title/description field in
+      // this form, so that's the best available content for it.
+      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
       formData.append(`title_${selectedLanguage}`, values.title);
+      formData.append(
+        `title_${otherLanguage}`,
+        opportunityData?.[`title_${otherLanguage}`] || values.title
+      );
       formData.append(`description_${selectedLanguage}`, values.description);
+      formData.append(
+        `description_${otherLanguage}`,
+        opportunityData?.[`description_${otherLanguage}`] || values.description
+      );
       formData.append("start_date", formattedStartDate);
       formData.append("end_date", formattedEndDate);
       formData.append("format", values.learnServeFormat);
@@ -980,7 +982,9 @@ export default function LearnServeForm({
       formData.append("primary_language", values.primary_language);
       formData.append("start_time", formattedStartTime);
       formData.append("end_time", formattedEndTime);
-      formData.append("is_kuwaitis", String(values.is_kuwaitis));
+      // The API's `boolean` validation rule only accepts 1/0 (or "1"/"0"),
+      // not the literal strings "true"/"false".
+      formData.append("is_kuwaitis", values.is_kuwaitis ? "1" : "0");
       formData.append("gender", values.gender);
 
       if (values.dueDate) {
@@ -995,7 +999,7 @@ export default function LearnServeForm({
       if (values.license_image instanceof File && values.license_image.size > 0) {
         formData.append("license_image", values.license_image);
       } else if (id && !isRepublish && values.license_image_removed) {
-        formData.append("license_image_removed", "true");
+        formData.append("license_image_removed", "1");
       }
 
       // Reposting without a fresh licence reuses the original's copy
@@ -1016,7 +1020,7 @@ export default function LearnServeForm({
           ? "new_opportunity_images"
           : "opportunity_images";
         formData.append(`${prefix}_${index}`, file);
-        formData.append(`${prefix}_is_after_completed_${index}`, "false");
+        formData.append(`${prefix}_is_after_completed_${index}`, "0");
       });
 
       values.sponsors.forEach((sponsor, index) => {
@@ -1036,7 +1040,7 @@ export default function LearnServeForm({
       if (values.learnServeFormat === onlineFormatId) {
         formData.append("link", values.meetingLink || "");
       } else {
-        formData.append("location", values.location || "");
+        formData.append("map_desc", values.location || "");
         formData.append("location_url", values.location_url || "");
         if (values.latitude) formData.append("latitude", values.latitude);
         if (values.longitude) formData.append("longitude", values.longitude);
@@ -1104,11 +1108,13 @@ export default function LearnServeForm({
 
       setConfirmModalOpen(false);
       setPendingFormData(null);
-    } catch (error: any) {
-      console.error("Error in handleConfirmDeleteTimeSlots:", error);
+    } catch (error) {
       toast.error(
-        error?.response?.data?.[`message_${selectedLanguage}`] ||
+        getApiErrorMessage(
+          error,
+          selectedLanguage,
           t("COMMON.TOAST.DELETE_TIMESLOTS_FAILED")
+        )
       );
       // Leave the modal open so the user can retry or cancel
     }
@@ -1264,7 +1270,7 @@ export default function LearnServeForm({
   }
 
   return (
-    <GoogleMapsProvider>
+    <>
       <Modal
         open={opentime && Boolean(opportunityId)}
         onClose={handleCloseTimeModal}
@@ -1614,28 +1620,12 @@ export default function LearnServeForm({
 
                     <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
                       <div className="w-full">
-                        {!isOnline ? (
-                          <AutocompleteInput
-                            name="location"
-                            label={t("COMMON.LOCATION")}
-                            value={values.location}
-                            onChange={(val) => setFieldValue("location", val)}
-                            onLatChange={(lat) =>
-                              setFieldValue("latitude", lat)
-                            }
-                            onLngChange={(lng) =>
-                              setFieldValue("longitude", lng)
-                            }
-                            className="w-full"
-                          />
-                        ) : (
-                          <Input
-                            name="location"
-                            label={t("COMMON.LOCATION")}
-                            type="text"
-                            disabled
-                          />
-                        )}
+                        <Input
+                          name="location"
+                          label={t("COMMON.LOCATION")}
+                          type="text"
+                          disabled={isOnline}
+                        />
                         <Input
                           name="location_url"
                           label={t("COMMON.LOCATION_URL")}
@@ -1644,6 +1634,24 @@ export default function LearnServeForm({
                           className="w-full text-left"
                           dir="ltr"
                         />
+                        {!isOnline && (
+                          <LocationMapPicker
+                            latitude={values.latitude}
+                            longitude={values.longitude}
+                            onPick={async (lat, lng) => {
+                              setFieldValue("latitude", lat);
+                              setFieldValue("longitude", lng);
+                              if (!values.location) {
+                                const address = await fetchAddress(
+                                  Number(lat),
+                                  Number(lng),
+                                  selectedLanguage
+                                );
+                                setFieldValue("location", address);
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                       <div className="w-full">
                         <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
@@ -1892,6 +1900,6 @@ export default function LearnServeForm({
           </Formik>
         </div>
       </div>
-    </GoogleMapsProvider>
+    </>
   );
 }

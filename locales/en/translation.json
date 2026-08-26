@@ -1222,6 +1222,7 @@
   "COMMON.LOCATION_URL": "Location link",
   "COMMON.LOCATION_URL_PLACEHOLDER": "https://maps.google.com/?q=...",
   "COMMON.OPEN_IN_MAPS": "Open in maps",
+  "COMMON.CLICK_MAP_TO_SET_LOCATION": "Click on the map or drag the pin to set the location",
   "COMMON.CLOSE_REGISTRATION": "Close registration",
   "COMMON.REGISTRATION_CLOSED": "Registration closed",
   "COMMON.ARE_YOU_SURE_CLOSE_REGISTRATION": "Are you sure you want to close registration for this opportunity ?",

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Field,
   FieldArray,
@@ -22,7 +23,6 @@ import SelectInput from "@/components/ui/SelectInput";
 import DatePickerInput from "@/components/ui/DateField";
 import TimepickerInput from "@/components/ui/TimePicker";
 import AgeRange from "@/components/ui/AgeRange";
-import AutocompleteInput from "@/components/ui/AutocompleteInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import UploadDocument from "@/components/ui/UploadDocument";
 import DisabledButtonWithTooltip from "@/components/ui/DisabledButtonWithTooltip";
@@ -30,7 +30,6 @@ import { TagsCheckbox } from "@/components/ui/TagsCheckbox";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import { GoogleMapsProvider } from "@/components/ui/GoogleMapsProvider";
 import { getDropdownChoicesRequest } from "@/features/auth/api/authApi";
 import {
   createEvent,
@@ -38,6 +37,7 @@ import {
   getEventById,
   updateEvent,
 } from "@/features/services/api";
+import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
@@ -83,9 +83,15 @@ interface EventFormProps {
   autoSetTimeOnClick?: boolean; // Auto-set time fields to 12:00 on first click
 }
 
+// Leaflet touches `window` at import time, so it can't be part of the SSR pass.
+const LocationMapPicker = dynamic(
+  () => import("@/components/ui/LocationMapPicker"),
+  { ssr: false }
+);
+
 /**
  * Re-runs validation whenever a touched field gains a value, and keeps the
- * location field in sync with the loaded event / current language.
+ * location field in sync with the loaded event.
  */
 function EventFormEffects({
   values,
@@ -114,9 +120,11 @@ function EventFormEffects({
     }
   }, [values, touched, validateForm]);
 
+  // When editing with coordinates but no stored location text, reverse-geocode
+  // them so the field isn't left empty.
   useEffect(() => {
     const getAddress = async () => {
-      if (eventData?.latitude && eventData?.longitude) {
+      if (eventData?.latitude && eventData?.longitude && !eventData?.map_desc) {
         const result = await fetchAddress(
           eventData.latitude,
           eventData.longitude,
@@ -129,26 +137,25 @@ function EventFormEffects({
   }, [
     eventData?.latitude,
     eventData?.longitude,
+    eventData?.map_desc,
     selectedLanguage,
     setFieldValue,
   ]);
 
-  // Update location based on selected language whenever language changes
+  // Sync location once eventData arrives (it loads after mount).
+  // `map_desc` is a single language-agnostic field — no per-language lookup.
   useEffect(() => {
     if (!eventData || !id) return;
-    const locationValue =
-      eventData[selectedLanguage === "ar" ? "location_ar" : "location_en"];
-    if (locationValue) {
-      setFieldValue("location", locationValue);
-      // Preserve the latitude and longitude from eventData
-      if (eventData.latitude) {
-        setFieldValue("latitude", eventData.latitude.toString());
-      }
-      if (eventData.longitude) {
-        setFieldValue("longitude", eventData.longitude.toString());
-      }
+    if (eventData.map_desc) {
+      setFieldValue("location", eventData.map_desc);
     }
-  }, [eventData, selectedLanguage, setFieldValue, id]);
+    if (eventData.latitude) {
+      setFieldValue("latitude", eventData.latitude.toString());
+    }
+    if (eventData.longitude) {
+      setFieldValue("longitude", eventData.longitude.toString());
+    }
+  }, [eventData, setFieldValue, id]);
 
   return null;
 }
@@ -420,9 +427,7 @@ export default function EventForm({
       : "",
     participation_type_value_en:
       eventData?.participation_type_display?.value_en || "",
-    location:
-      eventData?.[selectedLanguage === "ar" ? "location_ar" : "location_en"] ||
-      "",
+    location: eventData?.map_desc || "",
     registration_link: eventData?.registration_link || "",
     _interests:
       eventData?.interest_display?.map((interest: { id: any }) =>
@@ -576,8 +581,22 @@ export default function EventForm({
     try {
       const formData = new FormData();
 
+      // The API requires both languages' title/description regardless of
+      // which one the org is actually typing in. The untouched language
+      // falls back to whatever was already stored (edit) or duplicates the
+      // typed value (create) — there's only one title/description field in
+      // this form, so that's the best available content for it.
+      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
       formData.append(`title_${selectedLanguage}`, values.title);
+      formData.append(
+        `title_${otherLanguage}`,
+        eventData?.[`title_${otherLanguage}`] || values.title
+      );
       formData.append(`description_${selectedLanguage}`, values.description);
+      formData.append(
+        `description_${otherLanguage}`,
+        eventData?.[`description_${otherLanguage}`] || values.description
+      );
       formData.append("start_date", formatDateToYYYYMMDD(values.startDate));
       formData.append("end_date", formatDateToYYYYMMDD(values.endDate));
       formData.append("start_time", values.startTime);
@@ -604,7 +623,7 @@ export default function EventForm({
         "to_age",
         values.age[1] !== null ? values.age[1].toString() : ""
       );
-      formData.append("location", values.location);
+      formData.append("map_desc", values.location);
       formData.append("location_url", values.location_url);
       if (values.gender) formData.append("gender", values.gender);
       values._interests.forEach((interest) => {
@@ -655,12 +674,16 @@ export default function EventForm({
       }
       resetForm();
     } catch (err) {
-      console.error("Operation failed:", err);
-      toast.error(
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      const fallback =
         id && !isRepublish
           ? t("COMMON.TOAST.EVENT_FAILED")
-          : t("COMMON.TOAST.CREATE_EVENT_FAILED")
-      );
+          : t("COMMON.TOAST.CREATE_EVENT_FAILED");
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(fallback);
+      }
     }
   };
 
@@ -671,15 +694,10 @@ export default function EventForm({
       toast.success(t("COMMON.TOAST.UPDATE_EVENT_SUCCESS"));
       router.push(`/event-details/${id}`);
       setPendingFormData(null);
-    } catch (err: any) {
-      const errors = err?.response?.data?.errors;
-      if (errors) {
-        Object.keys(errors).forEach((key) => {
-          toast.error(
-            errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.UPDATE_EVENT_FAILED")
-          );
-        });
+    } catch (err) {
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.UPDATE_EVENT_FAILED"));
       }
@@ -725,7 +743,7 @@ export default function EventForm({
   }
 
   return (
-    <GoogleMapsProvider>
+    <>
       <Modal
         open={showUpdateConfirmModal}
         onClose={() => setShowUpdateConfirmModal(false)}
@@ -888,13 +906,10 @@ export default function EventForm({
                     </div>
                     <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
                       <div className="flex-1">
-                        <AutocompleteInput
+                        <Input
                           name="location"
                           label={t("COMMON.LOCATION")}
-                          value={values.location}
-                          onChange={(val) => setFieldValue("location", val)}
-                          onLatChange={(lat) => setFieldValue("latitude", lat)}
-                          onLngChange={(lng) => setFieldValue("longitude", lng)}
+                          type="text"
                           className="w-full"
                         />
                         <Input
@@ -904,6 +919,22 @@ export default function EventForm({
                           type="text"
                           className="w-full text-left"
                           dir="ltr"
+                        />
+                        <LocationMapPicker
+                          latitude={values.latitude}
+                          longitude={values.longitude}
+                          onPick={async (lat, lng) => {
+                            setFieldValue("latitude", lat);
+                            setFieldValue("longitude", lng);
+                            if (!values.location) {
+                              const address = await fetchAddress(
+                                Number(lat),
+                                Number(lng),
+                                selectedLanguage
+                              );
+                              setFieldValue("location", address);
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -961,13 +992,10 @@ export default function EventForm({
                     </div>
                     <div className="flex gap-6 extrasmall:flex-col extrasmall:gap-0">
                       <div className="flex-1">
-                        <AutocompleteInput
+                        <Input
                           name="location"
                           label={t("COMMON.LOCATION")}
-                          value={values.location}
-                          onChange={(val) => setFieldValue("location", val)}
-                          onLatChange={(lat) => setFieldValue("latitude", lat)}
-                          onLngChange={(lng) => setFieldValue("longitude", lng)}
+                          type="text"
                           className="w-full"
                         />
                         <Input
@@ -977,6 +1005,22 @@ export default function EventForm({
                           type="text"
                           className="w-full text-left"
                           dir="ltr"
+                        />
+                        <LocationMapPicker
+                          latitude={values.latitude}
+                          longitude={values.longitude}
+                          onPick={async (lat, lng) => {
+                            setFieldValue("latitude", lat);
+                            setFieldValue("longitude", lng);
+                            if (!values.location) {
+                              const address = await fetchAddress(
+                                Number(lat),
+                                Number(lng),
+                                selectedLanguage
+                              );
+                              setFieldValue("location", address);
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -1139,6 +1183,6 @@ export default function EventForm({
           </Formik>
         </div>
       </div>
-    </GoogleMapsProvider>
+    </>
   );
 }

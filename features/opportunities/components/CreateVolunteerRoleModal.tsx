@@ -21,6 +21,7 @@ import {
   YupStringMaxLength,
 } from "@/lib/schema";
 import { useLanguageStore } from "@/store/languageStore";
+import { getApiErrorMessages } from "@/lib/api/errors";
 
 interface RoleFormValues {
   role_name: string;
@@ -80,11 +81,22 @@ export default function CreateVolunteerRoleModal({
     { resetForm }: FormikHelpers<RoleFormValues>
   ) => {
     try {
+      // The API requires both languages' role_name/instructions regardless of
+      // which one the organizer is actually typing in. The untouched language
+      // falls back to whatever was already stored (edit) or duplicates the
+      // typed value (create) — there's only one role_name/instructions field
+      // in this form, so that's the best available content for it.
+      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
       const payload = {
         [`role_name_${selectedLanguage}`]: values.role_name,
+        [`role_name_${otherLanguage}`]:
+          roleData?.data?.[`role_name_${otherLanguage}`] || values.role_name,
         [`instructions_${selectedLanguage}`]: values.instructions,
-        participants_needed: values.participants_needed,
-        opportunity: oppurtunityId,
+        [`instructions_${otherLanguage}`]:
+          roleData?.data?.[`instructions_${otherLanguage}`] ||
+          values.instructions,
+        participants_needed: Number(values.participants_needed),
+        opportunity_id: oppurtunityId,
       };
 
       if (roleId) {
@@ -99,20 +111,10 @@ export default function CreateVolunteerRoleModal({
       setOpenForm();
       refetch();
       dropdownRefetch?.();
-    } catch (err: any) {
-      const payload = err?.response?.data;
-      if (payload?.errors && Object.keys(payload.errors).length > 0) {
-        Object.keys(payload.errors).forEach((key) => {
-          toast.error(
-            payload.errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.CREATE_OPPURTUNITY_ROLE_FAILED")
-          );
-        });
-      } else if (payload?.message_en || payload?.message_ar) {
-        toast.error(
-          payload[`message_${selectedLanguage}`] ||
-            t("COMMON.TOAST.CREATE_OPPURTUNITY_ROLE_FAILED")
-        );
+    } catch (err) {
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.CREATE_OPPURTUNITY_ROLE_FAILED"));
       }

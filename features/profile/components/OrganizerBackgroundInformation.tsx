@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/Badge";
 import Title from "@/components/shared/Title";
 import { useLanguageStore } from "@/store/languageStore";
-import { toNumber } from "@/lib/helpers";
 
 const asset = (path: string) => `/assets/${path}`;
 
@@ -36,10 +35,6 @@ interface BackgroundInformationProps {
   linkedin_link?: string | null;
   twitter_link?: string | null;
   isVolunteerTeam?: boolean;
-  /**
-   * The API sends these as plain numbers under `en` but as Arabic-Indic
-   * digit strings under `ar` — run through `toNumber()` before comparing.
-   */
   organization_hours?: number | string | null;
   learn_opportunity_organized?: number | string | null;
   vol_opportunity_organized?: number | string | null;
@@ -243,22 +238,16 @@ export default function OrganizerBackgroundInformation({
               heightClass={cardHeight}
               labelHeightClass={labelHeight}
             />
-            {/* Hours and volunteer opportunities always show, even at zero;
-                development and sponsorship only once they have a value. The
-                API localizes this into an Arabic-Indic digit string under
-                `ar` — see `toNumber()`'s doc comment in lib/helpers.ts. */}
-            {toNumber(learn_opportunity_organized) > 0 && (
-              <StatCard
-                icon={asset("profile/statistics/n_learnServeicn.svg")}
-                alt="Development opportunities"
-                value={learn_opportunity_organized || 0}
-                label={t("COMMON.OPPORTUNITIESORGANIZED--")}
-                color="learnServe"
-                heightClass={cardHeight}
-                labelHeightClass={labelHeight}
-              />
-            )}
-            {!isVolunteerTeam && toNumber(sponsored_count) > 0 && (
+            <StatCard
+              icon={asset("profile/statistics/n_learnServeicn.svg")}
+              alt="Development opportunities"
+              value={learn_opportunity_organized || 0}
+              label={t("COMMON.OPPORTUNITIESORGANIZED--")}
+              color="learnServe"
+              heightClass={cardHeight}
+              labelHeightClass={labelHeight}
+            />
+            {!isVolunteerTeam && (
               <StatCard
                 icon={asset("profile/statistics/n_sponseredbyus.svg")}
                 alt="Sponsored"

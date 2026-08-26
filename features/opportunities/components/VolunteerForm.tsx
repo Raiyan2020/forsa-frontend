@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   Field,
   FieldArray,
@@ -23,7 +24,6 @@ import CheckBox from "@/components/ui/CheckBox";
 import DatePickerInput from "@/components/ui/DateField";
 import TimepickerInput from "@/components/ui/TimePicker";
 import AgeRange from "@/components/ui/AgeRange";
-import AutocompleteInput from "@/components/ui/AutocompleteInput";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import UploadDocument from "@/components/ui/UploadDocument";
 import { TagsCheckbox } from "@/components/ui/TagsCheckbox";
@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import { GoogleMapsProvider } from "@/components/ui/GoogleMapsProvider";
 import { getDropdownChoicesRequest } from "@/features/auth/api/authApi";
 import {
   checkLicenseRequirement,
@@ -45,6 +44,7 @@ import {
   opportunityPrivacyOptions,
   volunteerCategoryOptions,
 } from "@/data/Constants";
+import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import {
   calculateHoursDifference,
@@ -55,7 +55,6 @@ import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import {
   YupNumberOnly,
-  YupOptionalUrl,
   YupRequiredString,
   YupStringMaxLength,
   YupWhatsAppLink,
@@ -85,7 +84,6 @@ interface VolunteerFormValues {
   volunteerHoursPerDay: string;
   gender: string;
   location: string;
-  location_url: string;
   link: string;
   isPrivate?: string;
   description: string;
@@ -103,6 +101,12 @@ interface VolunteerFormValues {
 interface VolunteerFormProps {
   autoSetTimeOnClick?: boolean; // Auto-set time fields to 12:00 on first click
 }
+
+// Leaflet touches `window` at import time, so it can't be part of the SSR pass.
+const LocationMapPicker = dynamic(
+  () => import("@/components/ui/LocationMapPicker"),
+  { ssr: false }
+);
 
 /**
  * Side effects that need Formik's bag. Kept out of the render prop so the hooks
@@ -125,24 +129,20 @@ function VolunteerFormEffects({
   id?: string;
   selectedLanguage: string;
 }) {
-  // Update location based on selected language whenever language changes
+  // Sync location once opportunityData arrives (it loads after mount).
+  // `map_desc` is a single language-agnostic field — no per-language lookup.
   useEffect(() => {
     if (!opportunityData || !id) return;
-    const locationValue =
-      opportunityData[
-        selectedLanguage === "ar" ? "location_ar" : "location_en"
-      ];
-    if (locationValue) {
-      setFieldValue("location", locationValue);
-      // Preserve the latitude and longitude from opportunityData
-      if (opportunityData.latitude) {
-        setFieldValue("latitude", opportunityData.latitude.toString());
-      }
-      if (opportunityData.longitude) {
-        setFieldValue("longitude", opportunityData.longitude.toString());
-      }
+    if (opportunityData.map_desc) {
+      setFieldValue("location", opportunityData.map_desc);
     }
-  }, [opportunityData, selectedLanguage, setFieldValue, id]);
+    if (opportunityData.latitude) {
+      setFieldValue("latitude", opportunityData.latitude.toString());
+    }
+    if (opportunityData.longitude) {
+      setFieldValue("longitude", opportunityData.longitude.toString());
+    }
+  }, [opportunityData, setFieldValue, id]);
 
   // When editing with coordinates but no stored location text, reverse-geocode
   // them so the field isn't left empty.
@@ -151,8 +151,7 @@ function VolunteerFormEffects({
       if (
         opportunityData?.latitude &&
         opportunityData?.longitude &&
-        !opportunityData?.location_en &&
-        !opportunityData?.location_ar
+        !opportunityData?.map_desc
       ) {
         const result = await fetchAddress(
           Number(opportunityData.latitude),
@@ -516,10 +515,7 @@ export default function VolunteerForm({
     volunteerHoursPerDay:
       opportunityData?.volunteer_hours_per_day?.toString() || "",
     gender: opportunityData?.gender_display?.id || "",
-    location:
-      opportunityData?.[
-        selectedLanguage === "ar" ? "location_ar" : "location_en"
-      ] || "",
+    location: opportunityData?.map_desc || "",
     link: opportunityData?.link || "",
     description: opportunityData?.[`description_${selectedLanguage}`] || "",
     _interests: resolveInterestOptionIds(
@@ -536,7 +532,6 @@ export default function VolunteerForm({
         ? "private"
         : "public"
       : "",
-    location_url: opportunityData?.location_url || "",
     latitude: opportunityData?.latitude?.toString() || "",
     longitude: opportunityData?.longitude?.toString() || "",
     sponsors: opportunityData?.opportunity_sponsor_images?.length
@@ -656,7 +651,6 @@ export default function VolunteerForm({
         return (!!value && latitude !== undefined) || longitude !== undefined;
       }
     ),
-    location_url: YupOptionalUrl,
     link: YupWhatsAppLink.concat(YupRequiredString),
     description: Yup.string()
       .concat(YupRequiredString)
@@ -720,8 +714,22 @@ export default function VolunteerForm({
 
       const formData = new FormData();
 
+      // The API requires both languages' title/description regardless of
+      // which one the org is actually typing in. The untouched language
+      // falls back to whatever was already stored (edit) or duplicates the
+      // typed value (create) — there's only one title/description field in
+      // this form, so that's the best available content for it.
+      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
       formData.append(`title_${selectedLanguage}`, values.title);
+      formData.append(
+        `title_${otherLanguage}`,
+        opportunityData?.[`title_${otherLanguage}`] || values.title
+      );
       formData.append(`description_${selectedLanguage}`, values.description);
+      formData.append(
+        `description_${otherLanguage}`,
+        opportunityData?.[`description_${otherLanguage}`] || values.description
+      );
       formData.append("due_date", values.dueDate);
       formData.append("start_date", formatDateToYYYYMMDD(values.startDate));
       formData.append("end_date", formatDateToYYYYMMDD(values.endDate));
@@ -744,14 +752,20 @@ export default function VolunteerForm({
       formData.append("gender", values.gender);
       formData.append(
         "is_public",
-        showOpportunitySection ? String(values.isPrivate === "public") : "true"
+        showOpportunitySection
+          ? values.isPrivate === "public"
+            ? "1"
+            : "0"
+          : "1"
       );
       formData.append(
         "opportunity_nationality",
         values.nationality === "all" ? "all" : "kuwaitis"
       );
-      formData.append("location", values.location);
-      formData.append("location_url", values.location_url);
+      formData.append("map_desc", values.location);
+      // No longer collected from the user — the map picker's lat/lng replaced
+      // it, so every save clears out whatever an older record had stored.
+      formData.append("location_url", "");
       formData.append("volunteer_category", values.volunteerCategory);
       // Beneficiaries only exist for charity work — send the field only then, so
       // a category switch doesn't push a stale count the backend would null out.
@@ -763,7 +777,9 @@ export default function VolunteerForm({
       }
 
       Object.entries(checkboxValues).forEach(([key, value]) => {
-        formData.append(key, String(value));
+        // The API's `boolean` validation rule only accepts 1/0 (or "1"/"0"),
+        // not the literal strings "true"/"false".
+        formData.append(key, value ? "1" : "0");
       });
 
       values._interests.forEach((interest) => {
@@ -786,7 +802,7 @@ export default function VolunteerForm({
           formData.append(`new_opportunity_images_${index}`, file);
           formData.append(
             `new_opportunity_images_is_after_completed_${index}`,
-            "false"
+            "0"
           );
         }
       });
@@ -795,7 +811,7 @@ export default function VolunteerForm({
       if (values.license_image instanceof File && values.license_image.size > 0) {
         formData.append("license_image", values.license_image);
       } else if (id && !isRepublish && values.license_image_removed) {
-        formData.append("license_image_removed", "true");
+        formData.append("license_image_removed", "1");
       }
 
       values.sponsors.forEach((sponsor, index) => {
@@ -829,15 +845,10 @@ export default function VolunteerForm({
 
       resetForm();
       setSelectedCheckBoxes([]);
-    } catch (err: any) {
-      const errors = err?.response?.data?.errors;
-      if (errors) {
-        Object.keys(errors).forEach((key) => {
-          toast.error(
-            errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.CREATE_OPPORTUNITY_FAILED")
-          );
-        });
+    } catch (err) {
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.CREATE_OPPORTUNITY_FAILED"));
       }
@@ -855,15 +866,10 @@ export default function VolunteerForm({
       toast.success(t("COMMON.TOAST.UPDATE_OPPORTUNITY_SUCCESS"));
       router.push(`/volunteer-event-detail/${id}`);
       setPendingFormData(null);
-    } catch (err: any) {
-      const errors = err?.response?.data?.errors;
-      if (errors) {
-        Object.keys(errors).forEach((key) => {
-          toast.error(
-            errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.UPDATE_OPPORTUNITY_FAILED")
-          );
-        });
+    } catch (err) {
+      const messages = getApiErrorMessages(err, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.UPDATE_OPPORTUNITY_FAILED"));
       }
@@ -962,7 +968,7 @@ export default function VolunteerForm({
   }
 
   return (
-    <GoogleMapsProvider>
+    <>
       <Modal
         open={open}
         onClose={handleRoleModalClose}
@@ -1151,32 +1157,28 @@ export default function VolunteerForm({
                     />
                   </div>
 
-                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col">
-                    <div className="w-full md:w-1/2">
-                      <AutocompleteInput
-                        name="location"
-                        label={t("COMMON.LOCATION")}
-                        value={values.location}
-                        onChange={(val) => {
-                          setFieldTouched("location", true);
-                          setFieldValue("location", val);
-                        }}
-                        onLatChange={(lat) => setFieldValue("latitude", lat)}
-                        onLngChange={(lng) => setFieldValue("longitude", lng)}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="w-full md:w-1/2">
-                      <Input
-                        name="location_url"
-                        label={t("COMMON.LOCATION_URL")}
-                        placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
-                        className="w-full text-left"
-                        onFocus={() => setFieldTouched("location_url", true)}
-                        dir="ltr"
-                      />
-                    </div>
-                  </div>
+                  <Input
+                    name="location"
+                    label={t("COMMON.LOCATION")}
+                    onFocus={() => setFieldTouched("location", true)}
+                  />
+                  <LocationMapPicker
+                    latitude={values.latitude}
+                    longitude={values.longitude}
+                    onPick={async (lat, lng) => {
+                      setFieldValue("latitude", lat);
+                      setFieldValue("longitude", lng);
+                      setFieldTouched("location", true);
+                      if (!values.location) {
+                        const address = await fetchAddress(
+                          Number(lat),
+                          Number(lng),
+                          selectedLanguage
+                        );
+                        setFieldValue("location", address);
+                      }
+                    }}
+                  />
 
                   <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col">
                     <div className="w-full md:w-1/2">
@@ -1439,6 +1441,6 @@ export default function VolunteerForm({
           </Formik>
         </div>
       </div>
-    </GoogleMapsProvider>
+    </>
   );
 }

@@ -1250,7 +1250,7 @@ export default function LearnServeDetails({
                   </h3>
                 </div>
                 <div
-                  className="2xl:text-lg lg:text-sm text-sm font-normal text-secondary-102"
+                  className="2xl:text-lg lg:text-base text-sm font-normal text-secondary-102"
                   dangerouslySetInnerHTML={{ __html: description }}
                 />
               </div>

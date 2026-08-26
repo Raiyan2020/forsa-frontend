@@ -1213,6 +1213,7 @@
   "COMMON.LOCATION_URL": "رابط الموقع",
   "COMMON.LOCATION_URL_PLACEHOLDER": "https://maps.google.com/?q=...",
   "COMMON.OPEN_IN_MAPS": "افتح في الخرائط",
+  "COMMON.CLICK_MAP_TO_SET_LOCATION": "اضغط على الخريطة أو حرّك الدبوس لتحديد الموقع",
   "COMMON.CLOSE_REGISTRATION": "إغلاق التسجيل",
   "COMMON.REGISTRATION_CLOSED": "التسجيل مغلق",
   "COMMON.ARE_YOU_SURE_CLOSE_REGISTRATION": "هل أنت متأكد أنك تريد إغلاق التسجيل في هذه الفرصة؟",

@@ -28,17 +28,20 @@ interface FormValues {
 }
 
 const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
-  ({
-    name,
-    label,
-    minDate,
-    maxDate,
-    rmdpClassname = "",
-    disabled = false,
-    showDueDate = false,
-    enforceStartDate,
-    ...props
-  }) => {
+  (
+    {
+      name,
+      label,
+      minDate,
+      maxDate,
+      rmdpClassname = "",
+      disabled = false,
+      showDueDate = false,
+      enforceStartDate,
+      ...props
+    },
+    ref
+  ) => {
     const { setFieldValue, values, validateField } =
       useFormikContext<FormValues>();
     const [field, meta, helpers] = useField(name);
@@ -262,6 +265,9 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
             maxDate={maxDate}
             calendarPosition="bottom-center"
             disabled={disabled}
+            // Leaflet's own internal panes/controls go up to z-index 1000
+            // (see leaflet.css), so the calendar popup needs to clear that.
+            zIndex={1100}
             containerClassName="w-full !h-full"
             inputClass={inputClassName}
             ref={datePickerRef}
@@ -270,6 +276,7 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
             inputMode="numeric"
             render={(_value: any, openCalendar: () => void) => (
               <input
+                ref={ref}
                 type="text"
                 value={displayValue}
                 onChange={handleInputChange}
