@@ -88,9 +88,11 @@ export default function Notification() {
       return [];
     }
 
+    // The API nests the localized copy under a `notification` object:
+    // { id, is_read, created_at, notification: { title_en, title_ar, message_en, message_ar } }
     return apiNotifications.map((item) => {
       let type: NotificationType = "message";
-      const messageEnLower = item.message_en?.toLowerCase() || "";
+      const messageEnLower = item.notification?.message_en?.toLowerCase() || "";
       if (messageEnLower.includes("registered")) {
         type = "registration";
       } else if (messageEnLower.includes("reminder")) {
@@ -100,10 +102,10 @@ export default function Notification() {
       return {
         id: item.id.toString(),
         type,
-        message_en: item.message_en || "",
-        message_ar: item.message_ar || "",
-        title_en: item.title_en || "",
-        title_ar: item.title_ar || "",
+        message_en: item.notification?.message_en || "",
+        message_ar: item.notification?.message_ar || "",
+        title_en: item.notification?.title_en || "",
+        title_ar: item.notification?.title_ar || "",
         date: formatDate(item.created_at),
         read: item.is_read,
       };
@@ -228,19 +230,22 @@ export default function Notification() {
         size="md"
       >
         {selectedNotification && (
-          <>
-            <h2 className="flex text-primary-5 text-lg font-bold pb-1">
+          <div dir={selectedLanguage === "ar" ? "rtl" : "ltr"}>
+            <h2 className="text-primary-5 text-lg font-bold pb-1">
               {selectedLanguage === "ar"
                 ? selectedNotification.title_ar
                 : selectedNotification.title_en}
             </h2>
-            <p className="whitespace-pre-line">
+            <p className="text-sm text-[#717171] pb-4">
+              {selectedNotification.date}
+            </p>
+            <p className="whitespace-pre-line text-[#222222] leading-relaxed">
               {(selectedLanguage === "ar"
                 ? selectedNotification.message_ar
                 : selectedNotification.message_en
               ).replace(/<br>/g, "\n")}
             </p>
-          </>
+          </div>
         )}
       </Modal>
 

@@ -139,13 +139,18 @@ const OPPORTUNITY_TYPE_TABS: Array<{
   { value: "development", labelKey: "COMMON.LEARN_SERVE" },
 ];
 
-/** `opportunity_type` values `/list-all-opportunities/` accepts. */
+/**
+ * `opportunity_type` values `/list-all-opportunities/` and
+ * `/list-user-opportunities/` accept: `learn` or `volunteer`. Same vocabulary
+ * as `OpportunityCategories`, so the chips and the filter modal's type select
+ * send identical params.
+ */
 const OPPORTUNITY_TYPE_PARAM: Record<
   Exclude<OpportunityTypeFilter, "all">,
   string
 > = {
-  volunteer: "volunteer_opportunity",
-  development: "learn_serve_opportunity",
+  volunteer: "volunteer",
+  development: "learn",
 };
 
 const asset = (path: string) => `/assets/${path}`;
