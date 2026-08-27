@@ -56,6 +56,7 @@ import {
   YupOptionalUrl,
   YupNumberOnly,
   YupRequiredString,
+  YupStringMaxLength,
 } from "@/lib/schema";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -755,7 +756,9 @@ export default function LearnServeForm({
   const validationSchema = useMemo(
     () =>
       Yup.object({
-        title: YupRequiredString,
+        title: YupStringMaxLength(400)
+          .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
+          .concat(YupRequiredString),
         description: Yup.string()
           .concat(YupRequiredString)
           .test(
@@ -1518,6 +1521,7 @@ export default function LearnServeForm({
                         name="title"
                         label={t("COMMON.ENTER_TITLE")}
                         type="text"
+                        maxLength={400}
                       />
                       <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
                         <SelectInput

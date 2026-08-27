@@ -23,6 +23,7 @@
   "COMMON.JOINCOMMUNITY": "Join the most dynamic community of volunteers and organizers working together to make a difference.",
   "COMMON.MUST.BE.ATMOST": "Must be at most ",
   "COMMON.CHARACTERS": " characters",
+  "COMMON.EVENT_TITLE_MIN_LENGTH": "Event title must be at least 2 characters",
   "COMMON.CREATING": "Creating",
   "COMMON.PASSWORDS.MUST.MATCH": "Passwords must match",
   "COMMON.MUST.BE.VALID.PHONE": "Please enter a valid phone number",

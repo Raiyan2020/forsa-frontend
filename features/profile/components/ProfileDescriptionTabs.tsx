@@ -1,13 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useQuery } from "@tanstack/react-query";
+import InfiniteScroll from "react-infinite-scroll-component";
+import { FiDownload, FiShare2 } from "react-icons/fi";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import Searchbar from "@/components/ui/Searchbar";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 import ProfileEventCard from "@/features/events/components/ProfileEventCard";
+import {
+  downloadUserCertificate,
+  getUserCertificates,
+} from "@/features/services/api";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfileFilterForm, {
@@ -17,7 +27,7 @@ import ProfileFilterForm, {
 import ProfileVolunteerCard from "./ProfileVolunteerCard";
 
 const TAB_TRIGGER_CLASS =
-  "xsl:w-[150px] xss:w-[110px] relative px-6 xs:px-2 2xl:py-5 lg:py-3 md:py-3 py-3 xss:py-3 laptopmain:py-5 rounded-t-[20px] rounded-b-[0px] data-[state=active]:bg-white border-t border-l border-r data-[state=active]:border-t data-[state=active]:border-l data-[state=active]:border-r data-[state=active]:border-primary-5 data-[state=inactive]:border-primary-5 data-[state=active]:text-primary-5 data-[state=active]:font-bold data-[state=inactive]:bg-[#D2D8F6] before:content-[''] before:absolute before:top-[96%] data-[state=active]:before:top-[99%] before:left-0 before:w-full before:h-[3px] before:bg-[#D2D8F6] before:hidden data-[state=active]:before:block data-[state=active]:before:bg-[#fff] after:content-[''] after:absolute after:w-[16px] after:bg-primary-5 after:left-[-16px] rtl:after:left-[0] rtl:after:right-[-16px] after:bottom-[-1px] after:block";
+  "xsl:w-[150px] xss:w-[110px] shrink-0 relative px-6 xs:px-2 2xl:py-5 lg:py-3 md:py-3 py-3 xss:py-3 laptopmain:py-5 rounded-t-[20px] rounded-b-[0px] data-[state=active]:bg-white border-t border-l border-r data-[state=active]:border-t data-[state=active]:border-l data-[state=active]:border-r data-[state=active]:border-primary-5 data-[state=inactive]:border-primary-5 data-[state=active]:text-primary-5 data-[state=active]:font-bold data-[state=inactive]:bg-[#D2D8F6] before:content-[''] before:absolute before:top-[96%] data-[state=active]:before:top-[99%] before:left-0 before:w-full before:h-[3px] before:bg-[#D2D8F6] before:hidden data-[state=active]:before:block data-[state=active]:before:bg-[#fff] after:content-[''] after:absolute after:w-[16px] after:bg-primary-5 after:left-[-16px] rtl:after:left-[0] rtl:after:right-[-16px] after:bottom-[-1px] after:block";
 
 /**
  * The opportunity tabs split by type on top of the organized/sponsored tag.
@@ -92,12 +102,19 @@ export default function ProfileDescriptionTabs({
       dir={selectedLanguage === "en" ? "ltr" : "rtl"}
     >
       <div className="flex 2xl:px-5 px-3 mobilescreen:px-[13px]">
-        <TabsList className="bg-transparent p-0 h-auto gap-[38px] xs:gap-3">
+        <TabsList className="scrollbar-hidden h-auto max-w-full justify-start gap-[38px] overflow-x-auto bg-transparent p-0 xs:gap-3">
           <TabsTrigger value="opportunity" className={TAB_TRIGGER_CLASS}>
             <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
               {t("COMMON.OPPORTUNITIES-")}
             </span>
           </TabsTrigger>
+          {isVolunteer && (
+            <TabsTrigger value="certificates" className={TAB_TRIGGER_CLASS}>
+              <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
+                {t("COMMON.CERTIFICATES")}
+              </span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="event" className={TAB_TRIGGER_CLASS}>
             <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
               {t("COMMON.EVENTS-")}
@@ -115,6 +132,12 @@ export default function ProfileDescriptionTabs({
         />
       </TabsContent>
 
+      {isVolunteer && (
+        <TabsContent value="certificates" className={TAB_CONTENT_CLASS}>
+          <CertificateTabs user_id={user_id} />
+        </TabsContent>
+      )}
+
       <TabsContent value="event" className={TAB_CONTENT_CLASS}>
         <MyEventsTabs
           isVolunteerTeam={isVolunteerTeam}
@@ -123,6 +146,199 @@ export default function ProfileDescriptionTabs({
         />
       </TabsContent>
     </Tabs>
+  );
+}
+
+interface ProfileCertificate {
+  registration_id: number;
+  certificate_image: string;
+  opportunity__title_en?: string;
+  opportunity__title_ar?: string;
+}
+
+const EMPTY_PROFILE_CERTIFICATES: ProfileCertificate[] = [];
+
+/** Mirrors the certificate gallery from the React volunteer profile. */
+function CertificateTabs({ user_id }: { user_id?: string }) {
+  const { t } = useTranslation();
+  const selectedLanguage = useLanguageStore((s) => s.language);
+  const user = useAuthStore((s) => s.user);
+  const userId = user_id || user?.id?.toString();
+  const pageSizeRef = useRef(9);
+  const [displayedCount, setDisplayedCount] = useState(9);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["user-certificates", userId],
+    queryFn: () => getUserCertificates(userId as string),
+    enabled: Boolean(userId),
+  });
+
+  const allCertificates: ProfileCertificate[] = Array.isArray(response?.data)
+    ? response.data
+    : EMPTY_PROFILE_CERTIFICATES;
+  const certificates = allCertificates.slice(0, displayedCount);
+  const hasMore = displayedCount < allCertificates.length;
+
+  const updatePageSize = useCallback(() => {
+    const width = window.innerWidth;
+    const nextPageSize = width >= 1200 ? 9 : width >= 768 ? 8 : 9;
+    if (pageSizeRef.current !== nextPageSize) {
+      pageSizeRef.current = nextPageSize;
+      setDisplayedCount(nextPageSize);
+    }
+  }, []);
+
+  useEffect(() => {
+    const animationFrame = window.requestAnimationFrame(updatePageSize);
+    window.addEventListener("resize", updatePageSize);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", updatePageSize);
+    };
+  }, [updatePageSize]);
+
+  const loadMore = useCallback(() => {
+    setDisplayedCount((current) =>
+      Math.min(current + pageSizeRef.current, allCertificates.length)
+    );
+  }, [allCertificates.length]);
+
+  const handleDownloadCertificate = async (
+    certificate: ProfileCertificate,
+    index: number
+  ) => {
+    try {
+      setDownloadingId(certificate.registration_id);
+      const { blob, filename } = await downloadUserCertificate({
+        registration_id: certificate.registration_id,
+        fallbackName: `certificate_${index}`,
+      });
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success(t("COMMON.TOAST.DOWNLOAD_IMAGE_SUCCESS"));
+    } catch (error) {
+      console.error("Certificate download error:", error);
+      toast.error(t("COMMON.TOAST.DOWNLOAD_IMAGE_FAILED"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleShareToLinkedIn = (imageUrl: string) => {
+    try {
+      const linkedInShareUrl =
+        "https://www.linkedin.com/sharing/share-offsite/?url=" +
+        encodeURIComponent(imageUrl);
+      window.open(linkedInShareUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error sharing certificate to LinkedIn:", error);
+      toast.error(t("COMMON.TOAST.SHARE_FAILED"));
+    }
+  };
+
+  if (isLoading) {
+    return <Loader inline className="py-20" />;
+  }
+
+  if (allCertificates.length === 0) {
+    return (
+      <p className="py-8 text-center text-lg font-medium text-secondary-102">
+        {t("COMMON.NO_CERTIFICATES_AVAILABLE")}
+      </p>
+    );
+  }
+
+  return (
+    <InfiniteScroll
+      dataLength={certificates.length}
+      next={loadMore}
+      hasMore={hasMore}
+      loader={<Loader inline className="py-8" />}
+      endMessage={
+        <p className="pb-2 pt-8 text-center text-secondary-102">
+          {t("COMMON.NO_MORE_CERTIFICATES")}
+        </p>
+      }
+      className="overflow-hidden pt-[25px] md:pt-[30px] lg:pt-[24px] laptop:pt-[40px] 2xl:pt-[50px]"
+    >
+      <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+        {certificates.map((certificate, index) => {
+          const title =
+            (selectedLanguage === "ar"
+              ? certificate.opportunity__title_ar
+              : certificate.opportunity__title_en) ||
+            t("COMMON.CERTIFICATE-");
+          const isDownloading = downloadingId === certificate.registration_id;
+
+          return (
+            <div
+              key={`${certificate.registration_id}-${index}`}
+              className="mobilescreen:pb-6"
+            >
+              <div className="relative w-full">
+                <a
+                  href={certificate.certificate_image}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={title}
+                >
+                  <Image
+                    src={certificate.certificate_image}
+                    alt={title}
+                    width={800}
+                    height={566}
+                    unoptimized
+                    className="h-auto w-full cursor-pointer rounded-lg shadow-md transition-shadow hover:shadow-xl"
+                  />
+                </a>
+
+                {user && (
+                  <div className="absolute end-2 top-2 flex gap-2">
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-400 bg-white text-blue-500 shadow transition-all duration-200 hover:scale-110 hover:bg-blue-100 disabled:cursor-wait disabled:opacity-60"
+                      onClick={() =>
+                        handleDownloadCertificate(certificate, index)
+                      }
+                      disabled={isDownloading}
+                      title={t("COMMON.DOWNLOAD_CERTIFICATE")}
+                      aria-label={t("COMMON.DOWNLOAD_CERTIFICATE")}
+                    >
+                      {isDownloading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                      ) : (
+                        <FiDownload size={16} aria-hidden="true" />
+                      )}
+                    </button>
+
+                    {user.id.toString() === userId && (
+                      <button
+                        type="button"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-400 bg-white text-blue-500 shadow transition-all duration-200 hover:scale-110 hover:bg-blue-100"
+                        onClick={() =>
+                          handleShareToLinkedIn(certificate.certificate_image)
+                        }
+                        title={t("COMMON.SHARE_TO_LINKEDIN")}
+                        aria-label={t("COMMON.SHARE_TO_LINKEDIN")}
+                      >
+                        <FiShare2 size={16} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </InfiniteScroll>
   );
 }
 

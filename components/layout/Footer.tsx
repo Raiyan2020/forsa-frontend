@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
 import {
-  cmsPageHref,
   pickLocalized,
   type FooterCms,
   type FooterSocial,
@@ -26,8 +25,8 @@ function TikTokIcon({ className }: { className?: string }) {
 
 function XTwitterIcon({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={className} width="1em" height="1em" viewBox="0 0 512 512" fill="currentColor">
-      <path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8l164.9-188.5L26.8 48h145.6l100.5 132.9L389.2 48zm-24.8 373.8h39.1L151.1 88h-42l255.3 333.8z" />
+    <svg aria-hidden="true" className={className} width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865z" />
     </svg>
   );
 }
@@ -51,10 +50,10 @@ function InstagramIcon({ className }: { className?: string }) {
 interface FooterProps {
   /**
    * Admin-editable footer content (`GET /home/` → `footer`), fetched by the
-   * layout on the server. `null` when the CMS request failed — the CMS-driven
-   * pieces are then hidden rather than replaced with static copy. Omit it
-   * entirely (client-only trees, e.g. `app/not-found.tsx`) and the footer
-   * fetches the payload itself off the shared React Query cache.
+   * layout on the server. Missing CMS fields fall back to the original React
+   * footer content. Omit it entirely (client-only trees, for example
+   * `app/not-found.tsx`) and the footer fetches the payload itself from the
+   * shared React Query cache.
    */
   footer?: FooterCms | null;
 }
@@ -94,6 +93,32 @@ const SOCIAL_LINKS: Array<{
   },
 ];
 
+const DEFAULT_SOCIAL_URLS: Record<keyof FooterSocial, string> = {
+  tiktok: "https://www.tiktok.com/@joinforsa",
+  twitter: "https://x.com/JoinForsa_",
+  youtube: "https://www.youtube.com/@joinforsa",
+  instagram:
+    "https://www.instagram.com/joinforsa?igsh=MTN6c254aW15d2ZkYw==",
+};
+
+const CORE_PAGE_LINKS = [
+  {
+    slug: "about",
+    href: "/about-us",
+    translationKey: "COMMON.ABOUTUS",
+  },
+  {
+    slug: "privacy",
+    href: "/privacy-policy",
+    translationKey: "COMMON.PRIVACYPOLICY",
+  },
+  {
+    slug: "terms",
+    href: "/termsofuse",
+    translationKey: "COMMON.TERMS.OF.USE",
+  },
+] as const;
+
 export default function Footer({ footer }: FooterProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
@@ -102,15 +127,24 @@ export default function Footer({ footer }: FooterProps) {
 
   const data = footer ?? cms?.footer ?? null;
   const cmsPages = data?.pages ?? [];
+  const pageLinks = CORE_PAGE_LINKS.map((page) => {
+    const cmsPage = cmsPages.find((item) => item.slug === page.slug);
+    return {
+      slug: page.slug,
+      href: page.href,
+      label:
+        pickLocalized(cmsPage?.title_en, cmsPage?.title_ar, language) ||
+        t(page.translationKey),
+    };
+  });
   const socials = SOCIAL_LINKS.map((link) => ({
     ...link,
-    href: data?.social?.[link.key] ?? "",
-  })).filter((link) => !!link.href);
-  const copyright = pickLocalized(
-    data?.copyright_en,
-    data?.copyright_ar,
-    language
-  );
+    href:
+      data?.social?.[link.key]?.trim() || DEFAULT_SOCIAL_URLS[link.key],
+  }));
+  const copyright =
+    pickLocalized(data?.copyright_en, data?.copyright_ar, language) ||
+    t("COMMON.ALL.RIGHTS.RESERVED", { year: new Date().getFullYear() });
 
   return (
     <footer className="bg-primary-5 text-white">
@@ -129,21 +163,17 @@ export default function Footer({ footer }: FooterProps) {
 
           {/* Links */}
           <nav className="relative block 2xl:flex lg:flex mdscreen:block 2xl:gap-[70px] lg:gap-[30px] mdscreen:gap-[20px] sm:gap-[40px] mobilescreen:pt-[40px] mobilescreen:pb-[40px] lg:py-0 mdscreen:py-[40px] pb-[40px]">
-            {/* Page links + labels are admin-editable — no hardcoded fallbacks. */}
-            {cmsPages.map((page) => {
-              const href = cmsPageHref(page.slug);
-              return (
-                <Link
-                  key={page.slug}
-                  href={href}
-                  className={`hover:underline text-lg block text-center mb-3 ${
-                    pathname === href ? "font-bold" : ""
-                  }`}
-                >
-                  {pickLocalized(page.title_en, page.title_ar, language)}
-                </Link>
-              );
-            })}
+            {pageLinks.map((page) => (
+              <Link
+                key={page.slug}
+                href={page.href}
+                className={`hover:underline text-lg block text-center mb-3 ${
+                  pathname === page.href ? "font-bold" : ""
+                }`}
+              >
+                {page.label}
+              </Link>
+            ))}
             <Link
               href="/faq"
               className={`hover:underline text-lg block text-center mb-3 ${pathname === "/faq" ? "font-bold" : ""}`}
@@ -155,35 +185,30 @@ export default function Footer({ footer }: FooterProps) {
             </Link>
           </nav>
 
-          {/* Social Icons — admin-editable, each link hidden when unset */}
-          {socials.length > 0 && (
-            <div className="mobilescreen:w-[60%] mobilescreen:mx-auto mobilescreen:pt-[40px] mobilescreen:border-t mdscreen:w-[60%] mdscreen:mx-auto mdscreen:pt-[40px] mdscreen:border-t">
-              <p className="text-lg font-bold text-center">{t("COMMON.FOLLOWUS")}</p>
-              <div className="flex items-center gap-7 extrasmall:gap-3 mt-4 mdscreen:mt-0 pt-5 mobilescreen:justify-center mdscreen:justify-center">
-                {socials.map(({ key, label, className, href, Icon }) => (
-                  <a
-                    key={key}
-                    className={className}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                  >
-                    <Icon />
-                  </a>
-                ))}
-              </div>
+          {/* Social Icons — CMS URLs with the React footer's defaults. */}
+          <div className="mobilescreen:w-[60%] mobilescreen:mx-auto mobilescreen:pt-[40px] mobilescreen:border-t mdscreen:w-[60%] mdscreen:mx-auto mdscreen:pt-[40px] mdscreen:border-t">
+            <p className="text-lg font-bold text-center">{t("COMMON.FOLLOWUS")}</p>
+            <div className="flex items-center gap-7 extrasmall:gap-3 mt-4 mdscreen:mt-0 pt-5 mobilescreen:justify-center mdscreen:justify-center">
+              {socials.map(({ key, label, className, href, Icon }) => (
+                <a
+                  key={key}
+                  className={className}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                >
+                  <Icon />
+                </a>
+              ))}
             </div>
-          )}
-
+          </div>
         </div>
 
-        {/* Copyright — admin-editable */}
-        {copyright && (
-          <div className="text-center text-base pb-[70px] mobilescreen:pt-[30px] mdscreen:pt-[30px]">
-            {copyright}
-          </div>
-        )}
+        {/* Copyright — CMS text with the React footer's localized fallback. */}
+        <div className="text-center text-base pb-[70px] mobilescreen:pt-[30px] mdscreen:pt-[30px]">
+          {copyright}
+        </div>
       </div>
     </footer>
   );

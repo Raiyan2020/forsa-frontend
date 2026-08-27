@@ -565,7 +565,9 @@ export default function VolunteerForm({
   };
 
   const validationSchema = Yup.object({
-    title: YupStringMaxLength(100).concat(YupRequiredString),
+    title: YupStringMaxLength(400)
+      .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
+      .concat(YupRequiredString),
     dueDate: Yup.string()
       .concat(YupRequiredString)
       .test("due-date-in-future", i18n.t("COMMON.DATE_MUST_BE_FUTURE"), notInPast)
@@ -1067,6 +1069,7 @@ export default function VolunteerForm({
                       name="title"
                       label={t("COMMON.ENTER_TITLE")}
                       type="text"
+                      maxLength={400}
                       onFocus={() => setFieldTouched("title", true)}
                     />
 

@@ -535,7 +535,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
             autoplay={{ delay: 4000, disableOnInteraction: false }}
             loop
             pagination={{ clickable: true }}
-            className="h-full w-full"
+            className="event-details-swiper h-full w-full"
           >
             {event.event_images!.map((img) => (
               <SwiperSlide key={img.id}>

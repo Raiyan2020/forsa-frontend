@@ -70,6 +70,19 @@ const BirthDateField = forwardRef<HTMLInputElement, DatePickerProps>(
       const formattedInput = formatDateInput(input);
       setDisplayValue(formattedInput);
 
+      // The custom input owns its displayed text, so react-multi-date-picker
+      // does not emit `null` when the user clears it with the keyboard. Keep
+      // Formik in sync explicitly; otherwise the previous date remains in the
+      // submitted filters and the form never becomes dirty.
+      if (!formattedInput) {
+        setFieldValue(name, "");
+        helpers.setTouched(true);
+        setTimeout(() => {
+          validateField(name);
+        }, 0);
+        return;
+      }
+
       if (/^\d{2}-\d{2}-\d{4}$/.test(formattedInput)) {
         try {
           const [day, month, year] = formattedInput.split("-").map(Number);

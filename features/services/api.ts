@@ -76,6 +76,30 @@ export const getUserCertificates = (userId: string | number) =>
     .get("/user-certificates/", { params: { user_id: userId } })
     .then((r) => r.data);
 
+/** Download the generated certificate attached to a volunteer registration. */
+export const downloadUserCertificate = ({
+  registration_id,
+  fallbackName = "certificate",
+}: {
+  registration_id: string | number;
+  fallbackName?: string;
+}) =>
+  apiClient
+    .get("/download-certificate/", {
+      params: { registration_id },
+      responseType: "blob",
+    })
+    .then((response) => {
+      const disposition = response.headers["content-disposition"] as
+        | string
+        | undefined;
+      const match = disposition?.match(/filename="(.+)"/);
+      return {
+        blob: response.data as Blob,
+        filename: match?.[1] || `${fallbackName}_${Date.now()}.jpg`,
+      };
+    });
+
 export const getAllProfiles = (params?: any) =>
   apiClient.get("/all-profiles/", { params }).then((r) => r.data);
 

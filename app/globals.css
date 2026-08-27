@@ -164,6 +164,31 @@ input {
   background: #1a1a66 !important;
 }
 
+/* Keep event gallery bullets visible over the fixed-height banner and match
+   the home hero carousel pagination. */
+.event-details-swiper .swiper-pagination {
+  position: absolute !important;
+  inset-inline: 0 !important;
+  bottom: 16px !important;
+  z-index: 10;
+  margin-top: 0 !important;
+}
+
+.event-details-swiper .swiper-pagination-bullet {
+  width: 12px !important;
+  height: 12px !important;
+  margin-inline: 4px !important;
+  background: #ffffff4d !important;
+  opacity: 1 !important;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.event-details-swiper .swiper-pagination-bullet-active {
+  background: #29246d !important;
+}
+
 /* swiper css */
 .sponsors .react-multi-carousel-dot--active button {
   background: #29246d !important;
@@ -677,6 +702,10 @@ body[dir="rtl"] {
 
   .moreprofile .react-multi-carousel-track {
     margin-bottom: 50px;
+  }
+
+  .moreprofile .react-multi-carousel-dot-list {
+    bottom: 20px;
   }
 
   .selectfiled .css-1jqq78o-placeholder {

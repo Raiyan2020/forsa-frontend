@@ -25,6 +25,7 @@
   "COMMON.CREATING": "جاري الإنشاء",
   "COMMON.MUST.BE.ATMOST": "يجب ألا يتجاوز",
   "COMMON.CHARACTERS": "حرفًا",
+  "COMMON.EVENT_TITLE_MIN_LENGTH": "يجب أن يحتوي عنوان الفعالية على حرفين على الأقل",
   "COMMON.PASSWORDS.MUST.MATCH": "يجب أن تتطابق كلمات المرور",
   "COMMON.MUST.BE.VALID.PHONE": "الرجاء إدخال رقم هاتف صالح",
   "COMMON.PHONE.EXACT.8.DIGITS": "يجب أن يتكون رقم الهاتف من 8 أرقام بالضبط",

@@ -109,6 +109,21 @@ const EventListCard: React.FC<EventCardProps> = ({
 
   const shouldSkipQuery = !!(event_type && !eventTypeData);
   const finalEventType = filters?.type || eventTypeId;
+  // Clear may replace the filters with a new object containing the same values.
+  // Track their query-relevant content so that no-op resets do not erase the
+  // locally accumulated list without causing React Query to fetch again.
+  const filterSignature = JSON.stringify({
+    startDate: filters?.startDate ?? "",
+    endDate: filters?.endDate ?? "",
+    tags: filters?.tags ?? [],
+    eventType: finalEventType ?? "",
+    location: filters?.location ?? "",
+    gender: filters?.gender ?? "",
+    age: filters?.age ?? [null, null],
+    participationType: filters?.participation_type ?? "",
+    matchMyInterest: filters?.matchMyInterest ?? false,
+    status: filters?.status ?? "",
+  });
 
   const {
     data: eventData,
@@ -156,7 +171,7 @@ const EventListCard: React.FC<EventCardProps> = ({
     setCurrentPage(1);
     setAllEvents([]);
     setHasMore(true);
-  }, [filters, searchQuery]);
+  }, [filterSignature, searchQuery]);
 
   useEffect(() => {
     if (eventData && !isFetching) {

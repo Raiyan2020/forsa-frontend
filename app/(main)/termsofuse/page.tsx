@@ -1,9 +1,9 @@
 /**
  * Terms of use — content is admin-editable (`GET /pages/terms/`).
  */
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CmsPageView from "@/features/cms/components/CmsPageView";
+import TermsOfUse from "@/features/info/components/TermsOfUse";
 import { fetchCmsPage } from "@/lib/api/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
@@ -16,7 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
   const page = await fetchCmsPage("terms");
-  if (!page) notFound();
+
+  // The CMS page is admin-editable; until one is published, fall back to the
+  // static translated terms instead of rendering the not-found page.
+  if (!page) return <TermsOfUse />;
 
   return (
     <CmsPageView
