@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import Searchbar from "@/components/ui/Searchbar";
@@ -18,9 +18,32 @@ import MoreProfileFilterForm from "./MoreProfileFilterForm";
 // Use consistent limit for all pages
 const LIMIT = 15;
 
+type Bucket = "volunteer" | "organization" | "volunteer_team";
+
+/** Per-bucket pagination block returned in `data.meta.pagination`. */
+interface BucketPagination {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+}
+
+/**
+ * Shape of the `/all-profiles/` response. Note that — unlike most endpoints —
+ * `meta` is nested INSIDE `data`, not beside it.
+ */
+interface AllProfilesResponse {
+  data?: Partial<Record<Bucket, UserProfile[]>> & {
+    meta?: {
+      pagination?: Partial<Record<Bucket, BucketPagination>>;
+      timestamp?: string;
+    };
+  };
+}
+
 interface ProfilesListProps {
-  /** Key under `data` (and `meta.pagination`) holding this list's profiles. */
-  bucket: "volunteer" | "organization" | "volunteer_team";
+  /** Key under `data` (and `data.meta.pagination`) holding this list's profiles. */
+  bucket: Bucket;
   /** Translation key for the section heading. */
   titleKey: string;
 }
@@ -29,6 +52,10 @@ interface ProfilesListProps {
  * Shared body for the three "more profiles" pages. In the React app each page
  * was a verbatim copy that differed only in which response bucket it read and
  * in its heading.
+ *
+ * Infinite scroll is driven by the API's own pagination metadata
+ * (`data.meta.pagination[bucket].total_pages`) via `useInfiniteQuery`: the
+ * next page is fetched only while the returned metadata says one exists.
  */
 export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
   const { t } = useTranslation();
@@ -42,7 +69,6 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
   const [debouncedSearch, setDebouncedSearch] = useState(
     () => searchParams.get("search") || ""
   );
-  const isInitialMount = useRef(true);
   const [open, setOpen] = useState(false);
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
@@ -52,49 +78,9 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
     user_type: "",
   });
 
-  // For infinite scroll
-  const [currentPage, setCurrentPage] = useState(1);
-  const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-
-  const {
-    data: profileData,
-    isLoading: profileLoading,
-    isFetching,
-  } = useQuery({
-    queryKey: [
-      "all-profiles",
-      bucket,
-      currentPage,
-      debouncedSearch,
-      filters.name,
-      filters.nickname,
-    ],
-    queryFn: () =>
-      getAllProfiles({
-        page: currentPage,
-        limit: LIMIT,
-        search: debouncedSearch,
-        name: filters.name,
-        nickname: filters.nickname,
-      }),
-    enabled: hasMore,
-    staleTime: 30 * 1000, // Cache for 30 seconds
-  });
-
+  // Debounce the search box before it feeds the query key.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      // Only reset profiles and page if search query actually changed (not on initial mount)
-      if (!isInitialMount.current) {
-        setCurrentPage(1);
-        setAllProfiles([]);
-        setHasMore(true);
-      } else {
-        isInitialMount.current = false;
-      }
-    }, 500); // 500ms delay
-
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -110,59 +96,79 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
     });
   }, [debouncedSearch, filters, pathname, router]);
 
-  // Effect to accumulate profiles data
-  useEffect(() => {
-    if (profileData && !profileLoading) {
-      const newData: UserProfile[] = profileData.data?.[bucket] || [];
-      if (currentPage === 1) {
-        setAllProfiles(newData);
-      } else {
-        setAllProfiles((prev) => {
-          // Avoid duplicates by checking if data is already added
-          const existingIds = new Set(prev.map((p) => p.id));
-          const uniqueNewData = newData.filter((p) => !existingIds.has(p.id));
-          return uniqueNewData.length > 0 ? [...prev, ...uniqueNewData] : prev;
-        });
+  const {
+    data: profileData,
+    isLoading: profileLoading,
+    isFetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<AllProfilesResponse>({
+    queryKey: [
+      "all-profiles",
+      bucket,
+      debouncedSearch,
+      filters.name,
+      filters.nickname,
+    ],
+    queryFn: ({ pageParam }) =>
+      getAllProfiles({
+        page: pageParam,
+        limit: LIMIT,
+        search: debouncedSearch,
+        name: filters.name,
+        nickname: filters.nickname,
+      }),
+    initialPageParam: 1,
+    // Trust the server's pagination metadata: keep going while the fetched
+    // page reports another one available for this bucket.
+    getNextPageParam: (lastPage): number | undefined => {
+      const items = lastPage?.data?.[bucket] ?? [];
+      const pagination = lastPage?.data?.meta?.pagination?.[bucket];
+      if (!pagination || items.length === 0) return undefined;
+      const nextPage = (pagination.page ?? 1) + 1;
+      return nextPage <= (pagination.total_pages ?? 1) ? nextPage : undefined;
+    },
+    staleTime: 30 * 1000, // Cache for 30 seconds
+  });
+
+  // Flatten every fetched page into one list (deduped by id for safety).
+  const allProfiles = useMemo<UserProfile[]>(() => {
+    const pages = profileData?.pages ?? [];
+    const seen = new Set<number>();
+    const result: UserProfile[] = [];
+    for (const page of pages) {
+      for (const profile of page?.data?.[bucket] ?? []) {
+        if (profile && !seen.has(profile.id)) {
+          seen.add(profile.id);
+          result.push(profile);
+        }
       }
-      setHasMore(
-        currentPage <
-          (profileData?.meta?.pagination?.[bucket]?.total_pages || 1)
-      );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileData]);
+    return result;
+  }, [profileData, bucket]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Always-current refs so the observer callback is never stale
-  const hasMoreRef = useRef(hasMore);
-  const isFetchingRef = useRef(isFetching);
-  hasMoreRef.current = hasMore;
-  isFetchingRef.current = isFetching;
-
-  // Re-attach observer whenever the profile list changes length
-  // (covers initial mount, new pages arriving, and search resets)
+  // Load the next page whenever the sentinel scrolls into view. Dependencies
+  // keep the observer callback fresh; re-running it is cheap.
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          hasMoreRef.current &&
-          !isFetchingRef.current
-        ) {
-          setCurrentPage((prev) => prev + 1);
+        if (entries[0].isIntersecting && hasNextPage && !isFetching) {
+          fetchNextPage();
         }
       },
       { threshold: 0, rootMargin: "0px 0px 300px 0px" }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [allProfiles.length]);
+  }, [allProfiles.length, hasNextPage, isFetching, fetchNextPage]);
 
   // Only show full-page loader on initial load
-  if (profileLoading && currentPage === 1 && allProfiles.length === 0) {
+  if (profileLoading && allProfiles.length === 0) {
     return <Loader />;
   }
 
@@ -200,14 +206,8 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
                   className="xss:w-full"
                   size="medium"
                   onClick={() => {
-                    const hasActiveFilters = filters.name || filters.nickname;
                     setFilters({ name: "", nickname: "", user_type: "" });
                     setClearFiltersKey((prev) => prev + 1);
-                    if (hasActiveFilters) {
-                      setCurrentPage(1);
-                      setAllProfiles([]);
-                      setHasMore(true);
-                    }
                   }}
                   type="button"
                 >
@@ -220,9 +220,6 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
               key={clearFiltersKey}
               onApply={(values) => {
                 setFilters(values);
-                setCurrentPage(1);
-                setAllProfiles([]);
-                setHasMore(true);
                 setOpen(false);
               }}
               initialValues={filters}
@@ -259,8 +256,12 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
                   <ProfileCard key={profile?.id} profile={profile} />
                 ))}
               </div>
-              {isFetching && <Loader />}
-              {!hasMore && (
+              {isFetchingNextPage && (
+                <div className="flex justify-center py-6">
+                  <Loader inline size="sm" />
+                </div>
+              )}
+              {!hasNextPage && allProfiles.length > 0 && !isFetching && (
                 <p className="text-center py-4 text-secondary-102">
                   {t("COMMON.NO_MORE_PROFILES")}
                 </p>

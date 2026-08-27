@@ -145,7 +145,9 @@ function CreatePostModal({
 
       values?.images?.forEach((file) => {
         if (file instanceof File) {
-          formData.append(`images`, file);
+          // The /posts/ endpoint expects the array-style key "images[]" so
+          // multiple files are parsed as a list rather than a single value.
+          formData.append(`images[]`, file);
         }
       });
 

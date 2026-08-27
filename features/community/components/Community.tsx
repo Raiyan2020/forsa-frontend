@@ -14,6 +14,7 @@ import Loader from "@/components/ui/Loader";
 import { getCommunityPosts } from "@/features/services/api";
 import { CommunityFiltersData } from "./CommunityFilterModal";
 
+
 function Community() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");

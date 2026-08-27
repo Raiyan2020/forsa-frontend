@@ -31,6 +31,23 @@ export const toNumber = (value: unknown): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+/**
+ * Display counterpart of `toNumber()`. The API localizes numeric fields into
+ * Arabic-Indic digit strings when Arabic is active, but the digit system on
+ * screen must follow the UI language — an English UI must never render
+ * `١٤١.٧٥`. Only digit characters are remapped, so separators and decimals in
+ * values like `"1,234.5"` survive untouched; Arabic output is left exactly as
+ * the API sent it (already correctly localized).
+ */
+export const toDisplayDigits = (value: unknown, language: string): string => {
+  if (value === null || value === undefined || value === "") return "0";
+  const raw = String(value);
+  if (language === "ar") return raw;
+  return raw.replace(/[٠-٩]/g, (digit) =>
+    String(ARABIC_INDIC_DIGITS.indexOf(digit))
+  );
+};
+
 export const maskEmail = (email: string) => {
   if (!email) return "";
   const [name, domain] = email.split("@");

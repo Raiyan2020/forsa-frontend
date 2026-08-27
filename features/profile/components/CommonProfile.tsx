@@ -24,7 +24,12 @@ import {
   getUserOpportunities,
 } from "@/features/services/api";
 import { occupationOptions } from "@/data/Constants";
-import { formatDateRange, getDefaultProfileImage, toNumber } from "@/lib/helpers";
+import {
+  formatDateRange,
+  getDefaultProfileImage,
+  toDisplayDigits,
+  toNumber,
+} from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface LocalizedValue {
@@ -124,6 +129,17 @@ interface CertificateItem {
   certificate_image: string;
   opportunity__title_en?: string;
   opportunity__title_ar?: string;
+}
+
+/** Guards against malformed/mixed entries in the `/user-certificates/` payload. */
+function isCertificateItem(value: unknown): value is CertificateItem {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as CertificateItem).registration_id === "number" &&
+    typeof (value as CertificateItem).certificate_image === "string" &&
+    (value as CertificateItem).certificate_image.length > 0
+  );
 }
 
 type ProfileSection = "opportunities" | "events" | "certificates";
@@ -472,7 +488,9 @@ function BackgroundAndAchievements({
               <AchievementCard
                 key={card.icon}
                 icon={asset(card.icon)}
-                value={card.value}
+                // The API returns these counters as Arabic-Indic digit strings
+                // under `ar` — remap to Latin digits whenever the UI is English.
+                value={toDisplayDigits(card.value, language)}
                 label={card.label}
                 colorClass={card.color}
               />
@@ -575,6 +593,58 @@ function ListingCard({ item, isEvent }: { item: OpportunityItem; isEvent: boolea
   );
 }
 
+/**
+ * Certificates render in their own component that only receives the
+ * certificates array — listing items (`ListingCard`) are never passed in, so
+ * an opportunity card can't leak into the certificates grid.
+ */
+function CertificatesGrid({ certificates }: { certificates: CertificateItem[] }) {
+  const { t } = useTranslation();
+  const language = useLanguageStore((state) => state.language);
+
+  if (!certificates.length) {
+    return (
+      <p className="py-8 text-center text-lg text-secondary-102">
+        {t("COMMON.NO_CERTIFICATES_AVAILABLE")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+      {/* Fixed box + object-contain: every tile is the same height whatever
+          the certificate's aspect ratio, without cropping. */}
+      {certificates.map((certificate) => {
+        const title =
+          certificate[
+            language === "ar" ? "opportunity__title_ar" : "opportunity__title_en"
+          ] || t("COMMON.CERTIFICATE-");
+        return (
+          <a
+            key={certificate.registration_id}
+            href={certificate.certificate_image}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative flex h-[260px] items-center justify-center overflow-hidden rounded-lg bg-[#29246D]/[0.03] shadow-md"
+          >
+            <Image
+              src={certificate.certificate_image}
+              alt={title}
+              width={600}
+              height={420}
+              className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]"
+              unoptimized
+            />
+            <span className="absolute end-3 top-3 rounded-full bg-white p-2 text-primary-5 shadow">
+              <ExternalLink className="h-4 w-4" />
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 function PublicProfileListings({
   userId,
   userType,
@@ -594,7 +664,6 @@ function PublicProfileListings({
   developmentCount: number | null;
 }) {
   const { t } = useTranslation();
-  const language = useLanguageStore((state) => state.language);
   const [section, setSection] = useState<ProfileSection>("opportunities");
   const [mode, setMode] = useState<ListingMode>("organized");
   // All / Volunteer / Development, applied on top of the organized/sponsored tag
@@ -698,8 +767,11 @@ function PublicProfileListings({
   const items: OpportunityItem[] = Array.isArray(listingQuery.data?.data)
     ? listingQuery.data.data
     : [];
+  // Only well-formed certificate entries reach the grid — if the API ever
+  // mixes an opportunity-shaped object into `data`, it is dropped here rather
+  // than rendered as a broken tile.
   const certificates: CertificateItem[] = Array.isArray(certificatesQuery.data?.data)
-    ? certificatesQuery.data.data
+    ? (certificatesQuery.data.data as unknown[]).filter(isCertificateItem)
     : [];
   const loading = section === "certificates" ? certificatesQuery.isLoading : listingQuery.isLoading;
 
@@ -765,7 +837,6 @@ function PublicProfileListings({
           activeTab={mode}
         />
       </Modal>
-
       <div className="flex gap-[38px] px-3 2xl:px-5 xss:gap-2">
         {sections.map((tab) => (
           <button
@@ -852,42 +923,7 @@ function PublicProfileListings({
         {loading ? (
           <Loader inline className="py-20" />
         ) : section === "certificates" ? (
-          certificates.length ? (
-            <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
-              {/* Fixed box + object-contain: every tile is the same height
-                  whatever the certificate's aspect ratio, without cropping. */}
-              {certificates.map((certificate) => {
-                const title =
-                  certificate[language === "ar" ? "opportunity__title_ar" : "opportunity__title_en"] ||
-                  t("COMMON.CERTIFICATE-");
-                return (
-                  <a
-                    key={certificate.registration_id}
-                    href={certificate.certificate_image}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative flex h-[260px] items-center justify-center overflow-hidden rounded-lg bg-[#29246D]/[0.03] shadow-md"
-                  >
-                    <Image
-                      src={certificate.certificate_image}
-                      alt={title}
-                      width={600}
-                      height={420}
-                      className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]"
-                      unoptimized
-                    />
-                    <span className="absolute end-3 top-3 rounded-full bg-white p-2 text-primary-5 shadow">
-                      <ExternalLink className="h-4 w-4" />
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="py-8 text-center text-lg text-secondary-102">
-              {t("COMMON.NO_CERTIFICATES_AVAILABLE")}
-            </p>
-          )
+          <CertificatesGrid certificates={certificates} />
         ) : items.length ? (
           <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (

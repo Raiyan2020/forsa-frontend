@@ -181,7 +181,8 @@ export default function Notification() {
 
   const removeNotificationHandler = async (id: string) => {
     try {
-      await deleteMutation.mutateAsync({ notification_ids: [parseInt(id)] });
+      // DELETE /notifications/{id}/ removes a single notification.
+      await deleteMutation.mutateAsync(parseInt(id));
 
       // Update local display state
       setDisplayNotifications((prev) =>
