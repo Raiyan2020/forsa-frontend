@@ -6,6 +6,8 @@
  * it once on mount.
  */
 
+import { useEffect, useRef, useState } from "react";
+
 export const NAV_STATE_KEYS = {
   /** Event registration → /event-thankyou */
   eventThankyou: "event_thankyou_details",
@@ -67,4 +69,28 @@ export function clearNavState(key: NavStateKey): void {
   } catch {
     // ignore
   }
+}
+
+/**
+ * Reads (and clears) a stashed nav-state payload exactly once per mount.
+ *
+ * A plain `useEffect(() => setState(takeNavState(key)), [])` breaks under
+ * React 18/19 Strict Mode's development-only double-invoke: the effect body
+ * runs twice on mount, and since `takeNavState` clears the payload on read,
+ * the second call finds nothing and stomps the first call's real value with
+ * an empty object — the edit/repost target silently disappears in `next dev`
+ * only. The ref guard makes the actual take-and-clear happen once per
+ * component instance no matter how many times Strict Mode re-runs the effect.
+ */
+export function useConsumedNavState<T>(key: NavStateKey): T | null {
+  const [state, setState] = useState<T | null>(null);
+  const consumed = useRef(false);
+
+  useEffect(() => {
+    if (consumed.current) return;
+    consumed.current = true;
+    setState(takeNavState<T>(key) ?? ({} as T));
+  }, [key]);
+
+  return state;
 }

@@ -40,7 +40,7 @@ import {
 import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
-import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
+import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
   YupOptionalUrl,
@@ -58,7 +58,8 @@ export interface EventFormNavState {
 }
 
 interface EventFormValues {
-  title: string;
+  title_ar: string;
+  title_en: string;
   startDate: string;
   endDate: string;
   startTime: string;
@@ -68,7 +69,8 @@ interface EventFormValues {
   participation_type_value_en: string;
   age: [number | null, number | null];
   gender: string;
-  description: string;
+  description_ar: string;
+  description_en: string;
   location: string;
   location_url: string;
   registration_link: string;
@@ -171,10 +173,9 @@ export default function EventForm({
   const authToken = useAuthStore((s) => s.user?.auth_token);
 
   // Edit / repost target arrives via sessionStorage (React Router `location.state`).
-  const [navState, setNavStateValue] = useState<EventFormNavState | null>(null);
-  useEffect(() => {
-    setNavStateValue(takeNavState<EventFormNavState>(NAV_STATE_KEYS.eventForm) ?? {});
-  }, []);
+  const navState = useConsumedNavState<EventFormNavState>(
+    NAV_STATE_KEYS.eventForm
+  );
   const id = navState?.id;
   const isRepublish = navState?.isRepublish;
 
@@ -406,8 +407,10 @@ export default function EventForm({
       ) || [];
 
   const initialValues: EventFormValues = {
-    title: eventData?.[`title_${selectedLanguage}`] || "",
-    description: eventData?.[`description_${selectedLanguage}`] || "",
+    title_ar: eventData?.title_ar || "",
+    title_en: eventData?.title_en || "",
+    description_ar: eventData?.description_ar || "",
+    description_en: eventData?.description_en || "",
     age: [
       eventData?.from_age ? Number(eventData.from_age) : null,
       eventData?.to_age ? Number(eventData.to_age) : null,
@@ -454,8 +457,26 @@ export default function EventForm({
     return !value || new Date(value) >= today;
   };
 
+  // Shared by both the Arabic and English description fields.
+  const descriptionSchema = Yup.string()
+    .concat(YupRequiredString)
+    .test(
+      "is-not-empty-html",
+      i18n.t("COMMON.REQUIRED.FIELD"),
+      function (value) {
+        if (!value) return false;
+        // Strip markup and entities — an empty <p></p> is not real content
+        const textContent = value
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .trim();
+        return textContent.length > 0;
+      }
+    );
+
   const validationSchema = Yup.object({
-    title: YupStringMaxLength(100).concat(YupRequiredString),
+    title_ar: YupStringMaxLength(100).concat(YupRequiredString),
+    title_en: YupStringMaxLength(100).concat(YupRequiredString),
     startDate: Yup.string()
       .concat(YupRequiredString)
       .test("start-date-in-future", i18n.t("COMMON.DATE_MUST_BE_FUTURE"), notInPast),
@@ -510,21 +531,8 @@ export default function EventForm({
         return (!!value && latitude !== undefined) || longitude !== undefined;
       }
     ),
-    description: Yup.string()
-      .concat(YupRequiredString)
-      .test(
-        "is-not-empty-html",
-        i18n.t("COMMON.REQUIRED.FIELD"),
-        function (value) {
-          if (!value) return false;
-          // Strip markup and entities — an empty <p></p> is not real content
-          const textContent = value
-            .replace(/<[^>]*>/g, "")
-            .replace(/&nbsp;/g, " ")
-            .trim();
-          return textContent.length > 0;
-        }
-      ),
+    description_ar: descriptionSchema,
+    description_en: descriptionSchema,
     _interests: Yup.array()
       .of(Yup.string())
       .min(1, i18n.t("COMMON.REQUIRED.FIELD")),
@@ -548,7 +556,8 @@ export default function EventForm({
 
     // Fields whose inputs don't carry a matching name attribute
     const specialFieldSelectors: Record<string, string> = {
-      description: ".descritpionitm", // rich text editor
+      description_ar: ".descritpionitm-ar", // rich text editor
+      description_en: ".descritpionitm-en",
       _interests: ".TagsCheckbox",
       event_images: ".uploaddocfiles",
     };
@@ -581,22 +590,10 @@ export default function EventForm({
     try {
       const formData = new FormData();
 
-      // The API requires both languages' title/description regardless of
-      // which one the org is actually typing in. The untouched language
-      // falls back to whatever was already stored (edit) or duplicates the
-      // typed value (create) — there's only one title/description field in
-      // this form, so that's the best available content for it.
-      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
-      formData.append(`title_${selectedLanguage}`, values.title);
-      formData.append(
-        `title_${otherLanguage}`,
-        eventData?.[`title_${otherLanguage}`] || values.title
-      );
-      formData.append(`description_${selectedLanguage}`, values.description);
-      formData.append(
-        `description_${otherLanguage}`,
-        eventData?.[`description_${otherLanguage}`] || values.description
-      );
+      formData.append("title_ar", values.title_ar);
+      formData.append("title_en", values.title_en);
+      formData.append("description_ar", values.description_ar);
+      formData.append("description_en", values.description_en);
       formData.append("start_date", formatDateToYYYYMMDD(values.startDate));
       formData.append("end_date", formatDateToYYYYMMDD(values.endDate));
       formData.append("start_time", values.startTime);
@@ -820,9 +817,16 @@ export default function EventForm({
 
                   <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
                     <Input
-                      name="title"
-                      label={t("COMMON.ENTER_TITLE")}
+                      name="title_ar"
+                      label={t("COMMON.ENTER_TITLE_AR")}
                       type="text"
+                      dir="rtl"
+                    />
+                    <Input
+                      name="title_en"
+                      label={t("COMMON.ENTER_TITLE_EN")}
+                      type="text"
+                      dir="ltr"
                     />
                     <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
                       <SelectInput
@@ -1037,12 +1041,23 @@ export default function EventForm({
                       </div>
                     )}
 
-                  <div className="descritpionitm">
+                  <div className="descritpionitm descritpionitm-ar">
                     <Field
-                      name="description"
-                      label={t("COMMON.DESCRIPTION")}
-                      placeholder={t("COMMON.DESCRIPTION")}
+                      name="description_ar"
+                      label={t("COMMON.DESCRIPTION_AR")}
+                      placeholder={t("COMMON.DESCRIPTION_AR")}
                       component={RichTextEditor}
+                      language="ar"
+                    />
+                  </div>
+
+                  <div className="descritpionitm descritpionitm-en">
+                    <Field
+                      name="description_en"
+                      label={t("COMMON.DESCRIPTION_EN")}
+                      placeholder={t("COMMON.DESCRIPTION_EN")}
+                      component={RichTextEditor}
+                      language="en"
                     />
                   </div>
 

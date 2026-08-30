@@ -26,6 +26,7 @@
  * for someone not already registered.
  */
 
+import moment from "moment";
 import { toNumber } from "@/lib/helpers";
 
 export type OpportunityButtonState =
@@ -107,6 +108,36 @@ export function getOpportunityButtonLabelKey(
   state: OpportunityButtonState
 ): string {
   return STATE_LABEL_KEYS[state];
+}
+
+/** The subset of a payload the creator's Edit/Repost decision reads. */
+export interface CreatorRepostSource {
+  action_state?: string | null;
+  opportunity_status?: string | null;
+  start_date?: string | null;
+}
+
+/**
+ * Whether a creator's own opportunity should show "Repost" instead of "Edit".
+ *
+ * Prefers `action_state` when present — it's authoritative and sidesteps the
+ * legacy heuristic's same-day bug (`moment().isAfter(startOf(day))` is true
+ * for the *entire* start day, so an event scheduled for tonight showed
+ * "Repost" from midnight on). Falls back to the status+date heuristic only
+ * for payloads that predate the field.
+ */
+export function isCreatorRepostState(
+  item: CreatorRepostSource | null | undefined
+): boolean {
+  if (!item) return false;
+  if (item.action_state) {
+    return item.action_state === "started" || item.action_state === "ended";
+  }
+  return (
+    item.opportunity_status === "inprogress" ||
+    item.opportunity_status === "completed" ||
+    moment().isAfter(moment(item.start_date).startOf("day"))
+  );
 }
 
 /** True when pressing the button does something (register / unregister). */

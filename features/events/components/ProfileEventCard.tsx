@@ -14,6 +14,7 @@ import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import { getAllOpportunities } from "@/features/services/api";
 import { formatDateRange, toNumber } from "@/lib/helpers";
+import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 import { FiltersData } from "@/features/profile/components/ProfileFilterForm";
 import DeleteEventModal from "./DeleteEventModal";
@@ -237,6 +238,25 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
 
     // For volunteer user, if registration is not required
     return t("COMMON.DETAILS");
+  };
+
+  // The creator's own button manages the event directly rather than opening
+  // the detail page first — everyone else keeps the card's default behaviour
+  // of linking through to /event-details/{id}.
+  const handleActionClick = (
+    e: React.MouseEvent,
+    item: EventData
+  ) => {
+    if (!currentUser || item.created_by?.id !== currentUser.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const isRepublish =
+      item.event_status === "completed" || item.event_status === "inprogress";
+    setNavState(NAV_STATE_KEYS.eventForm, {
+      id: String(item.id),
+      isRepublish,
+    });
+    router.push("/event-form");
   };
 
   const hasNoEvents = !events || events.length === 0;
@@ -496,7 +516,11 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                           </div>
                         </div>
                         <div>
-                          <Button variant="orange" size="xss">
+                          <Button
+                            variant="orange"
+                            size="xss"
+                            onClick={(e) => handleActionClick(e, item)}
+                          >
                             {getButtonText(item)}
                           </Button>
                         </div>

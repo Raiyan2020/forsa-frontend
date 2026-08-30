@@ -38,6 +38,7 @@ import {
   toNumber,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
+import { isCreatorRepostState } from "@/lib/opportunityButtonState";
 import {
   NAV_STATE_KEYS,
   clearNavState,
@@ -87,6 +88,7 @@ export interface LearnServeOpportunityData {
   participants_needed?: number;
   registered_volunteers_count?: number;
   opportunity_status?: string;
+  action_state?: string;
   is_creator?: boolean;
   is_registration_closed?: boolean;
   is_registration_open?: boolean;
@@ -510,11 +512,16 @@ export default function LearnServeDetails({
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );
+  // `action_state` (backend-computed) is authoritative when present — it
+  // sidesteps the date heuristic's same-day bug, where a same-day event shows
+  // "Repost" from midnight regardless of its actual start time.
   const isRepostState =
     isCreator &&
-    (opportunityData?.opportunity_status === "completed" ||
-      opportunityData?.opportunity_status === "inprogress" ||
-      hasStarted);
+    (opportunityData?.action_state
+      ? isCreatorRepostState(opportunityData)
+      : opportunityData?.opportunity_status === "completed" ||
+        opportunityData?.opportunity_status === "inprogress" ||
+        hasStarted);
 
   /**
    * The due date is optional now: without one, registration stays open until

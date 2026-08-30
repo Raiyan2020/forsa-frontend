@@ -19,12 +19,14 @@ import OpportunityBadges, {
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
+  isCreatorRepostState,
 } from "@/lib/opportunityButtonState";
 import {
   getAllOpportunities,
   getUserOpportunities,
 } from "@/features/services/api";
 import { formatDateRange } from "@/lib/helpers";
+import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 import { FiltersData } from "./ProfileFilterForm";
 
@@ -53,6 +55,7 @@ interface BaseOpportunityData {
   interest_display?: Array<{ value_en: string; value_ar: string }>;
   created_by?: { id: number };
   opportunity_status?: string;
+  action_state?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -312,11 +315,7 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
     // 3. If the current user is the creator:
     if (currentUser && item.created_by?.id === currentUser.id) {
       // If opportunity is under way or finished, show "Repost"
-      if (
-        item.opportunity_status === "inprogress" ||
-        item.opportunity_status === "completed" ||
-        moment().isAfter(moment(item.start_date).startOf("day"))
-      ) {
+      if (isCreatorRepostState(item)) {
         return t("COMMON.REPOST");
       }
       return t("COMMON.EDIT_TEXT");
@@ -349,6 +348,22 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
     isVolunteerOpportunity(item.opportunity_type)
       ? `/volunteer-event-detail/${item.id}`
       : `/learn-share-event-detail/${item.id}`;
+
+  // The creator's own button manages the opportunity directly rather than
+  // opening the detail page first — everyone else keeps the card's default
+  // behaviour of navigating through to the detail page.
+  const handleActionClick = (item: OpportunityData) => {
+    if (!currentUser || item.created_by?.id !== currentUser.id) {
+      router.push(detailHref(item));
+      return;
+    }
+    const isVolunteer = isVolunteerOpportunity(item.opportunity_type);
+    setNavState(
+      isVolunteer ? NAV_STATE_KEYS.volunteerForm : NAV_STATE_KEYS.learnServeForm,
+      { id: String(item.id), isRepublish: isCreatorRepostState(item) }
+    );
+    router.push(isVolunteer ? "/volunteer-form" : "/learn-and-share-form");
+  };
 
   const hasNoOpportunities = !opportunities || opportunities.length === 0;
 
@@ -687,7 +702,7 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
                     )} relative mx-auto flex justify-center bottom-[25px]`}
                     variant="primary"
                     size="xss"
-                    onClick={() => router.push(detailHref(item))}
+                    onClick={() => handleActionClick(item)}
                   >
                     {getButtonText(item)}
                   </Button>

@@ -47,8 +47,10 @@ export const getDropdownChoices = (type: string) =>
 export const getAccountInfo = () =>
   apiClient.get("/account/").then((r) => r.data);
 
+// POST, not PATCH — PHP only populates $_FILES for POST bodies, so a PATCH
+// carrying a multipart profile picture upload silently drops the file server-side.
 export const updateAccountInfo = (formData: FormData) =>
-  apiClient.patch("/account/", formData).then((r) => r.data);
+  apiClient.post("/account/", formData).then((r) => r.data);
 
 export const getVolunteerProfile = () =>
   apiClient.get("/volunteer-profile/").then((r) => r.data);
@@ -155,8 +157,15 @@ export const getOpportunityById = (id: string, passToken?: boolean) =>
 export const createVolunteerOpportunity = (data: any) =>
   apiClient.post("/volunteer-opportunities/", data).then((r) => r.data);
 
-export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any }) =>
-  apiClient.patch(`/volunteer-opportunities/${id}/`, data).then((r) => r.data);
+// POST with a Laravel `_method` override, not a literal PATCH — PHP only
+// populates $_FILES for POST bodies, so a real PATCH carrying a multipart
+// image update silently drops the file server-side (same issue as
+// `updateAccountInfo`). Laravel's method-override middleware still routes
+// this to the PATCH handler.
+export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any }) => {
+  if (data instanceof FormData) data.append("_method", "PATCH");
+  return apiClient.post(`/volunteer-opportunities/${id}/`, data).then((r) => r.data);
+};
 
 export const updateVolunteerOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
   apiClient.patch(`/volunteer-opportunities/${id}/update_images/`, formData).then((r) => r.data);
@@ -334,8 +343,11 @@ export const getLearnServeOpportunityById = (id: string) =>
 export const createLearnServeOpportunity = (data: any) =>
   apiClient.post("/learn-serve-opportunities/", data).then((r) => r.data);
 
-export const updateLearnServeOpportunity = ({ id, data }: { id: string; data: any }) =>
-  apiClient.patch(`/learn-serve-opportunities/${id}/`, data).then((r) => r.data);
+// See `updateVolunteerOpportunity` — same PATCH+multipart workaround.
+export const updateLearnServeOpportunity = ({ id, data }: { id: string; data: any }) => {
+  if (data instanceof FormData) data.append("_method", "PATCH");
+  return apiClient.post(`/learn-serve-opportunities/${id}/`, data).then((r) => r.data);
+};
 
 export const updateLearnServeOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
   apiClient.patch(`/learn-serve-opportunities/${id}/update_images/`, formData).then((r) => r.data);
@@ -445,8 +457,11 @@ export const getEventById = ({ id, passToken }: { id: string; passToken?: boolea
 export const createEvent = (data: any) =>
   apiClient.post("/events/", data).then((r) => r.data);
 
-export const updateEvent = ({ id, formData }: { id: string; formData: FormData }) =>
-  apiClient.patch(`/events/${id}/`, formData).then((r) => r.data);
+// See `updateVolunteerOpportunity` — same PATCH+multipart workaround.
+export const updateEvent = ({ id, formData }: { id: string; formData: FormData }) => {
+  formData.append("_method", "PATCH");
+  return apiClient.post(`/events/${id}/`, formData).then((r) => r.data);
+};
 
 export const registerForEvent = (data: any) =>
   apiClient.post("/event-registrations/", data).then((r) => r.data);

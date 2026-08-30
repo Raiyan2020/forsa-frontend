@@ -24,6 +24,7 @@ import {
   unregisterFromEvent,
 } from "@/features/services/api";
 import { formatSingleDate, openLocation } from "@/lib/helpers";
+import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import EventFeedback from "./EventFeedback";
@@ -373,7 +374,11 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const openRegistration = () => {
     if (event.is_creator) {
       const republish = event.event_status === "completed" || event.event_status === "inprogress";
-      router.push(`/event-form?id=${event.id}${republish ? "&republish=true" : ""}`);
+      setNavState(NAV_STATE_KEYS.eventForm, {
+        id: String(event.id),
+        isRepublish: republish,
+      });
+      router.push("/event-form");
       return;
     }
     if (!user?.auth_token) {

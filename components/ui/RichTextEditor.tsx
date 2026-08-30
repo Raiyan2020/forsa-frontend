@@ -21,6 +21,12 @@ const asset = (path: string) => `/assets/description_icons/${path}`;
 interface RichTextEditorProps extends FieldProps {
   label: string;
   placeholder?: string;
+  /**
+   * Forces the editor's writing direction/alignment, overriding the app's
+   * current UI language — used when this instance is a dedicated Arabic or
+   * English field rather than one that follows the current locale.
+   */
+  language?: "ar" | "en";
 }
 
 /** Toolbar icon button that reflects an active mark. */
@@ -60,10 +66,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   field,
   form,
   label,
+  language,
 }) => {
   const { name, value } = field;
   const { setFieldValue, setFieldTouched, errors, touched } = form;
-  const selectedLanguage = useLanguageStore((s) => s.language);
+  const uiLanguage = useLanguageStore((s) => s.language);
+  const selectedLanguage = language ?? uiLanguage;
 
   const [isFocused, setIsFocused] = useState(false);
   const [hasContent, setHasContent] = useState(false);

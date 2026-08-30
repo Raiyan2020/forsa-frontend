@@ -50,7 +50,7 @@ import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
-import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
+import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
   YupOptionalUrl,
@@ -80,8 +80,10 @@ export interface LearnServeFormNavState {
 
 interface LearnServeFormValues {
   license_image_removed: boolean;
-  title: string;
-  description: string;
+  title_ar: string;
+  title_en: string;
+  description_ar: string;
+  description_en: string;
   dueDate: string;
   startDate: string;
   endDate: string;
@@ -275,14 +277,9 @@ export default function LearnServeForm({
     licenseRequirementData?.data?.license_required ?? true;
 
   // Edit / repost target arrives via sessionStorage (React Router `location.state`).
-  const [navState, setNavStateValue] = useState<LearnServeFormNavState | null>(
-    null
+  const navState = useConsumedNavState<LearnServeFormNavState>(
+    NAV_STATE_KEYS.learnServeForm
   );
-  useEffect(() => {
-    setNavStateValue(
-      takeNavState<LearnServeFormNavState>(NAV_STATE_KEYS.learnServeForm) ?? {}
-    );
-  }, []);
   const id = navState?.id;
   const isRepublish = navState?.isRepublish;
 
@@ -700,8 +697,10 @@ export default function LearnServeForm({
   )?.value;
 
   const initialValues: LearnServeFormValues = {
-    title: opportunityData?.[`title_${selectedLanguage}`] || "",
-    description: opportunityData?.[`description_${selectedLanguage}`] || "",
+    title_ar: opportunityData?.title_ar || "",
+    title_en: opportunityData?.title_en || "",
+    description_ar: opportunityData?.description_ar || "",
+    description_en: opportunityData?.description_en || "",
     dueDate: opportunityData?.due_date || "",
     startDate: opportunityData?.start_date || "",
     endDate: opportunityData?.end_date || "",
@@ -753,27 +752,31 @@ export default function LearnServeForm({
     return !value || new Date(value) >= today;
   };
 
-  const validationSchema = useMemo(
-    () =>
-      Yup.object({
-        title: YupStringMaxLength(400)
-          .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
-          .concat(YupRequiredString),
-        description: Yup.string()
-          .concat(YupRequiredString)
-          .test(
-            "is-not-empty-html",
-            i18n.t("COMMON.REQUIRED.FIELD"),
-            function (value) {
-              if (!value) return false;
-              // Strip markup and entities — an empty <p></p> is not real content
-              const textContent = value
-                .replace(/<[^>]*>/g, "")
-                .replace(/&nbsp;/g, " ")
-                .trim();
-              return textContent.length > 0;
-            }
-          ),
+  const validationSchema = useMemo(() => {
+    const titleSchema = YupStringMaxLength(400)
+      .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
+      .concat(YupRequiredString);
+    const descriptionSchema = Yup.string()
+      .concat(YupRequiredString)
+      .test(
+        "is-not-empty-html",
+        i18n.t("COMMON.REQUIRED.FIELD"),
+        function (value) {
+          if (!value) return false;
+          // Strip markup and entities — an empty <p></p> is not real content
+          const textContent = value
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;/g, " ")
+            .trim();
+          return textContent.length > 0;
+        }
+      );
+
+    return Yup.object({
+        title_ar: titleSchema,
+        title_en: titleSchema,
+        description_ar: descriptionSchema,
+        description_en: descriptionSchema,
         // Optional: with no due date the backend keeps registration open until
         // the opportunity's last day (`end_date`).
         dueDate: Yup.string()
@@ -916,17 +919,16 @@ export default function LearnServeForm({
             return value instanceof File && value.size > 0;
           }
         ),
-      }),
-    [
-      inPersonFormatId,
-      onlineFormatId,
-      internshipTypeId,
-      isLicenseRequired,
-      id,
-      modifiedLicenseImage,
-      modifiedOpportunityImages,
-    ]
-  );
+      });
+  }, [
+    inPersonFormatId,
+    onlineFormatId,
+    internshipTypeId,
+    isLicenseRequired,
+    id,
+    modifiedLicenseImage,
+    modifiedOpportunityImages,
+  ]);
 
   const reportSubmitError = (error: unknown, isUpdate: boolean) => {
     const messages = getApiErrorMessages(error, selectedLanguage);
@@ -954,22 +956,10 @@ export default function LearnServeForm({
       const formattedStartTime = `${values.startTime}:00`;
       const formattedEndTime = `${values.endTime}:00`;
 
-      // The API requires both languages' title/description regardless of
-      // which one the org is actually typing in. The untouched language
-      // falls back to whatever was already stored (edit) or duplicates the
-      // typed value (create) — there's only one title/description field in
-      // this form, so that's the best available content for it.
-      const otherLanguage = selectedLanguage === "ar" ? "en" : "ar";
-      formData.append(`title_${selectedLanguage}`, values.title);
-      formData.append(
-        `title_${otherLanguage}`,
-        opportunityData?.[`title_${otherLanguage}`] || values.title
-      );
-      formData.append(`description_${selectedLanguage}`, values.description);
-      formData.append(
-        `description_${otherLanguage}`,
-        opportunityData?.[`description_${otherLanguage}`] || values.description
-      );
+      formData.append("title_ar", values.title_ar);
+      formData.append("title_en", values.title_en);
+      formData.append("description_ar", values.description_ar);
+      formData.append("description_en", values.description_en);
       formData.append("start_date", formattedStartDate);
       formData.append("end_date", formattedEndDate);
       formData.append("format", values.learnServeFormat);
@@ -1192,7 +1182,8 @@ export default function LearnServeForm({
 
     // Fields whose inputs don't carry a matching name attribute
     const specialFieldSelectors: Record<string, string> = {
-      description: ".descritpionitm", // rich text editor
+      description_ar: ".descritpionitm-ar", // rich text editor
+      description_en: ".descritpionitm-en",
       _interests: ".TagsCheckbox",
       opportunity_images: ".uploaddocfiles",
       age: "[name='age[0]']",
@@ -1518,10 +1509,18 @@ export default function LearnServeForm({
 
                     <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
                       <Input
-                        name="title"
-                        label={t("COMMON.ENTER_TITLE")}
+                        name="title_ar"
+                        label={t("COMMON.ENTER_TITLE_AR")}
                         type="text"
                         maxLength={400}
+                        dir="rtl"
+                      />
+                      <Input
+                        name="title_en"
+                        label={t("COMMON.ENTER_TITLE_EN")}
+                        type="text"
+                        maxLength={400}
+                        dir="ltr"
                       />
                       <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
                         <SelectInput
@@ -1714,12 +1713,23 @@ export default function LearnServeForm({
                       </div>
                     )}
 
-                    <div className="descritpionitm">
+                    <div className="descritpionitm descritpionitm-ar">
                       <Field
-                        name="description"
-                        label={t("COMMON.DESCRIPTION")}
-                        placeholder={t("COMMON.DESCRIPTION")}
+                        name="description_ar"
+                        label={t("COMMON.DESCRIPTION_AR")}
+                        placeholder={t("COMMON.DESCRIPTION_AR")}
                         component={RichTextEditor}
+                        language="ar"
+                      />
+                    </div>
+
+                    <div className="descritpionitm descritpionitm-en">
+                      <Field
+                        name="description_en"
+                        label={t("COMMON.DESCRIPTION_EN")}
+                        placeholder={t("COMMON.DESCRIPTION_EN")}
+                        component={RichTextEditor}
+                        language="en"
                       />
                     </div>
 

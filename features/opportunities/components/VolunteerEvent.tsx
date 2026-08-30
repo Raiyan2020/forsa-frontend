@@ -38,6 +38,7 @@ import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
+  isCreatorRepostState,
 } from "@/lib/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
@@ -88,6 +89,7 @@ export interface VolunteerOpportunityData {
   total_roles: number;
   opportunity_type?: string;
   opportunity_status?: string;
+  action_state?: string;
   registration_link?: string;
   manual_tracking?: boolean;
   qr_attendance_enabled?: boolean;
@@ -568,9 +570,14 @@ export default function VolunteerEvent({
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );
+  // `action_state` (backend-computed) is authoritative when present — it
+  // sidesteps the date heuristic's same-day bug, where a same-day event shows
+  // "Repost" from midnight regardless of its actual start time.
   const isRepostState =
     isCreator &&
-    (isCompleted || status === "inprogress" || hasStarted);
+    (opportunityData?.action_state
+      ? isCreatorRepostState(opportunityData)
+      : isCompleted || status === "inprogress" || hasStarted);
 
   /**
    * A valid due date is the primary registration cutoff. Older records can

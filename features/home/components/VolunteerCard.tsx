@@ -16,7 +16,9 @@ import Image from "next/image";
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
+  isCreatorRepostState,
 } from "@/lib/opportunityButtonState";
+import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import OpportunityBadges, {
   OpportunityVisibilityInfo,
 } from "@/features/opportunities/components/OpportunityBadges";
@@ -46,6 +48,7 @@ interface VolunteerOpportunityData {
   interest_display?: Array<{ value_en: string; value_ar: string }>;
   created_by?: { id: number };
   opportunity_status?: string;
+  action_state?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -77,6 +80,7 @@ interface LearnServeOpportunityData {
   interest_display?: Array<{ value_en: string; value_ar: string }>;
   created_by?: { id: number };
   opportunity_status?: string;
+  action_state?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -308,6 +312,27 @@ export default function VolunteerCard({
     }
   };
 
+  // The creator's own button manages the opportunity directly rather than
+  // opening the detail page first — everyone else keeps the card's default
+  // behaviour of navigating through to the detail page.
+  const handleActionClick = (
+    item: VolunteerOpportunityData | LearnServeOpportunityData
+  ) => {
+    const detailHref = isLearnServe
+      ? `/learn-share-event-detail/${item.id}`
+      : `/volunteer-event-detail/${item.id}`;
+
+    if (!currentUser || item.created_by?.id !== currentUser.id) {
+      router.push(detailHref);
+      return;
+    }
+    setNavState(
+      isLearnServe ? NAV_STATE_KEYS.learnServeForm : NAV_STATE_KEYS.volunteerForm,
+      { id: String(item.id), isRepublish: isCreatorRepostState(item) }
+    );
+    router.push(isLearnServe ? "/learn-and-share-form" : "/volunteer-form");
+  };
+
   const getButtonText = (
     item: VolunteerOpportunityData | LearnServeOpportunityData
   ) => {
@@ -317,11 +342,7 @@ export default function VolunteerCard({
     // The creator manages rather than joins: edit while it is still upcoming,
     // repost once it has started or finished.
     if (currentUser && item.created_by?.id === currentUser.id) {
-      if (
-        item.opportunity_status === "inprogress" ||
-        item.opportunity_status === "completed" ||
-        moment().isAfter(moment(item.start_date).startOf("day"))
-      ) {
+      if (isCreatorRepostState(item)) {
         return t("COMMON.REPOST");
       }
       return t("COMMON.EDIT_TEXT");
@@ -638,13 +659,7 @@ export default function VolunteerCard({
                         ? "bg-primary-802"
                         : "bg-primary-5"
                     } relative mx-auto flex justify-center bottom-[25px] text-white font-bold py-2 px-6 rounded-md hover:opacity-90 transition duration-200`}
-                    onClick={() =>
-                      router.push(
-                        isLearnServe
-                          ? `/learn-share-event-detail/${item.id}`
-                          : `/volunteer-event-detail/${item.id}`
-                      )
-                    }
+                    onClick={() => handleActionClick(item)}
                   >
                     <span className="leading-tight">{getButtonText(item)}</span>
                   </button>
