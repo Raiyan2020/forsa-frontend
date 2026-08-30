@@ -1806,7 +1806,6 @@ export default function LearnServeForm({
                         label={t("COMMON.UPLOAD_IMAGE")}
                         accept="image/jpeg, image/png"
                         multiple
-                        singleFileArray
                         setFieldValue={setFieldValue}
                         existingFiles={modifiedOpportunityImages.map((file) => ({
                           id: file.id,
@@ -1827,18 +1826,6 @@ export default function LearnServeForm({
                         cropDisplayMode="opportunity"
                         cropWidth={600}
                         cropHeight={600} // 1:1
-                        onChange={(
-                          event: React.ChangeEvent<HTMLInputElement>
-                        ) => {
-                          event.preventDefault();
-                          const newFiles = event.target.files
-                            ? Array.from(event.target.files)
-                            : [];
-                          setFieldValue(
-                            "opportunity_images",
-                            newFiles.slice(0, 1)
-                          );
-                        }}
                       />
                     </div>
 

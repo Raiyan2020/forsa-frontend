@@ -1127,7 +1127,6 @@ export default function EventForm({
                       label={t("COMMON.UPLOAD_IMAGE")}
                       accept="image/jpeg, image/png"
                       multiple
-                      singleFileArray
                       setFieldValue={setFieldValue}
                       existingFiles={modifiedEventImages.map((file) => ({
                         id: file.id,
@@ -1148,14 +1147,6 @@ export default function EventForm({
                       cropDisplayMode="opportunity"
                       cropWidth={600}
                       cropHeight={600} // 1:1
-                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                        event.preventDefault();
-                        const newFiles = event.target.files
-                          ? Array.from(event.target.files)
-                          : [];
-                        // Only the first file is kept in single-file mode
-                        setFieldValue("event_images", newFiles.slice(0, 1));
-                      }}
                     />
                   </div>
 

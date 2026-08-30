@@ -132,7 +132,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
           htmlFor={name}
           className={`absolute ${
             selectedLanguage === "ar" ? "right-[12px]" : "left-[12px]"
-          } text-primary-5 transition-all duration-200 placeholder-primary-5 z-10
+          } pointer-events-none text-primary-5 transition-all duration-200 placeholder-primary-5 z-10
             ${
               isFocused || field.value
                 ? "text-[10px] top-[5px] bg-white px-1 text-primary-5/70"
@@ -145,6 +145,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
       )}
 
       <Select
+        inputId={name}
         className={cn(
           "w-full",
           meta.touched && meta.error

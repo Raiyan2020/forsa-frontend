@@ -204,6 +204,7 @@ export default function VolunteerForm({
   const user = useAuthStore((s) => s.user);
   const authToken = user?.auth_token;
   const isVolunteer = user?.user_type === "volunteer";
+  
 
   const formOpportunityId = useRoleModalStore((s) => s.opportunityId);
   const roleModalState = useRoleModalStore((s) => s.roleModalState);
@@ -667,6 +668,19 @@ export default function VolunteerForm({
             .replace(/&nbsp;/g, " ")
             .trim();
           return textContent.length > 0;
+        }
+      )
+      .test(
+        "description-min-length",
+        i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
+        function (value) {
+          if (!value) return true; // emptiness is the required rule's business
+          // Count visible text, not raw HTML — tags and entities are not content
+          const textContent = value
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;/g, " ")
+            .trim();
+          return textContent.length >= 10;
         }
       ),
     _interests: Yup.array()
@@ -1356,7 +1370,6 @@ export default function VolunteerForm({
                       label={t("COMMON.UPLOAD_IMAGE")}
                       accept="image/jpeg, image/png"
                       multiple
-                      singleFileArray
                       setFieldValue={setFieldValue}
                       existingFiles={modifiedOpportunityImages.map((file) => ({
                         id: file.id,
@@ -1377,14 +1390,6 @@ export default function VolunteerForm({
                       cropDisplayMode="opportunity"
                       cropWidth={600}
                       cropHeight={600} // 1:1
-                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                        // With cropping enabled the crop flow handles the file instead
-                        event.preventDefault();
-                        const newFiles = event.target.files
-                          ? Array.from(event.target.files)
-                          : [];
-                        setFieldValue("opportunity_images", newFiles.slice(0, 1));
-                      }}
                     />
                   </div>
 

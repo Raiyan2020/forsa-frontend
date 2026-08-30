@@ -403,6 +403,33 @@ const UploadDocument: React.FC<UploadInputProps> = ({
   const [editingIsExisting, setEditingIsExisting] = useState<boolean>(false);
   const [originalImagesMap, setOriginalImagesMap] = useState<Map<string, string>>(new Map());
   const [currentEditKey, setCurrentEditKey] = useState<string>("");
+  const pendingCropFilesRef = useRef<File[]>([]);
+  const croppedBatchFilesRef = useRef<File[]>([]);
+
+  const closeCropModal = () => {
+    setShowCropModal(false);
+    setImageToCrop("");
+    setCurrentEditKey("");
+    setEditingIndex(null);
+    setEditingIsExisting(false);
+  };
+
+  const openCropModalForFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const originalData = e.target?.result as string;
+      const uniqueKey = `${Date.now()}_${file.lastModified}_${file.name}`;
+      setOriginalImagesMap((prev) =>
+        new Map(prev).set(uniqueKey, originalData)
+      );
+      setImageToCrop(originalData);
+      setCurrentEditKey(uniqueKey);
+      setShowCropModal(true);
+      setEditingIndex(null);
+      setEditingIsExisting(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     event.preventDefault();
@@ -412,21 +439,17 @@ const UploadDocument: React.FC<UploadInputProps> = ({
 
     if (fileInputRef.current && event.target.files) {
       const newFiles = Array.from(event.target.files);
-      const firstFile = newFiles[0];
+      const selectedFiles =
+        multiple && !singleFileArray ? newFiles : newFiles.slice(0, 1);
 
-      if (enableCropping && firstFile && firstFile.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const originalData = e.target?.result as string;
-          const uniqueKey = `${Date.now()}_${firstFile.name}`;
-          setOriginalImagesMap(prev => new Map(prev).set(uniqueKey, originalData));
-          setImageToCrop(originalData);
-          setCurrentEditKey(uniqueKey);
-          setShowCropModal(true);
-          setEditingIndex(null);
-          setEditingIsExisting(false);
-        };
-        reader.readAsDataURL(firstFile);
+      if (
+        enableCropping &&
+        selectedFiles.length > 0 &&
+        selectedFiles.every((file) => file.type.startsWith("image/"))
+      ) {
+        croppedBatchFilesRef.current = [];
+        pendingCropFilesRef.current = selectedFiles.slice(1);
+        openCropModalForFile(selectedFiles[0]);
       } else {
         if (setFieldValue) {
           if (singleFileArray) setFieldValue(name, newFiles.slice(0, 1));
@@ -444,52 +467,66 @@ const UploadDocument: React.FC<UploadInputProps> = ({
   };
 
   const handleCropComplete = (croppedImage: File) => {
-    if (setFieldValue) {
-      (croppedImage as any).__originalKey = currentEditKey;
+    (croppedImage as any).__originalKey = currentEditKey;
 
-      if (editingIndex !== null) {
-        if (editingIsExisting) {
-          if (onRemove) onRemove(editingIndex, true);
-          if (multiple || singleFileArray) {
-            const current = Array.isArray(field.value) ? field.value : [];
-            setFieldValue(name, [...current, croppedImage]);
-          } else {
-            setFieldValue(name, croppedImage);
-          }
+    if (editingIndex === null) {
+      const croppedFiles = [...croppedBatchFilesRef.current, croppedImage];
+      const [nextFile, ...remainingFiles] = pendingCropFilesRef.current;
+
+      if (nextFile) {
+        croppedBatchFilesRef.current = croppedFiles;
+        pendingCropFilesRef.current = remainingFiles;
+        closeCropModal();
+        openCropModalForFile(nextFile);
+        return;
+      }
+
+      if (setFieldValue) {
+        if (singleFileArray) {
+          setFieldValue(name, croppedFiles.slice(0, 1));
+        } else if (multiple) {
+          const current = Array.isArray(field.value) ? field.value : [];
+          setFieldValue(name, [...current, ...croppedFiles]);
         } else {
-          if (multiple || singleFileArray) {
-            const current = Array.isArray(field.value) ? field.value : [];
-            const updated = current.map((f: any, i: number) => i === editingIndex ? croppedImage : f);
-            setFieldValue(name, updated);
-          } else {
-            setFieldValue(name, croppedImage);
-          }
+          setFieldValue(name, croppedFiles[0] || null);
         }
-      } else {
-        if (singleFileArray) setFieldValue(name, [croppedImage]);
-        else if (multiple) {
+      }
+
+      croppedBatchFilesRef.current = [];
+      pendingCropFilesRef.current = [];
+      closeCropModal();
+      return;
+    }
+
+    if (setFieldValue) {
+      if (editingIsExisting) {
+        if (onRemove) onRemove(editingIndex, true);
+        if (multiple || singleFileArray) {
           const current = Array.isArray(field.value) ? field.value : [];
           setFieldValue(name, [...current, croppedImage]);
         } else {
           setFieldValue(name, croppedImage);
         }
+      } else {
+        if (multiple || singleFileArray) {
+          const current = Array.isArray(field.value) ? field.value : [];
+          const updated = current.map((f: any, i: number) =>
+            i === editingIndex ? croppedImage : f
+          );
+          setFieldValue(name, updated);
+        } else {
+          setFieldValue(name, croppedImage);
+        }
       }
     }
-    setShowCropModal(false);
-    setImageToCrop("");
-    setCurrentEditKey("");
-    setEditingIndex(null);
-    setEditingIsExisting(false);
+    closeCropModal();
   };
 
   const handleCropCancel = () => {
-    setShowCropModal(false);
-    setImageToCrop("");
+    pendingCropFilesRef.current = [];
+    croppedBatchFilesRef.current = [];
+    closeCropModal();
     if (fileInputRef.current) fileInputRef.current.value = "";
-    if (setFieldValue) {
-      if (!multiple) setFieldValue(name, null);
-      else if (singleFileArray) setFieldValue(name, []);
-    }
   };
 
   const removeFile = (indexToRemove?: number, isExistingFile?: boolean) => {
@@ -642,6 +679,7 @@ const UploadDocument: React.FC<UploadInputProps> = ({
 
       {showCropModal && (
         <CropModal
+          key={currentEditKey}
           imageSrc={imageToCrop}
           onCropComplete={handleCropComplete}
           onCancel={handleCropCancel}
