@@ -48,6 +48,7 @@ export default function OpportunitiesList() {
     isOnline: false,
     matchMyInterest: false,
     status: "",
+    sortBy: "",
   });
 
   useEffect(() => {
@@ -120,6 +121,7 @@ export default function OpportunitiesList() {
                   isOnline: false,
                   matchMyInterest: false,
                   status: "",
+                  sortBy: "",
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}

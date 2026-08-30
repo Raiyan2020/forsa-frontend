@@ -333,6 +333,7 @@ export default function OpportunitiesListCard({
               online: filters?.isOnline || undefined,
               match_my_interest: filters?.matchMyInterest || undefined,
               status: filters?.status,
+              sort_by: filters?.sortBy || undefined,
             }
           : {
               page,
@@ -356,6 +357,7 @@ export default function OpportunitiesListCard({
               is_supports_disabled: filters?.isSpecialNeed || undefined,
               match_my_interest: filters?.matchMyInterest || undefined,
               status: filters?.status,
+              sort_by: filters?.sortBy || undefined,
             };
 
         const response = await apiClient.get(endpoint, { params });

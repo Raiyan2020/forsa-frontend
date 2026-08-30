@@ -111,6 +111,7 @@ interface AllOpportunitiesFiltersData {
   isOnline: boolean;
   matchMyInterest: boolean;
   status: string;
+  sortBy: string;
 }
 
 interface VolunteerCardProps {
@@ -218,6 +219,7 @@ export default function VolunteerCard({
     is_supports_disabled: filters?.isSpecialNeed || undefined,
     match_my_interest: filters?.matchMyInterest || undefined,
     status: filters?.status,
+    sort_by: filters?.sortBy || undefined,
   };
 
   const queryParamsForLearnServe = {
@@ -237,6 +239,7 @@ export default function VolunteerCard({
     online: filters?.isOnline || undefined,
     match_my_interest: filters?.matchMyInterest || undefined,
     status: filters?.status,
+    sort_by: filters?.sortBy || undefined,
   };
 
   const { data: volunteerResponse, isLoading: volunteerLoading } = useQuery({

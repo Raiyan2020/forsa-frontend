@@ -52,6 +52,7 @@ export default function Opportunities() {
     isOnline: false,
     matchMyInterest: false,
     status: "",
+    sortBy: "",
   });
 
   const queryParamsForOpportunity = {
@@ -72,6 +73,7 @@ export default function Opportunities() {
     is_supports_disabled: filters?.isSpecialNeed || undefined,
     match_my_interest: filters?.matchMyInterest || undefined,
     status: filters?.status,
+    sort_by: filters?.sortBy || undefined,
   };
 
   const queryParamsForLearnServe = {
@@ -91,6 +93,7 @@ export default function Opportunities() {
     online: filters?.isOnline || undefined,
     match_my_interest: filters?.matchMyInterest || undefined,
     status: filters?.status,
+    sort_by: filters?.sortBy || undefined,
   };
 
   const { data: opportunityData, refetch: opportinityRefetch } = useQuery({
@@ -190,6 +193,7 @@ export default function Opportunities() {
                   isOnline: false,
                   matchMyInterest: false,
                   status: "",
+                  sortBy: "",
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}

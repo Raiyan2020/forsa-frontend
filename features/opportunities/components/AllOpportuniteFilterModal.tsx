@@ -43,6 +43,7 @@ export interface AllOpportunitiesFiltersData {
   isOnline: boolean;
   matchMyInterest: boolean;
   status: string;
+  sortBy: string;
 }
 
 interface ChoiceItem {
@@ -74,6 +75,7 @@ const OpportuniteFilterModal = ({
     isOnline: false,
     matchMyInterest: false,
     status: "",
+    sortBy: "",
   };
 
   const { t } = useTranslation();
@@ -292,6 +294,19 @@ const OpportuniteFilterModal = ({
                         label: selectedLanguage === "ar" ? g.name_ar : g.name_en,
                         value: g.value,
                       }))}
+                      disabled={false}
+                      isModal={true}
+                    />
+                  </div>
+
+                  <div>
+                    <SelectInput
+                      name="sortBy"
+                      label={t("COMMON.SORT_BY")}
+                      options={[
+                        { label: t("COMMON.SORT_NEWEST_FIRST"), value: "newest" },
+                        { label: t("COMMON.SORT_OLDEST_FIRST"), value: "oldest" },
+                      ]}
                       disabled={false}
                       isModal={true}
                     />

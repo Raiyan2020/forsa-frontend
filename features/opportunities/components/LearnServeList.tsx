@@ -48,6 +48,7 @@ export default function LearnServeList() {
     isOnline: false,
     matchMyInterest: false,
     status: "",
+    sortBy: "",
   });
 
   const scrollToTopId = "learn-serve-list-top";
@@ -136,6 +137,7 @@ export default function LearnServeList() {
                   isOnline: false,
                   matchMyInterest: false,
                   status: "",
+                  sortBy: "",
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}
