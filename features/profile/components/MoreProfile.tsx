@@ -67,7 +67,10 @@ export default function MoreProfile() {
 
   const queryParams = {
     page: 1,
-    limit: 15,
+    // Capped to exactly one carousel row — this endpoint is a preview, not a
+    // full list (see the dedicated `/profiles/*` endpoints ProfilesList uses
+    // for "عرض الكل").
+    limit: 6,
     search: debouncedSearch,
     name: filters.name,
     nickname: filters.nickname,
@@ -242,14 +245,14 @@ export default function MoreProfile() {
           <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
             {t("COMMON.VOLUNTEER--")}
           </h2>
-          {/* {navigationVisibility.volunteer && ( */}
+          {navigationVisibility.volunteer && (
             <Link
               href={`/volunteer-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
               className="text-primary-5 font-bold text-base"
             >
               {t("COMMON.SHOW.ALL")}
             </Link>
-          {/* )} */}
+          )}
         </div>
 
         {volunteers.length === 0 ? (
@@ -263,8 +266,9 @@ export default function MoreProfile() {
             showDots={volunteers.length > maxVisibleItems}
             autoPlay={false}
             autoPlaySpeed={3000}
-            arrows={false}
-            draggable={false}
+            arrows={volunteers.length > maxVisibleItems}
+            draggable
+            swipeable
             containerClass="overflow-hidden"
             dotListClass="custom-dot-list-style"
           >
@@ -275,61 +279,21 @@ export default function MoreProfile() {
         )}
       </section>
 
-      {/* Volunteer Team Section */}
-      <section className="bg-[#F0F0F0]">
-        <div className="2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] pt-[40px] mx-auto relative">
-          <div className="2xl:px-5 px-3 mobilescreen:px-[13px] flex justify-between items-center 2xl:mb-[50px] lg:mb-[30px] md:mb-[30px] mb-[30px]">
-            <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
-              {t("COMMON.VOLUNTEER.TEAM")}
-            </h2>
-            {/* {navigationVisibility.volunteer_team && ( */}
-              <Link
-                href={`/volunteer-team-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
-                className="text-primary-5 font-bold text-base"
-              >
-                {t("COMMON.SHOW.ALL")}
-              </Link>
-            {/* )} */}
-          </div>
-          {volunteerTeams.length === 0 ? (
-            <div className="text-center py-8 text-secondary-102 text-lg font-medium">
-              {t("COMMON.NO_PROFILES_AVAILABLE")}
-            </div>
-          ) : (
-            <Carousel
-              rtl={selectedLanguage === "ar"}
-              responsive={responsive}
-              showDots={volunteerTeams.length > maxVisibleItems}
-              autoPlay={false}
-              autoPlaySpeed={3000}
-              arrows={false}
-              draggable={false}
-              containerClass="overflow-hidden"
-              dotListClass="custom-dot-list-style"
-            >
-              {volunteerTeams.map((volunteer: UserProfile) => (
-                <ProfileCard key={volunteer?.id} profile={volunteer} />
-              ))}
-            </Carousel>
-          )}
-        </div>
-      </section>
-
       {/* Organization Section */}
-      <section>
+      <section className="bg-[#F0F0F0]">
         <div className="2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] pt-[40px] mx-auto relative">
           <div className="2xl:px-5 px-3 mobilescreen:px-[13px] flex justify-between items-center 2xl:mb-[50px] lg:mb-[30px] md:mb-[30px] mb-[30px]">
             <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
               {t("COMMON.ORGANIZATION")}
             </h2>
-            {/* {navigationVisibility.organization && ( */}
+            {navigationVisibility.organization && (
               <Link
                 href={`/entities-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
                 className="text-primary-5 font-bold text-base"
               >
                 {t("COMMON.SHOW.ALL")}
               </Link>
-            {/* )} */}
+            )}
           </div>
 
           {organizations.length === 0 ? (
@@ -343,12 +307,54 @@ export default function MoreProfile() {
               showDots={organizations.length > maxVisibleItems}
               autoPlay={false}
               autoPlaySpeed={3000}
-              arrows={false}
-              draggable={false}
+              arrows={organizations.length > maxVisibleItems}
+              draggable
+              swipeable
               containerClass="overflow-hidden"
               dotListClass="custom-dot-list-style"
             >
               {organizations.map((volunteer: UserProfile) => (
+                <ProfileCard key={volunteer?.id} profile={volunteer} />
+              ))}
+            </Carousel>
+          )}
+        </div>
+      </section>
+
+      {/* Volunteer Team Section */}
+      <section>
+        <div className="2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] pt-[40px] mx-auto relative">
+          <div className="2xl:px-5 px-3 mobilescreen:px-[13px] flex justify-between items-center 2xl:mb-[50px] lg:mb-[30px] md:mb-[30px] mb-[30px]">
+            <h2 className="2xl:text-[40px] laptop:text-[33px] laptopmain:text-[36px] lg:text-[32px] md:text-[30px] text-[24px] text-primary-5 font-bold leading-none">
+              {t("COMMON.VOLUNTEER.TEAM")}
+            </h2>
+            {navigationVisibility.volunteer_team && (
+              <Link
+                href={`/volunteer-team-profiles-list?search=${encodeURIComponent(debouncedSearch)}&name=${encodeURIComponent(filters.name)}&nickname=${encodeURIComponent(filters.nickname)}`}
+                className="text-primary-5 font-bold text-base"
+              >
+                {t("COMMON.SHOW.ALL")}
+              </Link>
+            )}
+          </div>
+          {volunteerTeams.length === 0 ? (
+            <div className="text-center py-8 text-secondary-102 text-lg font-medium">
+              {t("COMMON.NO_PROFILES_AVAILABLE")}
+            </div>
+          ) : (
+            <Carousel
+              rtl={selectedLanguage === "ar"}
+              responsive={responsive}
+              showDots={volunteerTeams.length > maxVisibleItems}
+              autoPlay={false}
+              autoPlaySpeed={3000}
+              arrows={volunteerTeams.length > maxVisibleItems}
+              draggable
+              swipeable
+              containerClass="overflow-hidden"
+              dotListClass="custom-dot-list-style"
+            >
+              {volunteerTeams.map((volunteer: UserProfile) => (
                 <ProfileCard key={volunteer?.id} profile={volunteer} />
               ))}
             </Carousel>

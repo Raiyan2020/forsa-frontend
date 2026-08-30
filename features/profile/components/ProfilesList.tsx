@@ -11,7 +11,11 @@ import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import { getAllProfiles } from "@/features/services/api";
+import {
+  getOrganizationProfilesList,
+  getVolunteerProfilesList,
+  getVolunteerTeamProfilesList,
+} from "@/features/services/api";
 import { ProfileCard, type UserProfile } from "./MoreProfile";
 import MoreProfileFilterForm from "./MoreProfileFilterForm";
 
@@ -20,29 +24,29 @@ const LIMIT = 15;
 
 type Bucket = "volunteer" | "organization" | "volunteer_team";
 
-/** Per-bucket pagination block returned in `data.meta.pagination`. */
-interface BucketPagination {
-  page: number;
-  limit: number;
-  total: number;
-  total_pages: number;
-}
+/** Each bucket's own dedicated, independently-paginated endpoint. */
+const BUCKET_FETCHERS: Record<Bucket, (params?: any) => Promise<ProfilesListResponse>> = {
+  volunteer: getVolunteerProfilesList,
+  organization: getOrganizationProfilesList,
+  volunteer_team: getVolunteerTeamProfilesList,
+};
 
-/**
- * Shape of the `/all-profiles/` response. Note that — unlike most endpoints —
- * `meta` is nested INSIDE `data`, not beside it.
- */
-interface AllProfilesResponse {
-  data?: Partial<Record<Bucket, UserProfile[]>> & {
-    meta?: {
-      pagination?: Partial<Record<Bucket, BucketPagination>>;
-      timestamp?: string;
+/** Shape shared by `/profiles/volunteers|organizations|volunteer-teams/` — a flat array with a top-level `meta.pagination`, like the rest of the app's list endpoints. */
+interface ProfilesListResponse {
+  data?: UserProfile[];
+  meta?: {
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      total_pages: number;
     };
+    timestamp?: string;
   };
 }
 
 interface ProfilesListProps {
-  /** Key under `data` (and `data.meta.pagination`) holding this list's profiles. */
+  /** Which dedicated per-type endpoint (and pagination bucket) this list reads. */
   bucket: Bucket;
   /** Translation key for the section heading. */
   titleKey: string;
@@ -50,12 +54,12 @@ interface ProfilesListProps {
 
 /**
  * Shared body for the three "more profiles" pages. In the React app each page
- * was a verbatim copy that differed only in which response bucket it read and
- * in its heading.
+ * was a verbatim copy that differed only in which endpoint it called and in
+ * its heading.
  *
  * Infinite scroll is driven by the API's own pagination metadata
- * (`data.meta.pagination[bucket].total_pages`) via `useInfiniteQuery`: the
- * next page is fetched only while the returned metadata says one exists.
+ * (`meta.pagination.total_pages`) via `useInfiniteQuery`: the next page is
+ * fetched only while the returned metadata says one exists.
  */
 export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
   const { t } = useTranslation();
@@ -103,16 +107,16 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery<AllProfilesResponse>({
+  } = useInfiniteQuery<ProfilesListResponse>({
     queryKey: [
-      "all-profiles",
+      "profiles-list",
       bucket,
       debouncedSearch,
       filters.name,
       filters.nickname,
     ],
     queryFn: ({ pageParam }) =>
-      getAllProfiles({
+      BUCKET_FETCHERS[bucket]({
         page: pageParam,
         limit: LIMIT,
         search: debouncedSearch,
@@ -121,10 +125,10 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
       }),
     initialPageParam: 1,
     // Trust the server's pagination metadata: keep going while the fetched
-    // page reports another one available for this bucket.
+    // page reports another one available.
     getNextPageParam: (lastPage): number | undefined => {
-      const items = lastPage?.data?.[bucket] ?? [];
-      const pagination = lastPage?.data?.meta?.pagination?.[bucket];
+      const items = lastPage?.data ?? [];
+      const pagination = lastPage?.meta?.pagination;
       if (!pagination || items.length === 0) return undefined;
       const nextPage = (pagination.page ?? 1) + 1;
       return nextPage <= (pagination.total_pages ?? 1) ? nextPage : undefined;
@@ -138,7 +142,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
     const seen = new Set<number>();
     const result: UserProfile[] = [];
     for (const page of pages) {
-      for (const profile of page?.data?.[bucket] ?? []) {
+      for (const profile of page?.data ?? []) {
         if (profile && !seen.has(profile.id)) {
           seen.add(profile.id);
           result.push(profile);
@@ -146,7 +150,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
       }
     }
     return result;
-  }, [profileData, bucket]);
+  }, [profileData]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
 

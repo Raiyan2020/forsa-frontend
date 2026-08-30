@@ -49,6 +49,7 @@ interface VolunteerOpportunityData {
   created_by?: { id: number };
   opportunity_status?: string;
   action_state?: string;
+  approval_status?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -81,6 +82,7 @@ interface LearnServeOpportunityData {
   created_by?: { id: number };
   opportunity_status?: string;
   action_state?: string;
+  approval_status?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -342,6 +344,10 @@ export default function VolunteerCard({
     // The creator manages rather than joins: edit while it is still upcoming,
     // repost once it has started or finished.
     if (currentUser && item.created_by?.id === currentUser.id) {
+      // Resubmission is only wired up for volunteer opportunities so far.
+      if (!isLearnServe && item.approval_status === "rejected") {
+        return t("COMMON.EDIT_AND_RESUBMIT");
+      }
       if (isCreatorRepostState(item)) {
         return t("COMMON.REPOST");
       }

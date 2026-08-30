@@ -56,6 +56,7 @@ interface BaseOpportunityData {
   created_by?: { id: number };
   opportunity_status?: string;
   action_state?: string;
+  approval_status?: string;
   due_date: string;
   all_registered_user?: Array<{ id: number }>;
   is_supports_disabled?: boolean;
@@ -314,6 +315,13 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
 
     // 3. If the current user is the creator:
     if (currentUser && item.created_by?.id === currentUser.id) {
+      // Resubmission is only wired up for volunteer opportunities so far.
+      if (
+        isVolunteerOpportunity(item.opportunity_type) &&
+        item.approval_status === "rejected"
+      ) {
+        return t("COMMON.EDIT_AND_RESUBMIT");
+      }
       // If opportunity is under way or finished, show "Repost"
       if (isCreatorRepostState(item)) {
         return t("COMMON.REPOST");

@@ -37,6 +37,7 @@ import {
   createVolunteerOpportunity,
   getAllOrganizations,
   getOpportunityById,
+  resubmitVolunteerOpportunity,
   updateVolunteerOpportunity,
 } from "@/features/services/api";
 import {
@@ -873,7 +874,20 @@ export default function VolunteerForm({
         id,
         data: pendingFormData,
       });
-      toast.success(t("COMMON.TOAST.UPDATE_OPPORTUNITY_SUCCESS"));
+
+      // A rejected opportunity stays rejected until explicitly resubmitted —
+      // editing it alone doesn't move it back into the review queue.
+      if (opportunityData?.approval_status === "rejected") {
+        try {
+          await resubmitVolunteerOpportunity(id);
+          toast.success(t("COMMON.TOAST.RESUBMIT_SUCCESS"));
+        } catch {
+          toast.error(t("COMMON.TOAST.RESUBMIT_FAILED"));
+        }
+      } else {
+        toast.success(t("COMMON.TOAST.UPDATE_OPPORTUNITY_SUCCESS"));
+      }
+
       router.push(`/volunteer-event-detail/${id}`);
       setPendingFormData(null);
     } catch (err) {
@@ -1452,7 +1466,9 @@ export default function VolunteerForm({
                       onClick={handleFormSubmit}
                     >
                       {id && !isRepublish
-                        ? t("COMMON.SAVE")
+                        ? opportunityData?.approval_status === "rejected"
+                          ? t("COMMON.EDIT_AND_RESUBMIT")
+                          : t("COMMON.SAVE")
                         : isRepublish
                           ? t("COMMON.REPOST")
                           : t("COMMON.PUBLISH")}

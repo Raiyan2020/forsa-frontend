@@ -102,8 +102,25 @@ export const downloadUserCertificate = ({
       };
     });
 
+// Combined 3-bucket preview (`data.volunteer` / `data.organization` /
+// `data.volunteer_team`, each capped at `limit`) — for the profiles
+// directory overview only. For a single bucket's full paginated list use
+// the dedicated `getVolunteerProfilesList` / `getOrganizationProfilesList` /
+// `getVolunteerTeamProfilesList` below instead.
 export const getAllProfiles = (params?: any) =>
   apiClient.get("/all-profiles/", { params }).then((r) => r.data);
+
+/** Full paginated volunteer list — flat `data` array + top-level `meta.pagination`. */
+export const getVolunteerProfilesList = (params?: any) =>
+  apiClient.get("/profiles/volunteers/", { params }).then((r) => r.data);
+
+/** Full paginated organization list — excludes volunteer-team-type organizers. */
+export const getOrganizationProfilesList = (params?: any) =>
+  apiClient.get("/profiles/organizations/", { params }).then((r) => r.data);
+
+/** Full paginated volunteer-team list. */
+export const getVolunteerTeamProfilesList = (params?: any) =>
+  apiClient.get("/profiles/volunteer-teams/", { params }).then((r) => r.data);
 
 export const getAllOrganizations = (params?: any) =>
   apiClient.get("/list-organizations/", { params }).then((r) => r.data);
@@ -157,18 +174,16 @@ export const getOpportunityById = (id: string, passToken?: boolean) =>
 export const createVolunteerOpportunity = (data: any) =>
   apiClient.post("/volunteer-opportunities/", data).then((r) => r.data);
 
-// POST with a Laravel `_method` override, not a literal PATCH — PHP only
-// populates $_FILES for POST bodies, so a real PATCH carrying a multipart
-// image update silently drops the file server-side (same issue as
-// `updateAccountInfo`). Laravel's method-override middleware still routes
-// this to the PATCH handler.
-export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any }) => {
-  if (data instanceof FormData) data.append("_method", "PATCH");
-  return apiClient.post(`/volunteer-opportunities/${id}/`, data).then((r) => r.data);
-};
+// Plain POST — the backend removed the PATCH/PUT routes entirely for this
+// endpoint (PHP never populated $_FILES on a literal PATCH body, so a
+// multipart image update silently dropped the file server-side; same fix as
+// `updateAccountInfo`). A PATCH/PUT request here now gets a 405.
+export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any }) =>
+  apiClient.post(`/volunteer-opportunities/${id}/`, data).then((r) => r.data);
 
+// Same PATCH/PUT removal as `updateVolunteerOpportunity` above.
 export const updateVolunteerOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
-  apiClient.patch(`/volunteer-opportunities/${id}/update_images/`, formData).then((r) => r.data);
+  apiClient.post(`/volunteer-opportunities/${id}/update_images/`, formData).then((r) => r.data);
 
 export const registerForVolunteerOpportunity = (data: any) =>
   apiClient.post("/volunteer-opportunity-registrations/", data).then((r) => r.data);
@@ -179,6 +194,14 @@ export const unregisterFromVolunteerOpportunity = (id: string) =>
 /** Creator-only: stop accepting registrations before the due date is reached. */
 export const closeVolunteerOpportunityRegistration = (id: string) =>
   apiClient.post(`/volunteer-opportunities/${id}/close-registration/`).then((r) => r.data);
+
+/** Creator-only: reopen registration after closing it early. */
+export const reopenVolunteerOpportunityRegistration = (id: string) =>
+  apiClient.post(`/volunteer-opportunities/${id}/reopen-registration/`).then((r) => r.data);
+
+/** Creator-only: send a rejected opportunity back into the admin review queue. */
+export const resubmitVolunteerOpportunity = (id: string) =>
+  apiClient.post(`/volunteer-opportunities/${id}/resubmit/`).then((r) => r.data);
 
 export const deleteOpportunityImage = (data: any) =>
   apiClient.delete("/delete-opportunity-image/", { data }).then((r) => r.data);

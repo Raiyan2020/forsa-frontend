@@ -25,7 +25,7 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import { closeVolunteerOpportunityRegistration, deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages, } from "@/features/services/api";
+import { closeVolunteerOpportunityRegistration, deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, reopenVolunteerOpportunityRegistration, resubmitVolunteerOpportunity, updateVolunteerOpportunityImages, } from "@/features/services/api";
 import {
   formatSingleDate,
   getDefaultProfileImage,
@@ -105,6 +105,8 @@ export interface VolunteerOpportunityData {
   is_registered?: boolean;
   is_registration_closed?: boolean;
   is_registration_open?: boolean;
+  approval_status?: string;
+  rejected_reason?: string | null;
   is_public?: boolean;
   is_kuwaitis?: boolean;
   is_supports_disabled?: boolean;
@@ -218,6 +220,8 @@ export default function VolunteerEvent({
   } | null>(null);
 
   const [showCloseRegistration, setShowCloseRegistration] = useState(false);
+  const [showReopenRegistration, setShowReopenRegistration] = useState(false);
+  const [showResubmit, setShowResubmit] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -240,6 +244,12 @@ export default function VolunteerEvent({
   const deleteImageMutation = useMutation({ mutationFn: deleteOpportunityImage });
   const closeRegistrationMutation = useMutation({
     mutationFn: () => closeVolunteerOpportunityRegistration(id),
+  });
+  const reopenRegistrationMutation = useMutation({
+    mutationFn: () => reopenVolunteerOpportunityRegistration(id),
+  });
+  const resubmitMutation = useMutation({
+    mutationFn: () => resubmitVolunteerOpportunity(id),
   });
   const downloadImageMutation = useMutation({
     mutationFn: downloadOpportunityImage,
@@ -335,6 +345,32 @@ export default function VolunteerEvent({
     } catch (error) {
       console.error("Close registration failed:", error);
       toast.error(t("COMMON.TOAST.CLOSE_REGISTRATION_FAILED"));
+    }
+  };
+
+  /** Creator-only: undo an earlier close-registration. */
+  const handleReopenRegistration = async () => {
+    try {
+      await reopenRegistrationMutation.mutateAsync();
+      toast.success(t("COMMON.TOAST.REOPEN_REGISTRATION_SUCCESS"));
+      setShowReopenRegistration(false);
+      refetch();
+    } catch (error) {
+      console.error("Reopen registration failed:", error);
+      toast.error(t("COMMON.TOAST.REOPEN_REGISTRATION_FAILED"));
+    }
+  };
+
+  /** Creator-only: send a rejected opportunity back into the admin review queue as-is. */
+  const handleResubmit = async () => {
+    try {
+      await resubmitMutation.mutateAsync();
+      toast.success(t("COMMON.TOAST.RESUBMIT_SUCCESS"));
+      setShowResubmit(false);
+      refetch();
+    } catch (error) {
+      console.error("Resubmit failed:", error);
+      toast.error(t("COMMON.TOAST.RESUBMIT_FAILED"));
     }
   };
 
@@ -595,6 +631,11 @@ export default function VolunteerEvent({
   // Only worth offering while the opportunity is still taking registrations.
   const canCloseRegistration =
     isCreator && !isCompleted && !isRegistrationClosed && !isRepostState;
+  // Reopening only makes sense after the creator explicitly closed it early —
+  // a window closed by its due date passing reopens on its own schedule.
+  const canReopenRegistration =
+    isCreator && opportunityData?.is_registration_closed === true;
+  const isRejected = opportunityData?.approval_status === "rejected";
 
   /**
    * Six states off the API's own flags — Ended / Started / Full / Closed /
@@ -602,13 +643,15 @@ export default function VolunteerEvent({
    * precedence, and the unauthenticated "Register now" wording preserved.
    */
   const viewerButtonState = getOpportunityButtonState(opportunityData);
-  const actionButtonLabel = isRepostState
-    ? t("COMMON.REPOST")
-    : isCreator
-      ? t("COMMON.EDIT_TEXT")
-      : viewerButtonState === "register" && !authToken
-        ? t("COMMON.REGISTER_NOW")
-        : t(getOpportunityButtonLabelKey(viewerButtonState));
+  const actionButtonLabel = isRejected
+    ? t("COMMON.EDIT_AND_RESUBMIT")
+    : isRepostState
+      ? t("COMMON.REPOST")
+      : isCreator
+        ? t("COMMON.EDIT_TEXT")
+        : viewerButtonState === "register" && !authToken
+          ? t("COMMON.REGISTER_NOW")
+          : t(getOpportunityButtonLabelKey(viewerButtonState));
 
   const organizerPath = !opportunityData?.created_by?.is_public
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
@@ -1054,8 +1097,41 @@ export default function VolunteerEvent({
                       {t("COMMON.REGISTRATION_CLOSED")}
                     </span>
                   )}
+
+                  {canReopenRegistration && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="whitespace-nowrap block xss:hidden"
+                      onClick={() => setShowReopenRegistration(true)}
+                    >
+                      {t("COMMON.REOPEN_REGISTRATION")}
+                    </Button>
+                  )}
+
+                  {isRejected && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="whitespace-nowrap block xss:hidden"
+                      onClick={() => setShowResubmit(true)}
+                    >
+                      {t("COMMON.RESUBMIT_WITHOUT_EDIT")}
+                    </Button>
+                  )}
                 </div>
               </div>
+
+              {isRejected && (
+                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <p className="font-bold">{t("COMMON.OPPORTUNITY_REJECTED")}</p>
+                  {opportunityData?.rejected_reason && (
+                    <p className="mt-1">
+                      {t("COMMON.REJECTION_REASON")}: {opportunityData.rejected_reason}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
                 <img
@@ -1664,6 +1740,72 @@ export default function VolunteerEvent({
             type="button"
             onClick={() => setShowCloseRegistration(false)}
             disabled={closeRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showReopenRegistration}
+        onClose={() => setShowReopenRegistration(false)}
+        title={t("COMMON.REOPEN_REGISTRATION")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_REOPEN_REGISTRATION")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleReopenRegistration}
+            disabled={reopenRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowReopenRegistration(false)}
+            disabled={reopenRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showResubmit}
+        onClose={() => setShowResubmit(false)}
+        title={t("COMMON.RESUBMIT_WITHOUT_EDIT")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_RESUBMIT")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleResubmit}
+            disabled={resubmitMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowResubmit(false)}
+            disabled={resubmitMutation.isPending}
             className="xss:!w-full"
           >
             {t("COMMON.CANCEL")}
