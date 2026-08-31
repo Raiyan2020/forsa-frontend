@@ -927,7 +927,18 @@ function PublicProfileListings({
         ) : items.length ? (
           <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (
-              <ListingCard key={item.id} item={item} isEvent={section === "events"} />
+              // Volunteer and learn-serve opportunities are separate backend
+              // models with their own id sequences, so a plain `item.id` can
+              // collide between the two (e.g. a volunteer_opportunity #18 and
+              // a learn_serve_opportunity #18) once the "All" tab combines
+              // them — React then reuses that DOM node across tab switches
+              // instead of rendering the new item, which looked like the
+              // first card getting "stuck" duplicated across tabs.
+              <ListingCard
+                key={`${item.opportunity_type ?? "item"}-${item.id}`}
+                item={item}
+                isEvent={section === "events"}
+              />
             ))}
           </div>
         ) : (

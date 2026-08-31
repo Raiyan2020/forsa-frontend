@@ -431,7 +431,14 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
               const online = isOnlineFormat(item);
 
               return (
-                <div key={item.id} className="mobilescreen:pb-6">
+                // Volunteer and learn-serve opportunities are separate
+                // backend models with their own id sequences, so a plain
+                // `item.id` can collide between the two once both types are
+                // combined in one list (no type filter applied).
+                <div
+                  key={`${item.opportunity_type}-${item.id}`}
+                  className="mobilescreen:pb-6"
+                >
                   <div className="relative">
                     <Link href={detailHref(item)}>
                       {currentUser &&
