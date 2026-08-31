@@ -576,7 +576,14 @@ export default function VolunteerEvent({
     return <Loader />;
   }
 
-  const isCreator = Boolean(opportunityData?.is_creator);
+  // The cards list this same opportunity via a direct `created_by.id`
+  // comparison and never relied on the backend's `is_creator` flag alone —
+  // trusting only that flag here left the creator without an Edit button
+  // whenever it came back false/missing while the card still showed one.
+  const isCreator =
+    Boolean(opportunityData?.is_creator) ||
+    (Boolean(user?.id) &&
+      String(opportunityData?.created_by?.id) === String(user?.id));
   const nowUtc = moment.utc();
   const dueDate = parseIsoUtcDate(opportunityData?.due_date);
   const startDate = parseIsoUtcDate(opportunityData?.start_date);
@@ -620,13 +627,16 @@ export default function VolunteerEvent({
    * have no due date, so their scheduled start/end date provides a safe
    * fallback instead of suppressing the action entirely.
    */
+  // The creator's own manage action (Edit/Repost) isn't gated behind
+  // verification — the list cards never hid it for an unverified creator
+  // either, only the register/unregister action for other viewers does.
   const showActionButton =
-    (user ? user.is_verified === true : true) &&
-    (isCreator ||
-      (!isCompleted &&
-        !isRegistrationClosed &&
-        (opportunityData?.is_registered ||
-          (user?.user_type !== "organization" && !isFull))));
+    isCreator ||
+    ((user ? user.is_verified === true : true) &&
+      !isCompleted &&
+      !isRegistrationClosed &&
+      (opportunityData?.is_registered ||
+        (user?.user_type !== "organization" && !isFull)));
 
   // Only worth offering while the opportunity is still taking registrations.
   const canCloseRegistration =

@@ -508,7 +508,14 @@ export default function LearnServeDetails({
     return <Loader />;
   }
 
-  const isCreator = Boolean(opportunityData?.is_creator);
+  // The cards list this same opportunity via a direct `created_by.id`
+  // comparison and never relied on the backend's `is_creator` flag alone —
+  // trusting only that flag here left the creator without an Edit button
+  // whenever it came back false/missing while the card still showed one.
+  const isCreator =
+    Boolean(opportunityData?.is_creator) ||
+    (Boolean(user?.id) &&
+      String(opportunityData?.created_by?.id) === String(user?.id));
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );
@@ -538,23 +545,25 @@ export default function LearnServeDetails({
     (!registrationDeadline ||
       moment.utc().isSameOrBefore(moment.utc(registrationDeadline), "day"));
 
+  // The creator's own manage action (Edit/Repost) isn't gated behind
+  // verification — the list cards never hid it for an unverified creator
+  // either, only the register/unregister action for other viewers does.
   const showActionButton =
-    (user ? user.is_verified === true : true) &&
-    (isCreator ||
-      (withinRegistrationWindow &&
-        ((opportunityData?.is_registered &&
-          opportunityData?.opportunity_status !== "completed") ||
-          (user?.user_type !== "organization" &&
-            !(
-              !isCreator &&
-              (moment().isAfter(
-                moment(opportunityData?.start_date)
-                  .subtract(1, "days")
-                  .endOf("day")
-              ) ||
-                (opportunityData?.registered_volunteers_count ?? 0) >=
-                (opportunityData?.participants_needed ?? 0))
-            )))));
+    isCreator ||
+    ((user ? user.is_verified === true : true) &&
+      withinRegistrationWindow &&
+      ((opportunityData?.is_registered &&
+        opportunityData?.opportunity_status !== "completed") ||
+        (user?.user_type !== "organization" &&
+          !(
+            moment().isAfter(
+              moment(opportunityData?.start_date)
+                .subtract(1, "days")
+                .endOf("day")
+            ) ||
+              (opportunityData?.registered_volunteers_count ?? 0) >=
+              (opportunityData?.participants_needed ?? 0)
+          ))));
 
   // Only worth offering while the opportunity is still taking registrations.
   const canCloseRegistration =

@@ -398,7 +398,10 @@ export default function EventDetails({ eventId }: { eventId: string }) {
 
   const actionButton = (mobile = false) => {
     if (event.is_creator) {
-      if (!user?.is_verified || user.is_banned) return null;
+      // Unlike the register/unregister action below, managing your own event
+      // (Edit/Repost) isn't gated behind verification — the list cards never
+      // hid it for an unverified creator either. A banned user still can't.
+      if (user?.is_banned) return null;
       const republish = event.event_status === "completed" || event.event_status === "inprogress";
       return (
         <Button

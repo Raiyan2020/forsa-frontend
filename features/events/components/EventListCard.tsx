@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import "react-multi-carousel/lib/styles.css";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { useLanguageStore } from "@/store/languageStore";
@@ -19,6 +20,7 @@ import DeleteEventModal from "./DeleteEventModal";
 import { useAuthStore } from "@/store/authStore";
 import { AllEventsFiltersData } from "../components/AllEventFilterModal";
 import InfiniteScroll from "react-infinite-scroll-component";
+import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 
 interface EventCardProps {
   filters?: AllEventsFiltersData;
@@ -64,6 +66,7 @@ const EventListCard: React.FC<EventCardProps> = ({
 }) => {
   const selectedLanguage = useLanguageStore((s) => s.language);
   const { t } = useTranslation();
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const [allEvents, setAllEvents] = useState<EventData[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -235,6 +238,22 @@ const EventListCard: React.FC<EventCardProps> = ({
     }
 
     return t("COMMON.DETAILS");
+  };
+
+  // The creator's own button manages the event directly rather than opening
+  // the detail page first — everyone else keeps the card's default behaviour
+  // of linking through to /event-details/{id}.
+  const handleActionClick = (e: React.MouseEvent, item: EventData) => {
+    if (!user || item.created_by?.id !== user.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const isRepublish =
+      item.event_status === "completed" || item.event_status === "inprogress";
+    setNavState(NAV_STATE_KEYS.eventForm, {
+      id: String(item.id),
+      isRepublish,
+    });
+    router.push("/event-form");
   };
 
   if (eventLoading || (event_type && eventTypeLoading)) {
@@ -500,6 +519,7 @@ const EventListCard: React.FC<EventCardProps> = ({
                           type="button"
                           variant={is_homepage ? "orange" : "secondarys"}
                           size="xss"
+                          onClick={(e) => handleActionClick(e, item)}
                         >
                           <span className="leading-tight">{getButtonText(item)}</span>
                         </Button>
