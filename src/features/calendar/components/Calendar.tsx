@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 import { Modal } from "@/components/ui/Modal";
-import { getCalendar } from "@/features/services/api";
+import { getCalendar } from "@/features/calendar/services/calendarApi";
 import { useLanguageStore } from "@/store/languageStore";
 import CalendarStyles from "./CalendarStyles";
 

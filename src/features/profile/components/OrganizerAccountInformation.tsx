@@ -22,14 +22,8 @@ import Loader from "@/components/ui/Loader";
 import {
   checkUserRequest,
   getDropdownChoicesRequest,
-} from "@/features/auth/api/authApi";
-import {
-  getAccountInfo,
-  getOrganizerProfile,
-  updateAccountInfo,
-  updateOrganizerDocuments,
-  updateOrganizerProfile,
-} from "@/features/services/api";
+} from "@/features/auth/services/authApi";
+import { getAccountInfo, getOrganizerProfile, updateAccountInfo, updateOrganizerDocuments, updateOrganizerProfile } from "@/features/profile/services/profileApi";
 import { socialMediaOptions } from "@/data/Constants";
 import { isLicenseExemptOrgType } from "@/data/orgTypes";
 import { withCacheBust } from "@/lib/helpers";

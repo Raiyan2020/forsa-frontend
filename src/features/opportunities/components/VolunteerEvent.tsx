@@ -25,7 +25,8 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import { closeVolunteerOpportunityRegistration, deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, reopenVolunteerOpportunityRegistration, resubmitVolunteerOpportunity, updateVolunteerOpportunityImages, } from "@/features/services/api";
+import { closeVolunteerOpportunityRegistration, reopenVolunteerOpportunityRegistration, resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
+import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages } from "@/features/opportunities/services/opportunities";
 import {
   formatSingleDate,
   getDefaultProfileImage,

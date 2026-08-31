@@ -31,15 +31,10 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import { getDropdownChoicesRequest } from "@/features/auth/api/authApi";
-import {
-  checkLicenseRequirement,
-  createVolunteerOpportunity,
-  getAllOrganizations,
-  getOpportunityById,
-  resubmitVolunteerOpportunity,
-  updateVolunteerOpportunity,
-} from "@/features/services/api";
+import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
+import { checkLicenseRequirement, createVolunteerOpportunity, getOpportunityById, updateVolunteerOpportunity } from "@/features/opportunities/services/opportunities";
+import { getAllOrganizations } from "@/features/shared/services/directory";
+import { resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import {
   VOLUNTEER_CATEGORY_WITH_BENEFICIARIES,
   opportunityPrivacyOptions,

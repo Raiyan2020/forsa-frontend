@@ -12,7 +12,7 @@ import InfiniteScroll from "react-infinite-scroll-component";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
-import { getAllOpportunities } from "@/features/services/api";
+import { getAllOpportunities } from "@/features/opportunities/services/opportunities";
 import { formatDateRange, toNumber } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

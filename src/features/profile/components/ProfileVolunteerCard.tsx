@@ -21,10 +21,7 @@ import {
   getOpportunityButtonState,
   isCreatorRepostState,
 } from "@/lib/opportunityButtonState";
-import {
-  getAllOpportunities,
-  getUserOpportunities,
-} from "@/features/services/api";
+import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
 import { formatDateRange } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

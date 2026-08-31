@@ -11,11 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import {
-  getOrganizationProfilesList,
-  getVolunteerProfilesList,
-  getVolunteerTeamProfilesList,
-} from "@/features/services/api";
+import { getOrganizationProfilesList, getVolunteerProfilesList, getVolunteerTeamProfilesList } from "@/features/profile/services/profileApi";
 import { ProfileCard, type UserProfile } from "./MoreProfile";
 import MoreProfileFilterForm from "./MoreProfileFilterForm";
 

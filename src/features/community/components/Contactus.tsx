@@ -4,7 +4,7 @@ import { Formik, Form, FormikHelpers } from "formik";
 import ModalTextarea from "@/components/ui/ModalTextarea";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
-import { communityPostContactUs } from "@/features/services/api";
+import { communityPostContactUs } from "@/features/community/services/communityApi";
 import { useEffect } from "react";
 import * as Yup from "yup";
 import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";

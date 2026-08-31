@@ -14,7 +14,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
-import { loginRequest, checkUserRequest, passSocialInfoRequest } from "@/features/auth/api/authApi";
+import { loginRequest, checkUserRequest, passSocialInfoRequest } from "@/features/auth/services/authApi";
 import { getApiErrorMessages, getApiFieldErrors } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
 import { YupEmail, YupRequiredString } from "@/lib/schema";

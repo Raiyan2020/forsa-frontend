@@ -22,6 +22,16 @@ export interface ApiResponse<T> {
   };
 }
 
+/**
+ * The registration download endpoints (`volunteer-opportunity-registrations`,
+ * `learn-serve-opportunities/.../registrations`, `event-registrations`) answer
+ * `download=true` with JSON containing a pre-signed `downloadUrl` rather than
+ * the file itself.
+ */
+export interface RegistrationsDownload {
+  downloadUrl: string;
+}
+
 export interface FaqItem {
   id: number;
   question_en: string;

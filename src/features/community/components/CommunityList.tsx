@@ -8,10 +8,7 @@ import moment from "moment";
 import InfiniteScroll from "react-infinite-scroll-component";
 
 import Loader from "@/components/ui/Loader";
-import {
-  getCommunityPosts,
-  getCommunityPostsByTag,
-} from "@/features/services/api";
+import { getCommunityPosts, getCommunityPostsByTag } from "@/features/community/services/communityApi";
 import InnerPost, { PostData } from "./InnerPost";
 import Post from "./Post";
 import { CommunityFiltersData } from "./CommunityFilterModal";

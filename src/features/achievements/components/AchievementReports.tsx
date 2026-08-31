@@ -8,7 +8,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import { Button } from "@/components/ui/Button";
-import { getVolunteerDetail } from "@/features/services/api";
+import { getVolunteerDetail } from "@/features/achievements/services/achievementsApi";
 
 const fadeStyles = `
 .fade-table {

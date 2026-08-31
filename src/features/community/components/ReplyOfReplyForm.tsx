@@ -10,11 +10,7 @@ import * as Yup from "yup";
 import ModalTextarea from "@/components/ui/ModalTextarea";
 import UploadDocument from "@/components/ui/UploadDocument";
 import Loader from "@/components/ui/Loader";
-import {
-  createCommunityReply,
-  getReplyById,
-  updateReply,
-} from "@/features/services/api";
+import { createCommunityReply, getReplyById, updateReply } from "@/features/community/services/communityApi";
 import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
 import { useLanguageStore } from "@/store/languageStore";
 

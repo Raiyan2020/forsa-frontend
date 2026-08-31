@@ -13,10 +13,7 @@ import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import {
-  downloadLearnServeRegistrations,
-  getLearnServeRegistrations,
-} from "@/features/services/api";
+import { downloadLearnServeRegistrations, getLearnServeRegistrations } from "@/features/opportunities/services/learnServe";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

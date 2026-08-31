@@ -8,11 +8,7 @@ import Toggle from "@/components/ui/Toggle";
 import { YupRequiredString } from "@/lib/schema";
 import * as Yup from "yup";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import {
-  createCommunityPost,
-  getCommunityPostById,
-  updateCommunityPost,
-} from "@/features/services/api";
+import { createCommunityPost, getCommunityPostById, updateCommunityPost } from "@/features/community/services/communityApi";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { useLanguageStore } from "@/store/languageStore";

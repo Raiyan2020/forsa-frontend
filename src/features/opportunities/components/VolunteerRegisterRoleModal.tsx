@@ -10,10 +10,8 @@ import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
 import SelectInput from "@/components/ui/SelectInput";
-import {
-  getRolesOfOpportunity,
-  registerForVolunteerOpportunity,
-} from "@/features/services/api";
+import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
+import { registerForVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import { getApiErrorMessage, isApiSuccess } from "@/lib/api/errors";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

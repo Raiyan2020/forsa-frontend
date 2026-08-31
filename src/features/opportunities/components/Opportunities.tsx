@@ -16,10 +16,8 @@ import OpportuniteFilterModal, {
   AllOpportunitiesFiltersData,
 } from "./AllOpportuniteFilterModal";
 import { useIsFetching, useQuery } from "@tanstack/react-query";
-import {
-  getOpportunitiesList,
-  getLearnServeOpportunitiesList,
-} from "@/features/services/api";
+import { getOpportunitiesList } from "@/features/opportunities/services/opportunities";
+import { getLearnServeOpportunitiesList } from "@/features/opportunities/services/learnServe";
 import { useAuthStore } from "@/store/authStore";
 import PlacementBanner from "@/components/shared/PlacementBanner";
 import moment from "moment";

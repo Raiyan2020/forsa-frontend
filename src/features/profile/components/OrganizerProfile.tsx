@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import Loader from "@/components/ui/Loader";
-import { getAccountInfo, getOrganizerProfile } from "@/features/services/api";
+import { getAccountInfo, getOrganizerProfile } from "@/features/profile/services/profileApi";
 import { useAuthStore } from "@/store/authStore";
 import OrganizerBackgroundInformation from "./OrganizerBackgroundInformation";
 import OrganizerProfileInformation from "./OrganizerProfileInformation";

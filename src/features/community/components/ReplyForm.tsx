@@ -6,11 +6,7 @@ import ModalTextarea from "@/components/ui/ModalTextarea";
 import UploadDocument from "@/components/ui/UploadDocument";
 import { useLanguageStore } from "@/store/languageStore";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import {
-  createCommunityReply,
-  updateReply,
-  getReplyById,
-} from "@/features/services/api";
+import { createCommunityReply, updateReply, getReplyById } from "@/features/community/services/communityApi";
 import { useEffect, useState } from "react";
 import * as Yup from "yup";
 import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";

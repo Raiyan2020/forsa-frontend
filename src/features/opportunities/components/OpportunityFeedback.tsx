@@ -9,12 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
-import {
-  createOpportunityFeedback,
-  deleteOpportunityFeedback,
-  getOpportunityFeedbacks,
-  updateOpportunityFeedback,
-} from "@/features/services/api";
+import { createOpportunityFeedback, deleteOpportunityFeedback, getOpportunityFeedbacks, updateOpportunityFeedback } from "@/features/opportunities/services/feedbacks";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";

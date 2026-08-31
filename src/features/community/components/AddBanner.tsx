@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { getAchievementsTeamsData } from "@/features/services/api";
+import { getAchievementsTeamsData } from "@/features/achievements/services/achievementsApi";
 import { useTranslation } from "react-i18next";
 
 function AddBanner() {

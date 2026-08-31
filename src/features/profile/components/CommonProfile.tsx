@@ -17,12 +17,8 @@ import ProfileFilterForm, {
   EMPTY_PROFILE_FILTERS,
   FiltersData,
 } from "./ProfileFilterForm";
-import {
-  getAllOpportunities,
-  getPublicProfile,
-  getUserCertificates,
-  getUserOpportunities,
-} from "@/features/services/api";
+import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
+import { getPublicProfile, getUserCertificates } from "@/features/profile/services/profileApi";
 import { occupationOptions } from "@/data/Constants";
 import {
   formatDateRange,

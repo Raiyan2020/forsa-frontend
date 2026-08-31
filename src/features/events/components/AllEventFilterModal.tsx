@@ -9,7 +9,7 @@ import BirthDateField from "@/components/ui/BirthDateField";
 import { InterestTagsInput } from "@/components/ui/InterestTagsInput";
 import { useLanguageStore } from "@/store/languageStore";
 import { useQuery } from "@tanstack/react-query";
-import { getDropdownChoices } from "@/features/services/api";
+import { getDropdownChoices } from "@/features/shared/services/dropdowns";
 import { OpportunityStatus } from "@/data/Constants";
 import AutocompleteInput from "@/components/ui/AutocompleteInput";
 import AgeRange from "@/components/ui/AgeRange";

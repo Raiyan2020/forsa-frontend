@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
-import { deleteTeam } from "@/features/services/api";
+import { deleteTeam } from "@/features/opportunities/services/registrations";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface DeleteTeamModalProps {

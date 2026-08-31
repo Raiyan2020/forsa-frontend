@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
-import { registerForLearnServeOpportunity } from "@/features/services/api";
+import { registerForLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { getApiErrorMessage, isApiSuccess } from "@/lib/api/errors";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

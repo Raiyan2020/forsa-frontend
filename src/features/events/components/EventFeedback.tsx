@@ -8,12 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
-import {
-  createEventFeedback,
-  deleteEventFeedback,
-  getEventFeedbacks,
-  updateEventFeedback,
-} from "@/features/services/api";
+import { createEventFeedback, deleteEventFeedback, getEventFeedbacks, updateEventFeedback } from "@/features/events/services/eventsApi";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 

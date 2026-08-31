@@ -11,7 +11,7 @@ import ModalInput from "@/components/ui/ModalInput";
 import DatePickerInput from "@/components/ui/DateField";
 import TimepickerInput from "@/components/ui/TimePicker";
 import { Button } from "@/components/ui/Button";
-import { createTimeSlot, updateTimeSlot } from "@/features/services/api";
+import { createTimeSlot, updateTimeSlot } from "@/features/opportunities/services/registrations";
 import { formatDateToYYYYMMDD } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 

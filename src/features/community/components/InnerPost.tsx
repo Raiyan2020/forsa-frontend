@@ -18,10 +18,7 @@ import { BsThreeDots } from "react-icons/bs";
 import { MdEdit, MdDelete } from "react-icons/md";
 import { getDefaultProfileImage } from "@/lib/helpers";
 
-import {
-  likeCommunityPost,
-  deleteCommunityPost,
-} from "@/features/services/api";
+import { likeCommunityPost, deleteCommunityPost } from "@/features/community/services/communityApi";
 
 import ReplyForm from "./ReplyForm";
 import CreatePostModal from "./CreatePostModal";

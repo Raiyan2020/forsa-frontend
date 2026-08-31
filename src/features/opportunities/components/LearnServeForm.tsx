@@ -32,20 +32,15 @@ import { TagsCheckbox } from "@/components/ui/TagsCheckbox";
 import TimepickerInput from "@/components/ui/TimePicker";
 import UploadDocument from "@/components/ui/UploadDocument";
 import Title from "@/components/shared/Title";
-import { getDropdownChoicesRequest } from "@/features/auth/api/authApi";
+import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
 import EventCreateTimingModal from "@/features/events/components/EventCreateTimingModal";
 import EventTimeSlotModal, {
   TimeSlot,
 } from "@/features/events/components/EventTimeSlotModal";
-import {
-  checkLicenseRequirement,
-  createLearnServeOpportunity,
-  deleteAllTimeSlots,
-  getAllOrganizations,
-  getLearnServeOpportunityById,
-  getTimeSlots,
-  updateLearnServeOpportunity,
-} from "@/features/services/api";
+import { checkLicenseRequirement } from "@/features/opportunities/services/opportunities";
+import { createLearnServeOpportunity, getLearnServeOpportunityById, updateLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
+import { deleteAllTimeSlots, getTimeSlots } from "@/features/opportunities/services/registrations";
+import { getAllOrganizations } from "@/features/shared/services/directory";
 import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";

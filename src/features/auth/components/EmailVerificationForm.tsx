@@ -13,7 +13,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { emailVerificationRequest, resendOtpRequest } from "@/features/auth/api/authApi";
+import { emailVerificationRequest, resendOtpRequest } from "@/features/auth/services/authApi";
 import { cn, maskEmail } from "@/lib/helpers";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";

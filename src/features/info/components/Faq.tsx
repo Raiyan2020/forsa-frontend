@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import Image from "next/image";
 import type { FaqItem } from "@/lib/api/types";
-import { getFaqs } from "@/features/services/api";
+import { getFaqs } from "@/features/info/services/infoApi";
 
 const containsHTML = (str: string): boolean => {
   return /<[a-z][\s\S]*>/i.test(str);

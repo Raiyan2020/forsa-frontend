@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { uploadICSFile } from "@/features/services/api";
+import { uploadICSFile } from "@/features/calendar/services/calendarApi";
 import { useLanguageStore } from "@/store/languageStore";
 
 /** Every field is nullable — the API omits times and locations freely. */

@@ -24,13 +24,8 @@ import Loader from "@/components/ui/Loader";
 import {
   checkUserRequest,
   getDropdownChoicesRequest,
-} from "@/features/auth/api/authApi";
-import {
-  getAccountInfo,
-  getVolunteerProfile,
-  updateAccountInfo,
-  updateVolunteerProfile,
-} from "@/features/services/api";
+} from "@/features/auth/services/authApi";
+import { getAccountInfo, getVolunteerProfile, updateAccountInfo, updateVolunteerProfile } from "@/features/profile/services/profileApi";
 import {
   healthConcernOptions,
   nationalityOptions,

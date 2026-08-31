@@ -12,11 +12,8 @@ import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import {
-  downloadEventRegistrations,
-  getEventRegistrations,
-  markVolunteerAttendance,
-} from "@/features/services/api";
+import { downloadEventRegistrations, getEventRegistrations } from "@/features/events/services/eventsApi";
+import { markVolunteerAttendance } from "@/features/opportunities/services/attendance";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

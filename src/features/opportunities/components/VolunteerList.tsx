@@ -18,20 +18,10 @@ import { Modal } from "@/components/ui/Modal";
 import Searchbar from "@/components/ui/Searchbar";
 import Table from "@/components/ui/Table";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
-import {
-  directRegisterVolunteer,
-  directUnregisterVolunteer,
-  downloadVolunteerRegistrations,
-  getAvailableVolunteers,
-  getRolesOfOpportunity,
-  getTeams,
-  getVolunteerRegistrations,
-  markManualVolunteerAttendance,
-  markVolunteerAttendance,
-  undoVolunteerAttendance,
-  updateVolunteerAttendanceHours,
-  updateVolunteerRegistration,
-} from "@/features/services/api";
+import { directRegisterVolunteer, directUnregisterVolunteer, downloadVolunteerRegistrations, getTeams, getVolunteerRegistrations, updateVolunteerRegistration } from "@/features/opportunities/services/registrations";
+import { getAvailableVolunteers } from "@/features/shared/services/directory";
+import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
+import { markManualVolunteerAttendance, markVolunteerAttendance, undoVolunteerAttendance, updateVolunteerAttendanceHours } from "@/features/opportunities/services/attendance";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { getCheckInWindow } from "@/lib/checkInWindow";
 import { getDefaultProfileImage, toNumber } from "@/lib/helpers";

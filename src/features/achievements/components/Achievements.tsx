@@ -7,7 +7,7 @@ import moment from "moment";
 import Loader from "@/components/ui/Loader";
 import Link from "next/link";
 import { getDefaultProfileImage } from "@/lib/helpers";
-import { getAchievementsChartData, getAchievementsTeamsData } from "@/features/services/api";
+import { getAchievementsChartData, getAchievementsTeamsData } from "@/features/achievements/services/achievementsApi";
 
 import DonutChart from "./DonutChart";
 import Barchart from "./Barchart";

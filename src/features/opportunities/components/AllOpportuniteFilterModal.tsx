@@ -12,7 +12,7 @@ import AgeRange from "@/components/ui/AgeRange";
 import AutocompleteInput from "@/components/ui/AutocompleteInput";
 import { useLanguageStore } from "@/store/languageStore";
 import { useQuery } from "@tanstack/react-query";
-import { getDropdownChoices } from "@/features/services/api";
+import { getDropdownChoices } from "@/features/shared/services/dropdowns";
 import { nationalityFilterOptions, OpportunityStatus } from "@/data/Constants";
 import { useEffect } from "react";
 import * as Yup from "yup";

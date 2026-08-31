@@ -30,13 +30,9 @@ import { TagsCheckbox } from "@/components/ui/TagsCheckbox";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import { getDropdownChoicesRequest } from "@/features/auth/api/authApi";
-import {
-  createEvent,
-  getAllOrganizations,
-  getEventById,
-  updateEvent,
-} from "@/features/services/api";
+import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
+import { createEvent, getEventById, updateEvent } from "@/features/events/services/eventsApi";
+import { getAllOrganizations } from "@/features/shared/services/directory";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";

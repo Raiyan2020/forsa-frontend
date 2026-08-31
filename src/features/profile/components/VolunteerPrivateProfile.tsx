@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import { getPublicProfile } from "@/features/services/api";
+import { getPublicProfile } from "@/features/profile/services/profileApi";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
 

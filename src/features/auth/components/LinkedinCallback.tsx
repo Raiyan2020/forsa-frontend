@@ -10,7 +10,7 @@ import {
   checkUserRequest,
   linkedinCallbackRequest,
   passSocialInfoRequest,
-} from "@/features/auth/api/authApi";
+} from "@/features/auth/services/authApi";
 import { getApiErrorMessage, isApiSuccess } from "@/lib/api/errors";
 import { getLinkedinRedirectUri, decodeLinkedinState } from "@/lib/auth/linkedin";
 import {

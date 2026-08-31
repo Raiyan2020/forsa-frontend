@@ -9,7 +9,7 @@
  * request is made once per session regardless of how many components read it.
  */
 import { useQuery } from "@tanstack/react-query";
-import { getHomeCms } from "@/features/services/api";
+import { getHomeCms } from "@/features/cms/services/cmsApi";
 import type { HomeCms } from "@/lib/api/cms";
 
 export function useHomeCms({ enabled = true }: { enabled?: boolean } = {}) {

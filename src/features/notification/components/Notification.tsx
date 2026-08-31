@@ -13,11 +13,7 @@ import Title from "@/components/shared/Title";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import { NOTIFICATIONS_QUERY_KEY } from "@/components/shared/NotificationSync";
-import {
-  deleteNotifications,
-  getNotifications,
-  markNotificationsRead,
-} from "@/features/services/api";
+import { deleteNotifications, getNotifications, markNotificationsRead } from "@/features/notification/services/notificationApi";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useNotificationStore } from "@/store/notificationStore";

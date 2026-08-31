@@ -8,7 +8,7 @@ import Title from "@/components/shared/Title";
 import ModalInput from "./ModalInput";
 import ModalTextarea from "./ModalTextarea";
 import { useMutation } from "@tanstack/react-query";
-import { createContactUs } from "@/features/services/api";
+import { createContactUs } from "@/features/info/services/infoApi";
 import { useState } from "react";
 import { YupEmail, YupRequiredString } from "@/lib/schema";
 import { toast } from "sonner";

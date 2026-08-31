@@ -11,10 +11,8 @@ import Table, { TableColumn } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
-import {
-  getOpportunityById,
-  getRolesOfOpportunity,
-} from "@/features/services/api";
+import { getOpportunityById } from "@/features/opportunities/services/opportunities";
+import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRoleModalStore } from "@/store/roleModalStore";

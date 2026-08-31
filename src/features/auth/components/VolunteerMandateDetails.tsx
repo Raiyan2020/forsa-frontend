@@ -21,7 +21,7 @@ import {
   checkUserRequest,
   getDropdownChoicesRequest,
   passSocialInfoRequest,
-} from "@/features/auth/api/authApi";
+} from "@/features/auth/services/authApi";
 import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { nationalityOptions } from "@/data/Constants";
 import { cn } from "@/lib/helpers";

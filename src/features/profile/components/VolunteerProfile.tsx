@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import Loader from "@/components/ui/Loader";
-import { getAccountInfo, getVolunteerProfile } from "@/features/services/api";
+import { getAccountInfo, getVolunteerProfile } from "@/features/profile/services/profileApi";
 import { useAuthStore } from "@/store/authStore";
 import ProfileDescriptionTabs from "./ProfileDescriptionTabs";
 import VolunteerBackgroundInformation from "./VolunteerBackgroundInformation";

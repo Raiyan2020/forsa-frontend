@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { verifyVolunteerReport } from "@/features/services/api";
+import { verifyVolunteerReport } from "@/features/achievements/services/achievementsApi";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import Loader from "@/components/ui/Loader";

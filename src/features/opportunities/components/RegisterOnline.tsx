@@ -12,10 +12,8 @@ import * as Yup from "yup";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import SelectInput from "@/components/ui/SelectInput";
-import {
-  getConsultationTimeSlots,
-  registerForLearnServeOpportunity,
-} from "@/features/services/api";
+import { getConsultationTimeSlots } from "@/features/opportunities/services/registrations";
+import { registerForLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 import type { LearnServeRegistrationDetails } from "./ConfirmRegistrationModal";

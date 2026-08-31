@@ -12,7 +12,7 @@ import "react-multi-carousel/lib/styles.css";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import MoreProfileFilterForm, { MoreProfileFilters } from "./MoreProfileFilterForm";
-import { getAllProfiles } from "@/features/services/api";
+import { getAllProfiles } from "@/features/profile/services/profileApi";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Loader from "@/components/ui/Loader";
 import Image from "next/image";

@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import Image from "next/image";
-import { getBannerImages } from "@/features/services/api";
+import { getBannerImages } from "@/features/shared/services/banners";
 
 export type BannerPlacement = "opportunities" | "development" | "events";
 

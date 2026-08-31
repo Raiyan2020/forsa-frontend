@@ -21,7 +21,8 @@ import {
 import SelectInput from "@/components/ui/SelectInput";
 import { useLanguageStore } from "@/store/languageStore";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createSponsors, getDropdownChoices } from "@/features/services/api";
+import { createSponsors } from "@/features/partners/services/partnersApi";
+import { getDropdownChoices } from "@/features/shared/services/dropdowns";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";

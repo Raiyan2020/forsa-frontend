@@ -18,12 +18,7 @@ import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
 import SponsorsClient from "@/features/home/components/SponsorsClient";
 import CheckInWindowBanner from "./CheckInWindowBanner";
-import {
-  deleteLearnServeRegistrationByOpportunity,
-  downloadLearnServeRegistrations,
-  getLearnServeRegistrations,
-  updateLearnServeAttendance,
-} from "@/features/services/api";
+import { deleteLearnServeRegistrationByOpportunity, downloadLearnServeRegistrations, getLearnServeRegistrations, updateLearnServeAttendance } from "@/features/opportunities/services/learnServe";
 import { getCheckInWindow } from "@/lib/checkInWindow";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";

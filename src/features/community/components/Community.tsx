@@ -11,7 +11,7 @@ import Post from "./Post";
 import AddBanner from "./AddBanner";
 import InnerPost from "./InnerPost";
 import Loader from "@/components/ui/Loader";
-import { getCommunityPosts } from "@/features/services/api";
+import { getCommunityPosts } from "@/features/community/services/communityApi";
 import { CommunityFiltersData } from "./CommunityFilterModal";
 
 

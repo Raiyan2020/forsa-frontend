@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@/components/ui/Button";
-import { requestOpportunityDeletion } from "@/features/services/api";
+import { requestOpportunityDeletion } from "@/features/opportunities/services/opportunities";
 import { toast } from "sonner";
 import { useLanguageStore } from "@/store/languageStore";
 

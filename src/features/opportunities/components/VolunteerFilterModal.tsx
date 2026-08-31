@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import Select from "react-select";
 
-import { getRolesOfOpportunity, getTeams } from "@/features/services/api";
+import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
+import { getTeams } from "@/features/opportunities/services/registrations";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface VolunteerFilterModalProps {

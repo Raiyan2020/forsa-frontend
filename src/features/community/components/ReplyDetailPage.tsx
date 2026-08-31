@@ -12,11 +12,7 @@ import { MdDelete, MdEdit } from "react-icons/md";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
-import {
-  deleteReply,
-  getCommunityReplies,
-  likeCommunityPost,
-} from "@/features/services/api";
+import { deleteReply, getCommunityReplies, likeCommunityPost } from "@/features/community/services/communityApi";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";

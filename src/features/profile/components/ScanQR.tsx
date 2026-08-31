@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import jsQR from "jsqr";
 
 import Loader from "@/components/ui/Loader";
-import { markVolunteerAttendance } from "@/features/services/api";
+import { markVolunteerAttendance } from "@/features/opportunities/services/attendance";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface ScanQRProps {

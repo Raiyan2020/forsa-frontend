@@ -9,7 +9,7 @@ import * as Yup from "yup";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import ModalInput from "@/components/ui/ModalInput";
-import { createTeam, getTeamById, updateTeam } from "@/features/services/api";
+import { createTeam, getTeamById, updateTeam } from "@/features/opportunities/services/registrations";
 import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
 import { useLanguageStore } from "@/store/languageStore";
 

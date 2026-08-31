@@ -7,7 +7,7 @@ import * as Yup from "yup";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useMutation } from "@tanstack/react-query";
-import { forgotPasswordRequest } from "@/features/auth/api/authApi";
+import { forgotPasswordRequest } from "@/features/auth/services/authApi";
 import { YupEmail } from "@/lib/schema";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";

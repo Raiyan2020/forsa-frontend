@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
-import { requestEventDeletion } from "@/features/services/api";
+import { requestEventDeletion } from "@/features/events/services/eventsApi";
 import { toast } from "sonner";
 import { useLanguageStore } from "@/store/languageStore";
 import { useMutation } from "@tanstack/react-query";

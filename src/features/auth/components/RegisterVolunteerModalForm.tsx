@@ -22,7 +22,7 @@ import {
   getDropdownChoicesRequest,
   passSocialInfoRequest,
   registerRequest,
-} from "@/features/auth/api/authApi";
+} from "@/features/auth/services/authApi";
 import { nationalityOptions } from "@/data/Constants";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
-import { unregisterFromLearnServeOpportunity } from "@/features/services/api";
+import { unregisterFromLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface UnregisterLearnServeConfirmationModalProps {

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/Button";
-import { deleteVolunteerOpportunityRole } from "@/features/services/api";
+import { deleteVolunteerOpportunityRole } from "@/features/opportunities/services/roles";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface DeleteRoleModalProps {

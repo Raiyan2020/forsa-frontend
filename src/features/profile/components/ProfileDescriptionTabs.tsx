@@ -14,10 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import ProfileEventCard from "@/features/events/components/ProfileEventCard";
-import {
-  downloadUserCertificate,
-  getUserCertificates,
-} from "@/features/services/api";
+import { downloadUserCertificate, getUserCertificates } from "@/features/profile/services/profileApi";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfileFilterForm, {

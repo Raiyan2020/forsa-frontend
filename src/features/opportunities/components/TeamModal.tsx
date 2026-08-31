@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import Table from "@/components/ui/Table";
-import { getTeams } from "@/features/services/api";
+import { getTeams } from "@/features/opportunities/services/registrations";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import CreateTeam from "./CreateTeam";

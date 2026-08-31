@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import Loader from "@/components/ui/Loader";
-import { getQRCode } from "@/features/services/api";
+import { getQRCode } from "@/features/profile/services/profileApi";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface QRCodeData {
