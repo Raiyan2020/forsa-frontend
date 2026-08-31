@@ -1,9 +1,10 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-// We import directly (works in both client & server build)
-import translationEN from "../../locales/en/translation.json";
-import translationAR from "../../locales/ar/translation.json";
+// We import directly (works in both client & server build).
+// `locales/` lives at the project root (outside `src/`), hence the three levels up.
+import translationEN from "../../../locales/en/translation.json";
+import translationAR from "../../../locales/ar/translation.json";
 
 export const AR = "ar";
 export const EN = "en";
