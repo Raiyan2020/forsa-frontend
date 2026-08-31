@@ -171,6 +171,29 @@ export const fetchAddress = async (
   }
 };
 
+export const fetchCoordinates = async (
+  address: string,
+  language = "en"
+): Promise<{ lat: number; lng: number } | null> => {
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        address
+      )}&language=${language}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    );
+    const data = await response.json();
+
+    if (data.results && data.results.length > 0) {
+      const { lat, lng } = data.results[0].geometry.location;
+      return { lat, lng };
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching coordinates:", error);
+    return null;
+  }
+};
+
 /**
  * Append a cache-busting query to an uploaded image URL. The API overwrites a
  * profile picture in place, so the URL is unchanged after a re-upload and the

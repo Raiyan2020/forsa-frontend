@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -50,6 +50,7 @@ import i18n from "@/lib/i18n/config";
 import {
   calculateHoursDifference,
   fetchAddress,
+  fetchCoordinates,
   formatDateToYYYYMMDD,
 } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
@@ -123,6 +124,7 @@ function VolunteerFormEffects({
   opportunityData,
   id,
   selectedLanguage,
+  skipNextGeocodeRef,
 }: {
   values: VolunteerFormValues;
   touched: Record<string, unknown>;
@@ -131,12 +133,14 @@ function VolunteerFormEffects({
   opportunityData: any;
   id?: string;
   selectedLanguage: string;
+  skipNextGeocodeRef: { current: boolean };
 }) {
   // Sync location once opportunityData arrives (it loads after mount).
   // `map_desc` is a single language-agnostic field — no per-language lookup.
   useEffect(() => {
     if (!opportunityData || !id) return;
     if (opportunityData.map_desc) {
+      skipNextGeocodeRef.current = true;
       setFieldValue("location", opportunityData.map_desc);
     }
     if (opportunityData.latitude) {
@@ -145,7 +149,7 @@ function VolunteerFormEffects({
     if (opportunityData.longitude) {
       setFieldValue("longitude", opportunityData.longitude.toString());
     }
-  }, [opportunityData, setFieldValue, id]);
+  }, [opportunityData, setFieldValue, id, skipNextGeocodeRef]);
 
   // When editing with coordinates but no stored location text, reverse-geocode
   // them so the field isn't left empty.
@@ -163,6 +167,7 @@ function VolunteerFormEffects({
         );
         // Don't overwrite anything the user has typed
         if (!values.location) {
+          skipNextGeocodeRef.current = true;
           setFieldValue("location", result);
         }
       }
@@ -177,6 +182,30 @@ function VolunteerFormEffects({
     selectedLanguage,
     setFieldValue,
   ]);
+
+  // Forward-geocode the typed address into coordinates so the map follows
+  // what the user types, debounced so it doesn't fire on every keystroke.
+  // Skipped once whenever `location` was just filled in programmatically
+  // (map pick or the syncs above) — those already carry exact coordinates.
+  useEffect(() => {
+    if (skipNextGeocodeRef.current) {
+      skipNextGeocodeRef.current = false;
+      return;
+    }
+    const address = values.location?.trim();
+    if (!address || address.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      const result = await fetchCoordinates(address, selectedLanguage);
+      if (result) {
+        setFieldValue("latitude", result.lat.toString());
+        setFieldValue("longitude", result.lng.toString());
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.location, selectedLanguage]);
 
   // Re-validate when a touched field gains a value
   useEffect(() => {
@@ -207,7 +236,9 @@ export default function VolunteerForm({
   const user = useAuthStore((s) => s.user);
   const authToken = user?.auth_token;
   const isVolunteer = user?.user_type === "volunteer";
-  
+  // Set right before a map pick / a data sync fills `location` in
+  // programmatically, so the forward-geocode effect skips that one change.
+  const skipNextGeocodeRef = useRef(false);
 
   const formOpportunityId = useRoleModalStore((s) => s.opportunityId);
   const roleModalState = useRoleModalStore((s) => s.roleModalState);
@@ -1031,7 +1062,7 @@ export default function VolunteerForm({
       </Modal>
 
       <div className="border-t border-[#000]">
-        <div className="2xl:w-[1025px] lg:w-[900px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
+        <div className="2xl:w-[1225px] lg:w-[1050px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
           <h2>
             <Title text={t("COMMON.VOLUNTEER_FORM")} variant="default" />
           </h2>
@@ -1085,6 +1116,7 @@ export default function VolunteerForm({
                     opportunityData={opportunityData}
                     id={id}
                     selectedLanguage={selectedLanguage}
+                    skipNextGeocodeRef={skipNextGeocodeRef}
                   />
 
                   <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
@@ -1210,6 +1242,7 @@ export default function VolunteerForm({
                           Number(lng),
                           selectedLanguage
                         );
+                        skipNextGeocodeRef.current = true;
                         setFieldValue("location", address);
                       }
                     }}

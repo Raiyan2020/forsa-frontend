@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -39,7 +39,7 @@ import {
 } from "@/features/services/api";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
-import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
+import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import {
   YupFlexibleUrl,
@@ -103,6 +103,7 @@ function EventFormEffects({
   eventData,
   id,
   selectedLanguage,
+  skipNextGeocodeRef,
 }: {
   values: EventFormValues;
   touched: Record<string, unknown>;
@@ -111,6 +112,7 @@ function EventFormEffects({
   eventData: any;
   id?: string;
   selectedLanguage: string;
+  skipNextGeocodeRef: { current: boolean };
 }) {
   useEffect(() => {
     const touchedFields = Object.keys(touched).filter(
@@ -132,6 +134,7 @@ function EventFormEffects({
           eventData.longitude,
           selectedLanguage
         );
+        skipNextGeocodeRef.current = true;
         setFieldValue("location", result); // Sync with Formik state
       }
     };
@@ -149,6 +152,7 @@ function EventFormEffects({
   useEffect(() => {
     if (!eventData || !id) return;
     if (eventData.map_desc) {
+      skipNextGeocodeRef.current = true;
       setFieldValue("location", eventData.map_desc);
     }
     if (eventData.latitude) {
@@ -157,7 +161,31 @@ function EventFormEffects({
     if (eventData.longitude) {
       setFieldValue("longitude", eventData.longitude.toString());
     }
-  }, [eventData, setFieldValue, id]);
+  }, [eventData, setFieldValue, id, skipNextGeocodeRef]);
+
+  // Forward-geocode the typed address into coordinates so the map follows
+  // what the user types, debounced so it doesn't fire on every keystroke.
+  // Skipped once whenever `location` was just filled in programmatically
+  // (map pick or the syncs above) — those already carry exact coordinates.
+  useEffect(() => {
+    if (skipNextGeocodeRef.current) {
+      skipNextGeocodeRef.current = false;
+      return;
+    }
+    const address = values.location?.trim();
+    if (!address || address.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      const result = await fetchCoordinates(address, selectedLanguage);
+      if (result) {
+        setFieldValue("latitude", result.lat.toString());
+        setFieldValue("longitude", result.lng.toString());
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.location, selectedLanguage]);
 
   return null;
 }
@@ -171,6 +199,9 @@ export default function EventForm({
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const authToken = useAuthStore((s) => s.user?.auth_token);
+  // Set right before a map pick / a data sync fills `location` in
+  // programmatically, so the forward-geocode effect skips that one change.
+  const skipNextGeocodeRef = useRef(false);
 
   // Edit / repost target arrives via sessionStorage (React Router `location.state`).
   const navState = useConsumedNavState<EventFormNavState>(
@@ -638,9 +669,9 @@ export default function EventForm({
         });
       }
 
-      values.event_images.forEach((file, index) => {
+      values.event_images.forEach((file) => {
         if (file instanceof File) {
-          formData.append(`new_event_images_${index}`, file);
+          formData.append("images[]", file);
         }
       });
 
@@ -760,7 +791,7 @@ export default function EventForm({
       </Modal>
 
       <div className="border-t border-[#000]">
-        <div className="2xl:w-[1025px] lg:w-[900px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
+        <div className="2xl:w-[1225px] lg:w-[1050px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
           <h2>
             <Title text={t("COMMON.EVENT.FORM")} variant="default" />
           </h2>
@@ -813,6 +844,7 @@ export default function EventForm({
                     eventData={eventData}
                     id={id}
                     selectedLanguage={selectedLanguage}
+                    skipNextGeocodeRef={skipNextGeocodeRef}
                   />
 
                   <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
@@ -936,6 +968,7 @@ export default function EventForm({
                                 Number(lng),
                                 selectedLanguage
                               );
+                              skipNextGeocodeRef.current = true;
                               setFieldValue("location", address);
                             }
                           }}
@@ -1022,6 +1055,7 @@ export default function EventForm({
                                 Number(lng),
                                 selectedLanguage
                               );
+                              skipNextGeocodeRef.current = true;
                               setFieldValue("location", address);
                             }
                           }}

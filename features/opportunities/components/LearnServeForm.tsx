@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -48,7 +48,7 @@ import {
 } from "@/features/services/api";
 import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
-import { fetchAddress, formatDateToYYYYMMDD } from "@/lib/helpers";
+import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import {
@@ -160,6 +160,7 @@ function LearnServeFormEffects({
   selectedLanguage,
   timeSlotModalOpen,
   setInitialTimeSlots,
+  skipNextGeocodeRef,
 }: {
   values: LearnServeFormValues;
   touched: Record<string, unknown>;
@@ -170,6 +171,7 @@ function LearnServeFormEffects({
   selectedLanguage: string;
   timeSlotModalOpen: boolean;
   setInitialTimeSlots: (slots: TimeSlot[]) => void;
+  skipNextGeocodeRef: { current: boolean };
 }) {
   const timeSlots = useTimeSlotsStore((s) => s.timeSlots);
   const setTimeSlots = useTimeSlotsStore((s) => s.setTimeSlots);
@@ -180,6 +182,7 @@ function LearnServeFormEffects({
   useEffect(() => {
     if (!opportunityData || !id) return;
     if (opportunityData.map_desc) {
+      skipNextGeocodeRef.current = true;
       setFieldValue("location", opportunityData.map_desc);
     }
     if (opportunityData.latitude) {
@@ -188,7 +191,7 @@ function LearnServeFormEffects({
     if (opportunityData.longitude) {
       setFieldValue("longitude", opportunityData.longitude.toString());
     }
-  }, [opportunityData, setFieldValue, id]);
+  }, [opportunityData, setFieldValue, id, skipNextGeocodeRef]);
 
   // When editing with coordinates but no stored location text, reverse-geocode
   // them so the field isn't left empty.
@@ -206,6 +209,7 @@ function LearnServeFormEffects({
         );
         // Don't overwrite anything the user has typed
         if (!values.location) {
+          skipNextGeocodeRef.current = true;
           setFieldValue("location", result);
         }
       }
@@ -220,6 +224,30 @@ function LearnServeFormEffects({
     selectedLanguage,
     setFieldValue,
   ]);
+
+  // Forward-geocode the typed address into coordinates so the map follows
+  // what the user types, debounced so it doesn't fire on every keystroke.
+  // Skipped once whenever `location` was just filled in programmatically
+  // (map pick or the syncs above) — those already carry exact coordinates.
+  useEffect(() => {
+    if (skipNextGeocodeRef.current) {
+      skipNextGeocodeRef.current = false;
+      return;
+    }
+    const address = values.location?.trim();
+    if (!address || address.length < 3) return;
+
+    const timer = setTimeout(async () => {
+      const result = await fetchCoordinates(address, selectedLanguage);
+      if (result) {
+        setFieldValue("latitude", result.lat.toString());
+        setFieldValue("longitude", result.lng.toString());
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.location, selectedLanguage]);
 
   // Re-validate when a touched field gains a value
   useEffect(() => {
@@ -262,6 +290,9 @@ export default function LearnServeForm({
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const authToken = user?.auth_token;
+  // Set right before a map pick / a data sync fills `location` in
+  // programmatically, so the forward-geocode effect skips that one change.
+  const skipNextGeocodeRef = useRef(false);
 
   const timeSlots = useTimeSlotsStore((s) => s.timeSlots);
   const setTimeSlots = useTimeSlotsStore((s) => s.setTimeSlots);
@@ -1505,6 +1536,7 @@ export default function LearnServeForm({
                       selectedLanguage={selectedLanguage}
                       timeSlotModalOpen={open}
                       setInitialTimeSlots={setInitialTimeSlots}
+                      skipNextGeocodeRef={skipNextGeocodeRef}
                     />
 
                     <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
@@ -1650,6 +1682,7 @@ export default function LearnServeForm({
                                   Number(lng),
                                   selectedLanguage
                                 );
+                                skipNextGeocodeRef.current = true;
                                 setFieldValue("location", address);
                               }
                             }}

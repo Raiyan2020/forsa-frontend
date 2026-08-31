@@ -104,6 +104,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
     data: profileData,
     isLoading: profileLoading,
     isFetching,
+    isError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -133,6 +134,11 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
       const nextPage = (pagination.page ?? 1) + 1;
       return nextPage <= (pagination.total_pages ?? 1) ? nextPage : undefined;
     },
+    // A failed page (e.g. a transient 403) keeps retrying every 2s instead of
+    // giving up — `isFetching`/`isFetchingNextPage` stay true across retries,
+    // so the spinner keeps showing until one finally succeeds.
+    retry: true,
+    retryDelay: 2000,
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 
@@ -153,23 +159,49 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
   }, [profileData]);
 
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const nextPageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPendingNextPage, setIsPendingNextPage] = useState(false);
 
-  // Load the next page whenever the sentinel scrolls into view. Dependencies
-  // keep the observer callback fresh; re-running it is cheap.
+  // Load the next page whenever the sentinel scrolls into view, waiting 1s
+  // between pages instead of firing immediately — keeps rapid scrolling from
+  // hammering the endpoint with back-to-back requests. `!isError` stops the
+  // loop once a page request fails, rather than retrying the same broken
+  // page every second forever.
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetching) {
-          fetchNextPage();
+        if (
+          entries[0].isIntersecting &&
+          hasNextPage &&
+          !isFetching &&
+          !isError &&
+          !nextPageTimeoutRef.current
+        ) {
+          setIsPendingNextPage(true);
+          nextPageTimeoutRef.current = setTimeout(() => {
+            nextPageTimeoutRef.current = null;
+            setIsPendingNextPage(false);
+            fetchNextPage();
+          }, 1000);
         }
       },
       { threshold: 0, rootMargin: "0px 0px 300px 0px" }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [allProfiles.length, hasNextPage, isFetching, fetchNextPage]);
+  }, [allProfiles.length, hasNextPage, isFetching, isError, fetchNextPage]);
+
+  // Cancel a pending delayed fetch on unmount so it never fires after teardown.
+  useEffect(() => {
+    return () => {
+      if (nextPageTimeoutRef.current) {
+        clearTimeout(nextPageTimeoutRef.current);
+        nextPageTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Only show full-page loader on initial load
   if (profileLoading && allProfiles.length === 0) {
@@ -260,7 +292,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
                   <ProfileCard key={profile?.id} profile={profile} />
                 ))}
               </div>
-              {isFetchingNextPage && (
+              {(isPendingNextPage || isFetchingNextPage) && (
                 <div className="flex justify-center py-6">
                   <Loader inline size="sm" />
                 </div>
