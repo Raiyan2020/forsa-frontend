@@ -1,16 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { QueryProvider } from "@/lib/query/provider";
-import { I18nProvider } from "@/lib/i18n/provider";
-import { GoogleOAuthProvider } from "@react-oauth/google";
+import Providers from "@/providers/providers";
 import SplashScreen from "@/components/shared/SplashScreen";
 import ScrollbarListener from "@/components/shared/ScrollbarListener";
-
-const googleClientId =
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID &&
-  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID.trim() !== ""
-    ? process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    : "100000000000-dummyclientid.apps.googleusercontent.com";
 
 export const metadata: Metadata = {
   title: {
@@ -45,13 +37,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://portal.fursa.raiyan.cc" />
       </head>
       <body suppressHydrationWarning={true}>
-        <GoogleOAuthProvider clientId={googleClientId}>
-          <QueryProvider>
-            <I18nProvider>
-              <SplashScreen>{children}</SplashScreen>
-            </I18nProvider>
-          </QueryProvider>
-        </GoogleOAuthProvider>
+        <Providers>
+          <SplashScreen>{children}</SplashScreen>
+        </Providers>
         <ScrollbarListener />
       </body>
     </html>
