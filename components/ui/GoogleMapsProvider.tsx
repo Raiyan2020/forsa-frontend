@@ -1,51 +1,40 @@
 "use client";
 
-import { LoadScript } from "@react-google-maps/api";
-import { ReactNode, useState } from "react";
+import { useJsApiLoader } from "@react-google-maps/api";
+import { ReactNode } from "react";
 
 const libraries: "places"[] = ["places"];
-
-declare global {
-  interface Window {
-    google?: { maps?: unknown };
-  }
-}
 
 interface GoogleMapsProviderProps {
   children: ReactNode;
 }
 
 /**
- * Lazy-loaded Google Maps provider.
- * Only use this wrapper on pages that actually need Google Maps.
+ * Loads the Google Maps JS API for the two filter modals (opportunities,
+ * events) that need Places autocomplete for their location field.
  *
- * Several pages (VolunteerForm, LearnServeForm, EventForm, the two filter
- * modals) each mount their own instance of this. `<LoadScript>`'s own
- * `componentDidMount` bails out — permanently, without ever setting
- * `loaded: true` — the moment `window.google.maps` is already defined, which
- * it will be after visiting any *other* page that used this component in the
- * same client-side session (Next's SPA navigation never reloads the page, so
- * that global sticks around). The result was every subsequent page hitting
- * that bail-out and getting stuck on `<LoadScript>`'s default "Loading..."
- * fallback forever. Short-circuiting here — before a new `<LoadScript>` ever
- * mounts — is what the library's own check expects the caller to do.
+ * This used to wrap `<LoadScript>`, which ties the script's lifetime to this
+ * component's own mount/unmount: on unmount it removes the script tag and,
+ * shortly after, deletes `window.google` entirely. Both filter modals live
+ * inside `<Modal>`, which unmounts its children whenever the modal closes —
+ * so every close/reopen (and every "Clear filters" remount) tore the script
+ * down and reloaded it. Two instances racing that teardown (an old one
+ * cleaning up while a new one mounts) could leave `window.google` deleted
+ * out from under a child that had already decided the API was ready,
+ * throwing inside `AutocompleteInput` and taking the whole page down.
+ *
+ * `useJsApiLoader` sidesteps this: it loads through `@googlemaps/js-api-loader`'s
+ * module-level singleton `Loader`, which is idempotent (safe to "load" many
+ * times across many mount/unmount cycles) and is never torn down on unmount.
  */
 export const GoogleMapsProvider = ({ children }: GoogleMapsProviderProps) => {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-  const [alreadyLoaded] = useState(
-    () => typeof window !== "undefined" && Boolean(window.google?.maps)
-  );
+  const { isLoaded } = useJsApiLoader({
+    id: "__googleMapsScriptId",
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    libraries,
+  });
 
-  if (alreadyLoaded) {
-    return <>{children}</>;
-  }
+  if (!isLoaded) return null;
 
-  return (
-    <LoadScript
-      googleMapsApiKey={apiKey}
-      libraries={libraries}
-    >
-      {children}
-    </LoadScript>
-  );
+  return <>{children}</>;
 };
