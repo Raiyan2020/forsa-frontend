@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { Formik, Form, Field } from "formik";
+import { Formik, Form, Field, useFormikContext } from "formik";
 import Toggle from "@/components/ui/Toggle";
 import SelectInput from "@/components/ui/SelectInput";
 import GroupedSelectInput from "@/components/ui/GroupedSelectInput";
@@ -23,6 +23,7 @@ interface AllOpportunitiesFilterModalProps {
   onApply: (filters: AllOpportunitiesFiltersData) => void;
   initialValues?: AllOpportunitiesFiltersData;
   onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
   showLearnServeFields?: boolean;
   showVolunteerFields?: boolean;
 }
@@ -52,10 +53,40 @@ interface ChoiceItem {
   value_ar: string;
 }
 
+/**
+ * Reports dirty/empty state from inside the Formik tree via context, rather
+ * than calling `useEffect` directly in the render prop (not a valid hook
+ * position — see `VolunteerFilterModal.tsx`'s `DirtyReporter` for the same
+ * pattern).
+ */
+function FilterStateReporter({
+  defaultValues,
+  onDirtyChange,
+  onEmptyChange,
+}: {
+  defaultValues: AllOpportunitiesFiltersData;
+  onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
+}) {
+  const { values, dirty } = useFormikContext<AllOpportunitiesFiltersData>();
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    onEmptyChange?.(JSON.stringify(values) === JSON.stringify(defaultValues));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, onEmptyChange]);
+
+  return null;
+}
+
 const OpportuniteFilterModal = ({
   onApply,
   initialValues,
   onDirtyChange,
+  onEmptyChange,
   showLearnServeFields,
   showVolunteerFields,
 }: AllOpportunitiesFilterModalProps) => {
@@ -191,13 +222,14 @@ const OpportuniteFilterModal = ({
           onApply(values);
         }}
       >
-        {({ values, setFieldTouched, setFieldValue, dirty }) => {
-          useEffect(() => {
-            if (onDirtyChange) onDirtyChange(dirty);
-          }, [dirty, onDirtyChange]);
-
+        {({ values, setFieldTouched, setFieldValue }) => {
           return (
             <Form className="opp-modal">
+              <FilterStateReporter
+                defaultValues={defaultValues}
+                onDirtyChange={onDirtyChange}
+                onEmptyChange={onEmptyChange}
+              />
               <div className="pb-[10px] xss:pb-[20px]">
                 <div
                   className={`grid grid-cols-2 md:grid-cols-4 miniscreen:grid-cols-2 miniscreen:gap-y-0 xss:grid-cols-1 xss:gap-0 md:gap-x-6 md:gap-y-4 ${

@@ -26,6 +26,7 @@ export default function LearnServeList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
   const user = useAuthStore((s) => s.user);
 
   // Get tags from URL parameters if available
@@ -141,6 +142,7 @@ export default function LearnServeList() {
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}
+              disabled={isFilterEmpty}
               type="button"
             >
               {t("COMMON.CLEAR")}
@@ -153,6 +155,7 @@ export default function LearnServeList() {
           onApply={handleApplyFilters}
           initialValues={filters}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
           showLearnServeFields={true}
           showVolunteerFields={false}
         />

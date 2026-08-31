@@ -52,6 +52,7 @@ export default function MoreProfile() {
   const [debouncedSearch, setDebouncedSearch] = useState(() => getSearchParam("search"));
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
 
   const [navigationVisibility, setNavigationVisibility] = useState({
     volunteer: false,
@@ -203,6 +204,7 @@ export default function MoreProfile() {
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}
+              disabled={isFilterEmpty}
               type="button"
             >
               {t("COMMON.CLEAR")}
@@ -218,6 +220,7 @@ export default function MoreProfile() {
           }}
           initialValues={filters}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
         />
       </Modal>
 

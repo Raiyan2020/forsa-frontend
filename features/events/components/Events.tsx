@@ -24,6 +24,7 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
 
   const tagsFromUrl = searchParams ? searchParams.get("tags") : null;
 
@@ -106,6 +107,7 @@ export default function Events() {
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}
+              disabled={isFilterEmpty}
             >
               {t("COMMON.CLEAR")}
             </Button>
@@ -117,6 +119,7 @@ export default function Events() {
           onApply={handleApplyFilters}
           initialValues={filters}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
           isInnerModal={false}
         />
       </Modal>

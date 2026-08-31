@@ -253,6 +253,7 @@ export default function VolunteerList() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
 
   const [searchVolunteerTerm, setSearchVolunteerTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -1281,6 +1282,7 @@ export default function VolunteerList() {
                 setFilters({ teams: [], roles: [] });
                 setClearFiltersKey((previous) => previous + 1);
               }}
+              disabled={isFilterEmpty}
               className="xss:!w-full"
             >
               {t("COMMON.CLEAR")}
@@ -1297,6 +1299,7 @@ export default function VolunteerList() {
             roles: filters.roles ? filters.roles.map(String) : undefined,
           }}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
         />
       </Modal>
 

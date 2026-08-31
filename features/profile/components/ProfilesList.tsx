@@ -76,6 +76,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
   const [open, setOpen] = useState(false);
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
   const [filters, setFilters] = useState({
     name: searchParams.get("name") || "",
     nickname: searchParams.get("nickname") || "",
@@ -245,6 +246,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
                     setFilters({ name: "", nickname: "", user_type: "" });
                     setClearFiltersKey((prev) => prev + 1);
                   }}
+                  disabled={isFilterEmpty}
                   type="button"
                 >
                   {t("COMMON.CLEAR")}
@@ -260,6 +262,7 @@ export default function ProfilesList({ bucket, titleKey }: ProfilesListProps) {
               }}
               initialValues={filters}
               onDirtyChange={setIsFilterDirty}
+              onEmptyChange={setIsFilterEmpty}
               hideUserType
             />
           </Modal>

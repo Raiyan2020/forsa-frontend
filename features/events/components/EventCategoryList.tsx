@@ -53,6 +53,7 @@ export default function EventCategoryList({
   const [searchQuery, setSearchQuery] = useState("");
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
   const [filters, setFilters] = useState<AllEventsFiltersData>(EMPTY_FILTERS);
 
   const handleApplyFilters = (newFilters: AllEventsFiltersData) => {
@@ -99,6 +100,7 @@ export default function EventCategoryList({
                 setFilters(EMPTY_FILTERS);
                 setClearFiltersKey((prev) => prev + 1);
               }}
+              disabled={isFilterEmpty}
               type="button"
             >
               {t("COMMON.CLEAR")}
@@ -111,6 +113,7 @@ export default function EventCategoryList({
           onApply={handleApplyFilters}
           initialValues={filters}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
           isInnerModal={true}
         />
       </Modal>

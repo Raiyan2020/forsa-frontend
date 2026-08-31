@@ -1,6 +1,6 @@
 "use client";
 
-import { Formik, Form } from "formik";
+import { Formik, Form, useFormikContext } from "formik";
 import { MoreProfileCategories } from "@/data/Constants";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
@@ -18,13 +18,41 @@ interface MoreProfileFilterFormProps {
   onApply: (filters: MoreProfileFilters) => void;
   initialValues: MoreProfileFilters;
   onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
   hideUserType?: boolean;
+}
+
+/**
+ * Reports dirty/empty state from inside the Formik tree via context, rather
+ * than calling `useEffect` directly in the render prop (not a valid hook
+ * position — see `VolunteerFilterModal.tsx`'s `DirtyReporter` for the same
+ * pattern).
+ */
+function FilterStateReporter({
+  onDirtyChange,
+  onEmptyChange,
+}: {
+  onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
+}) {
+  const { values, dirty } = useFormikContext<MoreProfileFilters>();
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    onEmptyChange?.(!values.name && !values.nickname && !values.user_type);
+  }, [values, onEmptyChange]);
+
+  return null;
 }
 
 function MoreProfileFilterForm({
   onApply,
   initialValues,
   onDirtyChange,
+  onEmptyChange,
   hideUserType = false,
 }: MoreProfileFilterFormProps) {
   const { t } = useTranslation();
@@ -38,14 +66,14 @@ function MoreProfileFilterForm({
       }}
       enableReinitialize
     >
-      {({ setFieldValue, dirty }) => {
-        useEffect(() => {
-          if (onDirtyChange) onDirtyChange(dirty);
-        }, [dirty, onDirtyChange]);
-        
+      {({ setFieldValue }) => {
         return (
           <div className="md:w-[100%] rounded-lg bg-white pb-[20px] xsl:pb-[36px] md:pb-[36px] xss:pb-[0px]">
             <Form>
+              <FilterStateReporter
+                onDirtyChange={onDirtyChange}
+                onEmptyChange={onEmptyChange}
+              />
               <div className={`grid grid-cols-1 gap-6 mobilescreen:gap-[0px] relative 2xl:pb-7 pb-4 ${hideUserType ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
                 <div>
                   <Input

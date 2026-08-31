@@ -1,6 +1,6 @@
 "use client";
 
-import { Formik, Form, Field } from "formik";
+import { Formik, Form, Field, useFormikContext } from "formik";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/authStore";
 import Toggle from "@/components/ui/Toggle";
@@ -21,6 +21,7 @@ interface AllEventFilterModalProps {
   onApply: (filters: AllEventsFiltersData) => void;
   initialValues?: AllEventsFiltersData;
   onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
   isInnerModal?: boolean;
 }
 
@@ -43,10 +44,40 @@ interface ChoiceItem {
   value_ar: string;
 }
 
+/**
+ * Reports dirty/empty state from inside the Formik tree via context, rather
+ * than calling `useEffect` directly in the render prop (not a valid hook
+ * position — see `VolunteerFilterModal.tsx`'s `DirtyReporter` for the same
+ * pattern).
+ */
+function FilterStateReporter({
+  defaultValues,
+  onDirtyChange,
+  onEmptyChange,
+}: {
+  defaultValues: AllEventsFiltersData;
+  onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
+}) {
+  const { values, dirty } = useFormikContext<AllEventsFiltersData>();
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    onEmptyChange?.(JSON.stringify(values) === JSON.stringify(defaultValues));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, onEmptyChange]);
+
+  return null;
+}
+
 function AllEventFilterModal({
   onApply,
   initialValues,
   onDirtyChange,
+  onEmptyChange,
   isInnerModal,
 }: AllEventFilterModalProps) {
   const defaultValues: AllEventsFiltersData = {
@@ -141,13 +172,14 @@ function AllEventFilterModal({
           onApply(values);
         }}
       >
-        {({ values, setFieldTouched, setFieldValue, dirty }) => {
-          useEffect(() => {
-            if (onDirtyChange) onDirtyChange(dirty);
-          }, [dirty, onDirtyChange]);
-
+        {({ values, setFieldTouched, setFieldValue }) => {
           return (
             <Form className="event-modal">
+              <FilterStateReporter
+                defaultValues={defaultValues}
+                onDirtyChange={onDirtyChange}
+                onEmptyChange={onEmptyChange}
+              />
               <div className="xss:pb-[20px] pb-[10px]">
                 <div className="grid grid-cols-2 miniscreen:grid-cols-2 miniscreen:gap-y-0 2xl:gap-6 lg:gap-6 md:gap-6 gap-6 mb-0 md:grid-cols-4 mobilescreen:gap-x-6 mobilescreen:gap-y-0 xs:flex xs:flex-col xs:gap-0">
                   {!isInnerModal && (

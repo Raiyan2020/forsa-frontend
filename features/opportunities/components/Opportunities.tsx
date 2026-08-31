@@ -36,6 +36,7 @@ export default function Opportunities() {
   const [searchQuery, setSearchQuery] = useState("");
   const [clearFiltersKey, setClearFiltersKey] = useState(0);
   const [isFilterDirty, setIsFilterDirty] = useState(false);
+  const [isFilterEmpty, setIsFilterEmpty] = useState(true);
   const [filters, setFilters] = useState<AllOpportunitiesFiltersData>({
     startDate: "",
     endDate: "",
@@ -197,6 +198,7 @@ export default function Opportunities() {
                 });
                 setClearFiltersKey((prev) => prev + 1);
               }}
+              disabled={isFilterEmpty}
               type="button"
             >
               {t("COMMON.CLEAR")}
@@ -209,6 +211,7 @@ export default function Opportunities() {
           onApply={handleApplyFilters}
           initialValues={filters}
           onDirtyChange={setIsFilterDirty}
+          onEmptyChange={setIsFilterEmpty}
           showLearnServeFields={true}
           showVolunteerFields={true}
         />

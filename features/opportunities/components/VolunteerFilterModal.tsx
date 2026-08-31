@@ -14,6 +14,7 @@ interface VolunteerFilterModalProps {
   onFilterChange: (filters: { teams?: string[]; roles?: string[] }) => void;
   currentFilters: { teams?: string[]; roles?: string[] };
   onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
 }
 
 interface Team {
@@ -42,18 +43,25 @@ interface FormValues {
 
 /**
  * The React original called `useEffect` inside the Formik render prop, which
- * isn't a valid hook position. The dirty flag is reported from a child instead.
+ * isn't a valid hook position. The dirty/empty flags are reported from a
+ * child instead.
  */
 function DirtyReporter({
   onDirtyChange,
+  onEmptyChange,
 }: {
   onDirtyChange?: (dirty: boolean) => void;
+  onEmptyChange?: (isEmpty: boolean) => void;
 }) {
-  const { dirty } = useFormikContext<FormValues>();
+  const { dirty, values } = useFormikContext<FormValues>();
 
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    onEmptyChange?.(values.teams.length === 0 && values.roles.length === 0);
+  }, [values, onEmptyChange]);
 
   return null;
 }
@@ -63,6 +71,7 @@ export default function VolunteerFilterModal({
   onFilterChange,
   currentFilters,
   onDirtyChange,
+  onEmptyChange,
 }: VolunteerFilterModalProps) {
   const { t } = useTranslation();
   const selectedLanguage = useLanguageStore((s) => s.language);
@@ -154,7 +163,7 @@ export default function VolunteerFilterModal({
       {({ setFieldValue, values }) => (
         <div className="md:w-[100%] rounded-lg bg-white pb-[20px] xss:pb-[30px] filtermodal">
           <Form>
-            <DirtyReporter onDirtyChange={onDirtyChange} />
+            <DirtyReporter onDirtyChange={onDirtyChange} onEmptyChange={onEmptyChange} />
             <div className="grid grid-cols-2 xss:grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 relative selectfiled">
               <div>
                 <Select<SelectOption, true>
