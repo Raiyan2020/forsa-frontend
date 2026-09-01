@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { Formik, Form, FormikHelpers } from "formik";
+import { Formik, Form, FormikHelpers, FormikProps } from "formik";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ import {
   takeSocialPrefill,
 } from "@/lib/auth/socialSignup";
 import { isLicenseExemptOrgType } from "@/data/orgTypes";
+import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 
 const CountryCodeSelect = dynamic(
   () => import("@/components/ui/CountryCodeSelect"),
@@ -98,6 +99,16 @@ export default function CompleteDetails() {
   });
   const nicknameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Read once and consume: the JoinUs "Volunteer Team" shortcut sets this
+  // right before pushing here. `useState`'s lazy initializer runs
+  // synchronously during the first render, so the flag is settled before it's
+  // needed below — no effect-timing race.
+  const [isVolunteerTeamJoin] = useState(
+    () => !!takeNavState<boolean>(NAV_STATE_KEYS.joinAsVolunteerTeam)
+  );
+  const volunteerTeamPrefilled = useRef(false);
+  const formikRef = useRef<FormikProps<CompleteDetailsValues> | null>(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
     try {
@@ -119,12 +130,28 @@ export default function CompleteDetails() {
   });
 
   // Transform API responses into options for SelectInput
-  const orgTypeOptions =
-    orgTypeData?.data?.map((item: any) => ({
-      label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
-      value: String(item.id), // Use id as string
-      rawValue: item.value_en,
-    })) || [];
+  const orgTypeOptions = useMemo(
+    () =>
+      orgTypeData?.data?.map((item: any) => ({
+        label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
+        value: String(item.id), // Use id as string
+        rawValue: item.value_en,
+      })) || [],
+    [orgTypeData, selectedLanguage]
+  );
+
+  // The "Volunteer Team" org_type choice is backend-driven and only known
+  // once orgTypeOptions loads, so this can't be a Formik initialValue — it's
+  // applied imperatively, once, as soon as the matching option arrives.
+  useEffect(() => {
+    if (!isVolunteerTeamJoin || volunteerTeamPrefilled.current) return;
+    const volunteerTeam = orgTypeOptions.find(
+      (o: (typeof orgTypeOptions)[number]) => o.rawValue === "Volunteer Team"
+    );
+    if (!volunteerTeam) return;
+    volunteerTeamPrefilled.current = true;
+    formikRef.current?.setFieldValue("organizer_type", volunteerTeam.value);
+  }, [isVolunteerTeamJoin, orgTypeOptions]);
 
   const initialValues: CompleteDetailsValues = applyPrefill(
     {
@@ -342,6 +369,7 @@ export default function CompleteDetails() {
           {t("COMMON.COMPLETEYOURDETAILS")}
         </h2>
         <Formik
+          innerRef={formikRef}
           initialValues={initialValues}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}

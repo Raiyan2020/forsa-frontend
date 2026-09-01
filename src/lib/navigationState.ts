@@ -25,6 +25,13 @@ export const NAV_STATE_KEYS = {
   learnServeForm: "learn_serve_form_details",
   /** LinkedIn sign-up handoff, consumed by the volunteer mandate modal */
   linkedinNewUser: "linkedin_new_user_data",
+  /**
+   * JoinUs "Volunteer Team" shortcut → /entities-form or /complete-details.
+   * The destination pre-selects the `organizer_type` matching the backend's
+   * "Volunteer Team" org_type choice once it loads (registration still submits
+   * as `user_type: "organization"` — a volunteer team is an org subtype).
+   */
+  joinAsVolunteerTeam: "join_as_volunteer_team",
 } as const;
 
 export type NavStateKey = (typeof NAV_STATE_KEYS)[keyof typeof NAV_STATE_KEYS];

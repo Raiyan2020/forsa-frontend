@@ -94,6 +94,7 @@ interface LearnServeFormValues {
   license_image?: File | string;
   gender: string;
   is_kuwaitis: boolean;
+  is_paid: boolean;
 }
 
 interface LearnServeFormProps {
@@ -740,6 +741,7 @@ export default function LearnServeForm({
     meetingLink: opportunityData?.link || "",
     gender: opportunityData?.gender_display?.id || "",
     is_kuwaitis: opportunityData?.is_kuwaitis === true,
+    is_paid: opportunityData?.is_paid === true,
     opportunity_images: [],
     license_image: "",
     _interests: resolveInterestOptionIds(
@@ -997,6 +999,7 @@ export default function LearnServeForm({
       // The API's `boolean` validation rule only accepts 1/0 (or "1"/"0"),
       // not the literal strings "true"/"false".
       formData.append("is_kuwaitis", values.is_kuwaitis ? "1" : "0");
+      formData.append("is_paid", values.is_paid ? "1" : "0");
       formData.append("gender", values.gender);
 
       if (values.dueDate) {
@@ -1733,6 +1736,19 @@ export default function LearnServeForm({
                         </div>
                       </div>
                     )}
+
+                    {/* Unlike the certificate/Kuwaitis-only fields above, whether an
+                        opportunity is paid applies to every learn-and-serve format. */}
+                    <div className="w-full flex justify-start pb-[15px] h-[62px] xss:h-[45px] xss:pl-2 items-center">
+                      <CheckBox
+                        id="is_paid"
+                        label={t("COMMON.PAID_OPPORTUNITY")}
+                        checked={values.is_paid}
+                        onChange={(checked) =>
+                          setFieldValue("is_paid", checked)
+                        }
+                      />
+                    </div>
 
                     <div className="descritpionitm descritpionitm-ar">
                       <Field
