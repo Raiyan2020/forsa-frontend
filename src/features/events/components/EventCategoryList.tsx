@@ -8,7 +8,7 @@ import Searchbar from "@/components/ui/Searchbar";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Title from "@/components/shared/Title";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { useAuthStore } from "@/store/authStore";
 import AllEventFilterModal, {
   AllEventsFiltersData,

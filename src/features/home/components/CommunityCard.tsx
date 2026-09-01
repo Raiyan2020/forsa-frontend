@@ -298,7 +298,9 @@ function PostCard({ post, onDelete, router, selectedLanguage, t }: PostCardProps
                       e.preventDefault();
                       e.stopPropagation();
                       setShowDropdown(false);
-                      router.push(`/edit-post/${post.id}`);
+                      // No standalone edit route exists — the community detail
+                      // page hosts the real edit-post modal (InnerPost.tsx).
+                      router.push(`/community-detail/${post.id}`);
                     }}
                     className="flex items-center gap-2 w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 rounded-t-lg transition-colors duration-200"
                   >

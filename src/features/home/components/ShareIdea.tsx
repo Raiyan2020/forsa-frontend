@@ -9,7 +9,7 @@ import Image from "next/image";
 import { useLanguageStore } from "@/store/languageStore";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
 import { pickLocalized, type ShareIdeaCms } from "@/features/shared";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 
 export default function ShareIdea({ data }: { data?: ShareIdeaCms | null }) {
   const language = useLanguageStore((s) => s.language);

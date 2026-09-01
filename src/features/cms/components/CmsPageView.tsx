@@ -8,7 +8,7 @@
  * sanitization does not happen here.
  */
 import Title from "@/components/shared/Title";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 import { useLanguageStore } from "@/store/languageStore";
 import { pickLocalized } from "@/features/shared";
 

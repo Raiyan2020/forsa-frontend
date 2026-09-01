@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { downloadEventRegistrations, getEventRegistrations } from "@/features/events/services/eventsApi";
 import { markVolunteerAttendance } from "@/features/opportunities/services/attendance";
 import { getDefaultProfileImage } from "@/lib/helpers";

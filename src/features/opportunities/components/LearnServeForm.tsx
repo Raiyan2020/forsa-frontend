@@ -34,9 +34,8 @@ import UploadDocument from "@/components/ui/UploadDocument";
 import Title from "@/components/shared/Title";
 import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
 import EventCreateTimingModal from "@/features/events/components/EventCreateTimingModal";
-import EventTimeSlotModal, {
-  TimeSlot,
-} from "@/features/events/components/EventTimeSlotModal";
+import EventTimeSlotModal from "@/features/events/components/EventTimeSlotModal";
+import type { TimeSlot } from "@/features/shared";
 import { checkLicenseRequirement } from "@/features/opportunities/services/opportunities";
 import { createLearnServeOpportunity, getLearnServeOpportunityById, updateLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { deleteAllTimeSlots, getTimeSlots } from "@/features/opportunities/services/registrations";

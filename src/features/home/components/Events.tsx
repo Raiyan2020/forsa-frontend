@@ -4,7 +4,7 @@ import { useState } from "react";
 import "react-multi-carousel/lib/styles.css";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 import Link from "next/link";
 import apiClient from "@/lib/api/client";
 import { useAuthStore } from "@/store/authStore";

@@ -1,5 +1,6 @@
 export * from "./components";
 export * from "./types/cms";
+export * from "./types/timeSlot";
 // NOTE: do NOT re-export ./schemas here. `schemas/fields.ts` imports the i18n
 // singleton (`@/lib/i18n/config`), which pulls in react-i18next — and that
 // calls `createContext` at module scope, which does not exist in the React

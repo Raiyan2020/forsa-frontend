@@ -1,5 +1,3 @@
-"use client";
-
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import VolunteerForm from "@/features/opportunities/components/VolunteerForm";
 

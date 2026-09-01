@@ -7,7 +7,7 @@ import Input from "@/components/ui/Input";
 import PhoneInput from "@/components/ui/PhoneInput";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 import TextArea from "@/components/ui/TextArea";
 import UploadDocument from "@/components/ui/UploadDocument";
 import { YupEmail, YupFileSize, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";

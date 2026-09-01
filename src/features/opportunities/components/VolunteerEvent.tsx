@@ -24,7 +24,7 @@ import LoginForm from "@/features/auth/components/LoginForm";
 import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolunteerModalForm";
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { closeVolunteerOpportunityRegistration, reopenVolunteerOpportunityRegistration, resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages } from "@/features/opportunities/services/opportunities";
 import {
@@ -34,13 +34,13 @@ import {
   openLocation,
   toNumber,
 } from "@/lib/helpers";
-import { getCheckInCountdown, getCheckInWindow } from "@/lib/checkInWindow";
+import { getCheckInCountdown, getCheckInWindow } from "@/features/opportunities/checkInWindow";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
-} from "@/lib/opportunityButtonState";
+} from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";

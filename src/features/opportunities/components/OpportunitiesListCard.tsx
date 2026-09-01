@@ -16,7 +16,7 @@ import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
-} from "@/lib/opportunityButtonState";
+} from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import OpportunityBadges, {
   OpportunityVisibilityInfo,

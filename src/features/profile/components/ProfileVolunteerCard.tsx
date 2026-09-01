@@ -20,7 +20,7 @@ import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
-} from "@/lib/opportunityButtonState";
+} from "@/features/shared/opportunityButtonState";
 import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
 import { formatDateRange } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";

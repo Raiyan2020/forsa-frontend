@@ -9,20 +9,10 @@ import { RiDeleteBin5Fill } from "react-icons/ri";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";
+import type { TimeSlot } from "@/features/shared";
 import EventCreateTimingModal from "./EventCreateTimingModal";
 
-export interface TimeSlot {
-  id: number;
-  date: string;
-  start_time: string;
-  end_time: string;
-  participants_needed: number;
-  event_start_date?: string;
-  event_end_date?: string;
-  event_start_time?: string;
-  event_end_time?: string;
-  isSaved: boolean;
-}
+export type { TimeSlot };
 
 interface EventTimeSlotModalProps {
   startDate: string;

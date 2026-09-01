@@ -2,7 +2,7 @@
 
 import "react-multi-carousel/lib/styles.css";
 import { useTranslation } from "react-i18next";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api/client";

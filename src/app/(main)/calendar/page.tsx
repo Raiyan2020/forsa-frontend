@@ -1,5 +1,3 @@
-"use client";
-
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import Calendar from "@/features/calendar/components/Calendar";
 

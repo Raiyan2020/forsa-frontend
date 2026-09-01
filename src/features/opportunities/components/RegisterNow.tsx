@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Title from "@/components/shared/Title";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 import { formatSingleDate } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { TimeSlot } from "@/features/events/components/EventTimeSlotModal";
+import type { TimeSlot } from "@/features/shared";
 
 interface EventDetails {
   start_date: string;

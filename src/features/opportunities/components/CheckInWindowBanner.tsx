@@ -3,8 +3,8 @@
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 
-import type { CheckInWindow } from "@/lib/checkInWindow";
-import { getCheckInCountdown } from "@/lib/checkInWindow";
+import type { CheckInWindow } from "@/features/opportunities/checkInWindow";
+import { getCheckInCountdown } from "@/features/opportunities/checkInWindow";
 
 /**
  * States how much longer attendance can be recorded, or that the window has

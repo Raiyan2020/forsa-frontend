@@ -12,7 +12,7 @@ import { getSponsors } from "@/features/partners/services/partnersApi";
 import { getDropdownChoices } from "@/features/shared/services/dropdowns";
 import Loader from "@/components/ui/Loader";
 import { useLanguageStore } from "@/store/languageStore";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 
 const responsive = {
   superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 4 },

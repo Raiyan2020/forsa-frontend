@@ -13,7 +13,7 @@ export { default as Sponsors } from "./Sponsors";
 export { default as SponsorsClient } from "./SponsorsClient";
 export { default as SponsorsHeading } from "./SponsorsHeading";
 export { default as SponsorsMarquee } from "./SponsorsMarquee";
-export { default as Title } from "./Title";
+export { default as Title } from "@/components/shared/Title";
 export { default as Volunteer } from "./Volunteer";
 export { default as VolunteerCard } from "./VolunteerCard";
 export { default as VolunteerContributions } from "./VolunteerContributions";

@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense } from "react";
 import Loader from "@/components/ui/Loader";
 import VolunteerProfilesList from "@/features/profile/components/VolunteerProfilesList";

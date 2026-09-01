@@ -1,5 +1,3 @@
-"use client";
-
 import RegisterList from "@/features/opportunities/components/RegisterList";
 
 export default function Page() {

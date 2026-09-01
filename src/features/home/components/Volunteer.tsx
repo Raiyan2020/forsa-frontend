@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import VolunteerCard from "./VolunteerCard";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 import type { HomeOpportunity } from "@/features/home/types";

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Title from "@/components/shared/Title";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 
 export default function PostingThankyou() {
   const { t } = useTranslation();

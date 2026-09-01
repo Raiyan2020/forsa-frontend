@@ -1,5 +1,3 @@
-"use client";
-
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import LearnServeForm from "@/features/opportunities/components/LearnServeForm";
 

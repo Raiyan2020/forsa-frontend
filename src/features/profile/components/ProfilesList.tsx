@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { getOrganizationProfilesList, getVolunteerProfilesList, getVolunteerTeamProfilesList } from "@/features/profile/services/profileApi";
 import { ProfileCard, type UserProfile } from "./MoreProfile";
 import MoreProfileFilterForm from "./MoreProfileFilterForm";

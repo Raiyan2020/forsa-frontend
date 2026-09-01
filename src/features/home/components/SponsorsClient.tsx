@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api/client";
 import SponsorsMarquee from "./SponsorsMarquee";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 
 interface Sponsor {
   id: number;

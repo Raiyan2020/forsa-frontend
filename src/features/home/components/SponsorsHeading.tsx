@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import Title from "./Title";
+import Title from "@/components/shared/Title";
 
 /** Tiny client island just for the translated heading. */
 export default function SponsorsHeading() {

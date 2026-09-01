@@ -1,5 +1,3 @@
-"use client";
-
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import AccountInformation from "@/features/profile/components/AccountInformation";
 

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import Title from "@/components/shared/Title";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { getEventById, getEventTimeSlots, registerForEvent, unregisterFromEvent } from "@/features/events/services/eventsApi";
 import { formatSingleDate, openLocation } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";

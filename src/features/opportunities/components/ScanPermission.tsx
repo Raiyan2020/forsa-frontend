@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
 import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { bulkUpdateScanPermissions, downloadScanPermissions, getAllVolunteers, getScanPermissionsList } from "@/features/opportunities/services/attendance";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";

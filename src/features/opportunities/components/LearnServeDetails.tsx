@@ -23,7 +23,7 @@ import LoginForm from "@/features/auth/components/LoginForm";
 import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolunteerModalForm";
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
-import SponsorsClient from "@/features/home/components/SponsorsClient";
+import { SponsorsClient } from "@/features/home";
 import { closeLearnServeOpportunityRegistration, getLearnServeOpportunityById, updateLearnServeOpportunityImages } from "@/features/opportunities/services/learnServe";
 import { deleteOpportunityImage, downloadOpportunityImage } from "@/features/opportunities/services/opportunities";
 import {
@@ -33,7 +33,7 @@ import {
   toNumber,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
-import { isCreatorRepostState } from "@/lib/opportunityButtonState";
+import { isCreatorRepostState } from "@/features/shared/opportunityButtonState";
 import {
   NAV_STATE_KEYS,
   clearNavState,

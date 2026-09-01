@@ -1,5 +1,3 @@
-"use client";
-
 import { Suspense } from "react";
 import LearnServeList from "@/features/opportunities/components/LearnServeList";
 import Loader from "@/components/ui/Loader";

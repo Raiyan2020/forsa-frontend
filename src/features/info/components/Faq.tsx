@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 import Title from "@/components/shared/Title";
 import Loader from "@/components/ui/Loader";
 import { useTranslation } from "react-i18next";

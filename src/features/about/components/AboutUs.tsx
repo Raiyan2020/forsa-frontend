@@ -1,8 +1,8 @@
 "use client";
 
-import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
+import { HomepageBannerClient } from "@/features/home";
 import CmsPageView from "@/features/cms/components/CmsPageView";
-import WhyForsa from "@/features/home/components/WhyForsa";
+import { WhyForsa } from "@/features/home";
 import Founders from "./Founders";
 import HowForsaWork from "./HowForsaWork";
 import type { WhyFursaItem } from "@/features/shared";
