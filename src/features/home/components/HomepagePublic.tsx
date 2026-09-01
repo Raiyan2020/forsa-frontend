@@ -27,8 +27,8 @@ import {
   fetchHomeLearnServeOpportunities,
   fetchHomeEvents,
   fetchHomeCommunityPosts,
-  fetchHomeCms,
-} from "@/lib/api/server";
+} from "@/features/home/services/server";
+import { fetchHomeCms } from "@/features/cms/services/server";
 
 export default async function HomepagePublic() {
   // All fetches run in parallel — total wait time = slowest single request

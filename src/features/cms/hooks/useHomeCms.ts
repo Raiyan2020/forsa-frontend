@@ -3,14 +3,15 @@
 /**
  * Client-side access to the admin-editable homepage payload.
  *
- * Server Components should call `fetchHomeCms` from `lib/api/server.ts`
- * instead — this hook exists for surfaces that only ever render on the client
+ * Server Components should call `fetchHomeCms` from
+ * `@/features/cms/services/server` instead — this hook exists for surfaces
+ * that only ever render on the client
  * (authenticated homepage, contact page). One shared query key means the
  * request is made once per session regardless of how many components read it.
  */
 import { useQuery } from "@tanstack/react-query";
 import { getHomeCms } from "@/features/cms/services/cmsApi";
-import type { HomeCms } from "@/lib/api/cms";
+import type { HomeCms } from "@/features/shared";
 
 export function useHomeCms({ enabled = true }: { enabled?: boolean } = {}) {
   const { data, isLoading } = useQuery({

@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { communityPostContactUs } from "@/features/community/services/communityApi";
 import { useEffect } from "react";
 import * as Yup from "yup";
-import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
+import { YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { toast } from "sonner";
 
 interface FormValues {

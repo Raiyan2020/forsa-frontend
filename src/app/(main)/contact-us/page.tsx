@@ -4,7 +4,7 @@
  */
 import type { Metadata } from "next";
 import ContactUs from "@/features/info/components/ContactUs";
-import { fetchHomeCms } from "@/lib/api/server";
+import { fetchHomeCms } from "@/features/cms/services/server";
 
 export const revalidate = 60;
 

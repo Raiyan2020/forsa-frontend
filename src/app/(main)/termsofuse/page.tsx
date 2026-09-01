@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import CmsPageView from "@/features/cms/components/CmsPageView";
 import TermsOfUse from "@/features/info/components/TermsOfUse";
-import { fetchCmsPage } from "@/lib/api/server";
+import { fetchCmsPage } from "@/features/cms/services/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
 export const revalidate = 300;

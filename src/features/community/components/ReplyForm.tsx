@@ -9,7 +9,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { createCommunityReply, updateReply, getReplyById } from "@/features/community/services/communityApi";
 import { useEffect, useState } from "react";
 import * as Yup from "yup";
-import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
+import { YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { toast } from "sonner";
 import Loader from "@/components/ui/Loader";
 

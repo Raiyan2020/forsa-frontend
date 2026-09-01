@@ -10,7 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import { changePasswordRequest } from "@/features/auth/services/authApi";
 import { useRouter } from "next/navigation";
 import * as Yup from "yup";
-import { YupRequiredString, YupStrongPassword } from "@/lib/schema";
+import { YupRequiredString, YupStrongPassword } from "@/features/shared/schemas";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";

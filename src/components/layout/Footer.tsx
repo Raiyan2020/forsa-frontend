@@ -6,11 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
-import {
-  pickLocalized,
-  type FooterCms,
-  type FooterSocial,
-} from "@/lib/api/cms";
+import { pickLocalized, type FooterCms, type FooterSocial } from "@/features/shared";
 
 // Inline SVGs replace react-icons to eliminate icon library chunks from the layout bundle.
 // The layout renders on every page — library icons would add ~50–100 KB to every page.

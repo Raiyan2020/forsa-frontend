@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useLanguageStore } from "@/store/languageStore";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
-import { pickLocalized, type ShareIdeaCms } from "@/lib/api/cms";
+import { pickLocalized, type ShareIdeaCms } from "@/features/shared";
 import Title from "./Title";
 
 export default function ShareIdea({ data }: { data?: ShareIdeaCms | null }) {

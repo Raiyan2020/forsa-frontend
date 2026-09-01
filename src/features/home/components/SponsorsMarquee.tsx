@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import type { SponsorItem } from "@/lib/api/server";
+import type { SponsorItem } from "@/features/home/types";
 
 interface SponsorsMarqueeProps {
   sponsors: SponsorItem[];

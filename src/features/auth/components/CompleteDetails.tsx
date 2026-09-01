@@ -23,13 +23,7 @@ import {
   passSocialInfoRequest,
 } from "@/features/auth/services/authApi";
 import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
-import {
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  YupDigitsOnlyOptional,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupPhoneNumber, YupRequiredString, YupStringMaxLength, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import {

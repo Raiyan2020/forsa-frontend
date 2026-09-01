@@ -4,7 +4,7 @@
  */
 import type { Metadata } from "next";
 import AboutUs from "@/features/about/components/AboutUs";
-import { fetchCmsPage, fetchHomeCms } from "@/lib/api/server";
+import { fetchCmsPage, fetchHomeCms } from "@/features/cms/services/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
 export const revalidate = 300;

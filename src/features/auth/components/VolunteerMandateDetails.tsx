@@ -25,13 +25,7 @@ import {
 import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { nationalityOptions } from "@/data/Constants";
 import { cn } from "@/lib/helpers";
-import {
-  YupCivilId,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupCivilId, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import {

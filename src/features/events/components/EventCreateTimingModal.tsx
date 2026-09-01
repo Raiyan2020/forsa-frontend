@@ -12,7 +12,7 @@ import DatePickerInput from "@/components/ui/DateField";
 import { Button } from "@/components/ui/Button";
 import i18n from "@/lib/i18n/config";
 import { formatDateToYYYYMMDD } from "@/lib/helpers";
-import { YupNumberOnly } from "@/lib/schema";
+import { YupNumberOnly } from "@/features/shared/schemas";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";
 import type { TimeSlot } from "./EventTimeSlotModal";
 

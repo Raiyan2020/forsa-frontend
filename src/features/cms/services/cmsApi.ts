@@ -1,9 +1,9 @@
 import apiClient from "@/lib/api/client";
 import type { ApiResponse } from "@/lib/api/types";
-import type { CmsPage, HomeCms } from "@/lib/api/cms";
+import type { CmsPage, HomeCms } from "@/features/shared";
 
 /**
- * Client-side twin of `fetchHomeCms` in `lib/api/server.ts`. Server Components
+ * Client-side twin of `fetchHomeCms` in `cms/services/server.ts`. Server Components
  * should use that one; this exists for the client-rendered surfaces
  * (authenticated homepage, contact page) that cannot read ISR data.
  */

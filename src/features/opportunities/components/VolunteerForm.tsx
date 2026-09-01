@@ -50,12 +50,7 @@ import {
 } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
-import {
-  YupNumberOnly,
-  YupRequiredString,
-  YupStringMaxLength,
-  YupWhatsAppLink,
-} from "@/lib/schema";
+import { YupNumberOnly, YupRequiredString, YupStringMaxLength, YupWhatsAppLink } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useRoleModalStore } from "@/store/roleModalStore";

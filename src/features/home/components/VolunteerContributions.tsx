@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api/client";
 import CommunityCard from "./CommunityCard";
 import { useState } from "react";
-import type { CommunityPost } from "@/lib/api/server";
+import type { CommunityPost } from "@/features/home/types";
 
 interface VolunteerContributionsProps {
   /** Pre-fetched posts from the server (optional — client fetches if absent) */

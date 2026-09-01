@@ -8,8 +8,8 @@
  *
  * Interactive behaviour (auto-advance, dot clicks) lives in BannerCarousel.
  */
-import { fetchHomeCms } from "@/lib/api/server";
-import type { HomeStatistics } from "@/lib/api/cms";
+import { fetchHomeCms } from "@/features/cms/services/server";
+import type { HomeStatistics } from "@/features/shared";
 import BannerCarousel from "./BannerCarousel";
 
 const FALLBACK_STATS: HomeStatistics = {

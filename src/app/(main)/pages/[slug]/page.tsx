@@ -6,8 +6,8 @@
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import CmsPageView from "@/features/cms/components/CmsPageView";
-import { CMS_PAGE_ROUTES } from "@/lib/api/cms";
-import { fetchCmsPage, fetchCmsPages } from "@/lib/api/server";
+import { CMS_PAGE_ROUTES } from "@/features/shared";
+import { fetchCmsPage, fetchCmsPages } from "@/features/cms/services/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
 export const revalidate = 300;

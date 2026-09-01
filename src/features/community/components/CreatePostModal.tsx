@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import ModalTextarea from "@/components/ui/ModalTextarea";
 import UploadDocument from "@/components/ui/UploadDocument";
 import Toggle from "@/components/ui/Toggle";
-import { YupRequiredString } from "@/lib/schema";
+import { YupRequiredString } from "@/features/shared/schemas";
 import * as Yup from "yup";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { createCommunityPost, getCommunityPostById, updateCommunityPost } from "@/features/community/services/communityApi";

@@ -46,13 +46,7 @@ import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
-import {
-  YupFlexibleUrl,
-  YupOptionalUrl,
-  YupNumberOnly,
-  YupRequiredString,
-  YupStringMaxLength,
-} from "@/lib/schema";
+import { YupFlexibleUrl, YupOptionalUrl, YupNumberOnly, YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";

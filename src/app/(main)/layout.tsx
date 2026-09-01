@@ -2,7 +2,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 import NotificationSync from "@/components/shared/NotificationSync";
-import { fetchHomeCms } from "@/lib/api/server";
+import { fetchHomeCms } from "@/features/cms/services/server";
 
 export default async function MainLayout({
   children,

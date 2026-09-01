@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
-import { pickLocalized, type HeroBanner, type HomeStatistics } from "@/lib/api/cms";
+import { pickLocalized, type HeroBanner, type HomeStatistics } from "@/features/shared";
 
 interface BannerCarouselProps {
   /** Hero slides from the CMS (`GET /home/` → `hero.banners`). */

@@ -7,7 +7,7 @@
  * The section heading is translated client-side via the i18n provider that
  * wraps the whole app — no useTranslation hook needed here.
  */
-import { fetchSponsors } from "@/lib/api/server";
+import { fetchSponsors } from "@/features/home/services/server";
 import SponsorsMarquee from "@/features/home/components/SponsorsMarquee";
 import SponsorsHeading from "@/features/home/components/SponsorsHeading";
 

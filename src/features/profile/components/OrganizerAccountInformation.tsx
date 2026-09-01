@@ -27,7 +27,7 @@ import { getAccountInfo, getOrganizerProfile, updateAccountInfo, updateOrganizer
 import { socialMediaOptions } from "@/data/Constants";
 import { isLicenseExemptOrgType } from "@/data/orgTypes";
 import { withCacheBust } from "@/lib/helpers";
-import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/lib/schema";
+import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";

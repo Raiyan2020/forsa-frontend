@@ -10,10 +10,10 @@ import ModalTextarea from "./ModalTextarea";
 import { useMutation } from "@tanstack/react-query";
 import { createContactUs } from "@/features/info/services/infoApi";
 import { useState } from "react";
-import { YupEmail, YupRequiredString } from "@/lib/schema";
+import { YupEmail, YupRequiredString } from "@/features/shared/schemas";
 import { toast } from "sonner";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
-import { pickLocalized, type FooterContact } from "@/lib/api/cms";
+import { pickLocalized, type FooterContact } from "@/features/shared";
 import { getApiErrorMessage } from "@/lib/api/errors";
 
 /** No bundled WhatsApp asset — the icon set is inline SVG elsewhere too. */

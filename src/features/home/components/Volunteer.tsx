@@ -5,7 +5,7 @@ import VolunteerCard from "./VolunteerCard";
 import Title from "./Title";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
-import type { HomeOpportunity } from "@/lib/api/server";
+import type { HomeOpportunity } from "@/features/home/types";
 
 interface VolunteerProps {
   /** Pre-fetched opportunities from the server (optional — client fetches if absent) */

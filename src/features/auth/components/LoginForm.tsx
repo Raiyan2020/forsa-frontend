@@ -17,7 +17,7 @@ import { useLanguageStore } from "@/store/languageStore";
 import { loginRequest, checkUserRequest, passSocialInfoRequest } from "@/features/auth/services/authApi";
 import { getApiErrorMessages, getApiFieldErrors } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
-import { YupEmail, YupRequiredString } from "@/lib/schema";
+import { YupEmail, YupRequiredString } from "@/features/shared/schemas";
 import * as Yup from "yup";
 import { handleGoogleLogin } from "@/lib/helpers";
 import Loader from "@/components/ui/Loader";

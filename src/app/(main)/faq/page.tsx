@@ -1,6 +1,6 @@
 import Faq from "@/features/info/components/Faq";
 import { API_BASE_URL } from "@/lib/api/config";
-import { SERVER_API_HEADERS } from "@/lib/api/server";
+import { SERVER_API_HEADERS } from "@/lib/api/config";
 import type { ApiResponse, FaqItem } from "@/lib/api/types";
 
 async function fetchFaqs(): Promise<ApiResponse<FaqItem[]>> {

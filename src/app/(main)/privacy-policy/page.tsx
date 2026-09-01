@@ -4,7 +4,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CmsPageView from "@/features/cms/components/CmsPageView";
-import { fetchCmsPage } from "@/lib/api/server";
+import { fetchCmsPage } from "@/features/cms/services/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
 export const revalidate = 300;

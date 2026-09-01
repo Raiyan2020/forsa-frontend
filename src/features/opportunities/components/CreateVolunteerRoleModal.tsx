@@ -11,11 +11,7 @@ import ModalTextarea from "@/components/ui/ModalTextarea";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { createVolunteerOpportunityRole, getVolunteerOpportunityRoleById, updateVolunteerOpportunityRole } from "@/features/opportunities/services/roles";
-import {
-  YupNumberOnly,
-  YupRequiredString,
-  YupStringMaxLength,
-} from "@/lib/schema";
+import { YupNumberOnly, YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { useLanguageStore } from "@/store/languageStore";
 import { getApiErrorMessages } from "@/lib/api/errors";
 

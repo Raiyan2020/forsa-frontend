@@ -31,19 +31,8 @@ import {
   socialOnboardingRoute,
   stashSocialProfile,
 } from "@/lib/auth/socialSignup";
-import {
-  YupEmail,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  YupStrongPassword,
-  YupCivilId,
-  YupDateOfBirth,
-  MIN_SIGNUP_AGE,
-  createPhoneNumberSchema,
-  calculateAgeFromDob,
-  maxDateOfBirthFor,
-} from "@/lib/schema";
+import { YupEmail, YupPhoneNumber, YupRequiredString, YupStringMaxLength, YupStrongPassword, YupCivilId, MIN_SIGNUP_AGE, createPhoneNumberSchema, calculateAgeFromDob } from "@/features/shared/schemas";
+import { YupDateOfBirth, maxDateOfBirthFor } from "@/features/shared/schemas";
 import { cn, handleGoogleLogin } from "@/lib/helpers";
 import dynamic from "next/dynamic";
 const CountryCodeSelect = dynamic(

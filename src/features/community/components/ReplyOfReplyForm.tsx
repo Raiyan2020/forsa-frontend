@@ -11,7 +11,7 @@ import ModalTextarea from "@/components/ui/ModalTextarea";
 import UploadDocument from "@/components/ui/UploadDocument";
 import Loader from "@/components/ui/Loader";
 import { createCommunityReply, getReplyById, updateReply } from "@/features/community/services/communityApi";
-import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
+import { YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface ReplyImage {

@@ -9,7 +9,7 @@ import Link from "next/link";
 import apiClient from "@/lib/api/client";
 import { useAuthStore } from "@/store/authStore";
 import EventCard from "./EventCard";
-import type { HomeEvent } from "@/lib/api/server";
+import type { HomeEvent } from "@/features/home/types";
 
 interface EventsProps {
   /** Pre-fetched events from the server (optional — client fetches if absent) */

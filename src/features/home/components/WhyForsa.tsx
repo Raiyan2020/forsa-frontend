@@ -13,7 +13,7 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
-import { pickLocalized, type WhyFursaItem } from "@/lib/api/cms";
+import { pickLocalized, type WhyFursaItem } from "@/features/shared";
 
 function Card({ item, language }: { item: WhyFursaItem; language: string }) {
   const title = pickLocalized(item.title_en, item.title_ar, language);

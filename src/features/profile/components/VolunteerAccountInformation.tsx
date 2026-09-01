@@ -37,13 +37,7 @@ import {
   getDefaultProfileImage,
   withCacheBust,
 } from "@/lib/helpers";
-import {
-  YupCivilId,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupCivilId, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";

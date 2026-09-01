@@ -32,15 +32,7 @@ import {
   socialOnboardingRoute,
   stashSocialProfile,
 } from "@/lib/auth/socialSignup";
-import {
-  YupEmail,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  YupStrongPassword,
-  YupDigitsOnlyOptional,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupEmail, YupPhoneNumber, YupRequiredString, YupStringMaxLength, YupStrongPassword, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { handleGoogleLogin } from "@/lib/helpers";
 import { isLicenseExemptOrgType } from "@/data/orgTypes";
 import dynamic from "next/dynamic";

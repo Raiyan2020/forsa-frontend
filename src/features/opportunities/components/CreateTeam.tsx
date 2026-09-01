@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import ModalInput from "@/components/ui/ModalInput";
 import { createTeam, getTeamById, updateTeam } from "@/features/opportunities/services/registrations";
-import { YupRequiredString, YupStringMaxLength } from "@/lib/schema";
+import { YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface TeamFormValues {

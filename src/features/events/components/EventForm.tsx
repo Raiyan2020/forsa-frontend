@@ -37,12 +37,7 @@ import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
-import {
-  YupFlexibleUrl,
-  YupOptionalUrl,
-  YupRequiredString,
-  YupStringMaxLength,
-} from "@/lib/schema";
+import { YupFlexibleUrl, YupOptionalUrl, YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import UpdateEventConfirmModal from "./UpdateEventConfirmModal";

@@ -8,7 +8,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useMutation } from "@tanstack/react-query";
 import { forgotPasswordRequest } from "@/features/auth/services/authApi";
-import { YupEmail } from "@/lib/schema";
+import { YupEmail } from "@/features/shared/schemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";

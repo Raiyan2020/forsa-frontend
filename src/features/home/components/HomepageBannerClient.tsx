@@ -9,7 +9,7 @@
  */
 import BannerCarousel from "./BannerCarousel";
 import { useHomeCms } from "@/features/cms/hooks/useHomeCms";
-import type { HomeStatistics } from "@/lib/api/cms";
+import type { HomeStatistics } from "@/features/shared";
 
 const FALLBACK_STATS: HomeStatistics = {
   volunteer_count: 0,

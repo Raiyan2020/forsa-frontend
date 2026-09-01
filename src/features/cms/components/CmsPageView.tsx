@@ -10,7 +10,7 @@
 import Title from "@/components/shared/Title";
 import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
 import { useLanguageStore } from "@/store/languageStore";
-import { pickLocalized } from "@/lib/api/cms";
+import { pickLocalized } from "@/features/shared";
 
 interface CmsPageViewProps {
   titleEn: string | null;

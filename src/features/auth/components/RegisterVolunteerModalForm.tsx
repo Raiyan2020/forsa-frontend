@@ -27,15 +27,7 @@ import { nationalityOptions } from "@/data/Constants";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
 import { handleGoogleLogin } from "@/lib/helpers";
-import {
-  YupCivilId,
-  YupEmail,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  YupStrongPassword,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupCivilId, YupEmail, YupPhoneNumber, YupRequiredString, YupStringMaxLength, YupStrongPassword, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 

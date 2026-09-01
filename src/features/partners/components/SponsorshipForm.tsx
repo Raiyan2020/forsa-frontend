@@ -10,14 +10,7 @@ import { Button } from "@/components/ui/Button";
 import HomepageBannerClient from "@/features/home/components/HomepageBannerClient";
 import TextArea from "@/components/ui/TextArea";
 import UploadDocument from "@/components/ui/UploadDocument";
-import {
-  YupEmail,
-  YupFileSize,
-  YupPhoneNumber,
-  YupRequiredString,
-  YupStringMaxLength,
-  createPhoneNumberSchema,
-} from "@/lib/schema";
+import { YupEmail, YupFileSize, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
 import SelectInput from "@/components/ui/SelectInput";
 import { useLanguageStore } from "@/store/languageStore";
 import { useMutation, useQuery } from "@tanstack/react-query";

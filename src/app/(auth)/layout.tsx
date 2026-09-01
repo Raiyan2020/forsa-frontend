@@ -2,7 +2,7 @@ import RedirectIfLoggedIn from "@/components/shared/RedirectIfLoggedIn";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { fetchHomeCms } from "@/lib/api/server";
+import { fetchHomeCms } from "@/features/cms/services/server";
 
 export default async function AuthLayout({
   children,
