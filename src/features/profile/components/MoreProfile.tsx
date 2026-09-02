@@ -187,6 +187,15 @@ export default function MoreProfile() {
     return result;
   }, [profileData]);
 
+  // Only the very first load (no data fetched yet for this page) should block
+  // the whole page behind the full Loader. Switching tabs/search/filters after
+  // that re-queries under a new key but must keep the page chrome in place and
+  // show a small spinner in the grid area instead.
+  const hasLoadedOnceRef = useRef(false);
+  useEffect(() => {
+    if (!profileLoading) hasLoadedOnceRef.current = true;
+  }, [profileLoading]);
+
   const sentinelRef = useRef<HTMLDivElement>(null);
   const nextPageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPendingNextPage, setIsPendingNextPage] = useState(false);
@@ -233,10 +242,11 @@ export default function MoreProfile() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  if (profileLoading && allProfiles.length === 0) {
+  if (profileLoading && allProfiles.length === 0 && !hasLoadedOnceRef.current) {
     return <Loader />;
   }
 
+  const isSwitchingBucket = isFetching && allProfiles.length === 0;
   const hasNoProfiles = allProfiles.length === 0 && !isFetching;
 
   return (
@@ -317,14 +327,12 @@ export default function MoreProfile() {
             onValueChange={handleTabChange}
             className="2xl:mt-[50px] laptopmain:mt-[35px] mt-[25px]"
           >
-            <TabsList className="w-full h-auto flex bg-transparent border border-primary-5 rounded-2xl p-0 overflow-hidden">
-              {TABS.map(({ bucket, labelKey }, index) => (
+            <TabsList className="w-full h-auto flex bg-transparent p-0">
+              {TABS.map(({ bucket, labelKey }) => (
                 <TabsTrigger
                   key={bucket}
                   value={bucket}
-                  className={`flex-1 rounded-none py-4 text-base md:text-lg font-bold text-primary-5 border-0 ${
-                    index > 0 ? "border-l border-primary-5 rtl:border-l-0 rtl:border-r" : ""
-                  } data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-b-primary-5`}
+                  className="flex-1 rounded-none py-4 text-base md:text-lg font-bold text-primary-5 border-0 border-b-2 border-b-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-primary-5"
                 >
                   {t(labelKey)}
                 </TabsTrigger>
@@ -333,7 +341,11 @@ export default function MoreProfile() {
           </Tabs>
 
           <div className="2xl:pt-[50px] laptopmain:pt-[35px] pt-[25px]">
-            {hasNoProfiles ? (
+            {isSwitchingBucket ? (
+              <div className="flex justify-center py-12">
+                <Loader inline size="sm" />
+              </div>
+            ) : hasNoProfiles ? (
               <div className="text-center py-8 text-secondary-102 text-lg font-medium">
                 {t("COMMON.NO_PROFILES_AVAILABLE")}
               </div>

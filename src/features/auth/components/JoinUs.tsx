@@ -105,9 +105,9 @@ export default function JoinUs() {
             />
             <div className="xs:w-[300px] w-[195px] xs:mb-5 h-[155px] sm:w-[235px] sm:h-[180px] lg:w-[221px] lg:h-[200px] 2xl:h-[224px] border border-primary-5 rounded-[20px] flex flex-col items-center justify-center p-4 peer-checked:border-2 peer-checked:border-primary-5 peer-checked:shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] transition-all">
               <img
-                src="/assets/auth/volunteerprofile.svg"
+                src="/assets/auth/team.svg"
                 alt="volunteerteamicn"
-                className="mx-auto mb-[14px] rounded"
+                className="mx-auto mb-[14px] rounded w-[70px] h-[70px] object-contain"
               />
               <p className="font-bold lg:text-[28px] md:text-[30px] text-[24px] xs:text-[18px] leading-[40.85px] tracking-[0px] text-primary-5">
                 {t("COMMON.JOINUS.VOLUNTEER_TEAM")}

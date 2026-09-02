@@ -149,6 +149,7 @@
   "COMMON.INDIVIDUAL": "Volunteer",
   "COMMON.NEXT": "Next",
   "COMMON.CREATE_ACCOUNT_ORGANIZER": "Create an account as Entity",
+  "COMMON.CREATE_ACCOUNT_VOLUNTEER_TEAM": "Create an account as Volunteer Team",
   "COMMON.CREATE_ACCOUNT": "Create account",
   "COMMON.OR_SIGNUP_WITH": "Or Sign up with",
   "COMMON.ALREADY_HAVE_ACCOUNT": "Already have an account?",

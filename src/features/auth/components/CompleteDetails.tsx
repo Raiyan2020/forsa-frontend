@@ -140,6 +140,17 @@ export default function CompleteDetails() {
     [orgTypeData, selectedLanguage]
   );
 
+  // The visible dropdown never offers "Volunteer Team" — that path only ever
+  // reaches this form via the dedicated JoinUs shortcut, which skips the
+  // field entirely and sets the value in the background instead.
+  const visibleOrgTypeOptions = useMemo(
+    () =>
+      orgTypeOptions.filter(
+        (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+      ),
+    [orgTypeOptions]
+  );
+
   // The "Volunteer Team" org_type choice is backend-driven and only known
   // once orgTypeOptions loads, so this can't be a Formik initialValue — it's
   // applied imperatively, once, as soon as the matching option arrives.
@@ -366,7 +377,11 @@ export default function CompleteDetails() {
     <div className="border-t border-[#000]">
       <div className="2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px]">
         <h2 className="2xl:pb-11 lg:pb-5 pb-5 text-center font-bold xs:text-[22px] xs:leading-[26px] text-[28px] leading-[48px] md:text-[32px] md:leading-[52px] lg:text-[30px] lg:leading-[60px] 2xl:text-[50px] xl:leading-[68.09px] tracking-[0px] text-[#29246D]">
-          {t("COMMON.COMPLETEYOURDETAILS")}
+          {t(
+            isVolunteerTeamJoin
+              ? "COMMON.CREATE_ACCOUNT_VOLUNTEER_TEAM"
+              : "COMMON.COMPLETEYOURDETAILS"
+          )}
         </h2>
         <Formik
           innerRef={formikRef}
@@ -380,19 +395,25 @@ export default function CompleteDetails() {
             <div className="flex justify-center">
               <div className="w-[90%] 2xl:w-[720px] lg:w-[720px] md:w-[90%] rounded-lg bg-white">
                 <Form>
-                  <div className="grid grid-cols-2 mobilescreen:grid-cols-1 mobilescreen:gap-0 gap-6 xs:block selectfiled">
-                    <SelectInput
-                      name="organizer_type"
-                      label={t("COMMON.ORGANIZER.TYPE")}
-                      options={orgTypeOptions}
-                      onChange={(selectedOption) =>
-                        setFieldValue(
-                          "organizer_type",
-                          String(selectedOption?.value ?? "")
-                        )
-                      }
-                      disabled={orgTypeLoading}
-                    />
+                  <div
+                    className={`grid ${
+                      isVolunteerTeamJoin ? "grid-cols-1" : "grid-cols-2"
+                    } mobilescreen:grid-cols-1 mobilescreen:gap-0 gap-6 xs:block selectfiled`}
+                  >
+                    {!isVolunteerTeamJoin && (
+                      <SelectInput
+                        name="organizer_type"
+                        label={t("COMMON.ORGANIZER.TYPE")}
+                        options={visibleOrgTypeOptions}
+                        onChange={(selectedOption) =>
+                          setFieldValue(
+                            "organizer_type",
+                            String(selectedOption?.value ?? "")
+                          )
+                        }
+                        disabled={orgTypeLoading}
+                      />
+                    )}
                     <div className="flex gap-2">
                       <div>
                         <CountryCodeSelect

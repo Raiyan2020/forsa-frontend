@@ -103,6 +103,17 @@ function EntitiesRegistrationFormComponent() {
     [orgTypeData, selectedLanguage]
   );
 
+  // The visible dropdown never offers "Volunteer Team" — that path only ever
+  // reaches this form via the dedicated JoinUs shortcut, which skips the
+  // field entirely and sets the value in the background instead.
+  const visibleOrgTypeOptions = useMemo(
+    () =>
+      orgTypeOptions.filter(
+        (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+      ),
+    [orgTypeOptions]
+  );
+
   // The "Volunteer Team" org_type choice is backend-driven and only known
   // once orgTypeOptions loads, so this can't be a Formik initialValue — it's
   // applied imperatively, once, as soon as the matching option arrives.
@@ -390,7 +401,11 @@ function EntitiesRegistrationFormComponent() {
           </div>
         )}
         <h2 className="2xl:pb-11 lg:pb-5 pb-5 text-center font-bold xs:text-[22px] xs:leading-[26px] text-[28px] leading-[48px] md:text-[32px] md:leading-[52px] lg:text-[30px] lg:leading-[60px] 2xl:text-[50px] xl:leading-[68.09px] tracking-[0px] text-[#29246D]">
-          {t("COMMON.CREATE_ACCOUNT_ORGANIZER")}
+          {t(
+            isVolunteerTeamJoin
+              ? "COMMON.CREATE_ACCOUNT_VOLUNTEER_TEAM"
+              : "COMMON.CREATE_ACCOUNT_ORGANIZER"
+          )}
         </h2>
         <Formik
           innerRef={formikRef}
@@ -409,15 +424,17 @@ function EntitiesRegistrationFormComponent() {
                     label={t("COMMON.ENTER_FULL_NAME")}
                     maxLength={30}
                   />
-                  <SelectInput
-                    name="organizer_type"
-                    label={t("COMMON.ORGANIZER.TYPE")}
-                    options={orgTypeOptions}
-                    onChange={(selectedOption) =>
-                      setFieldValue("organizer_type", String(selectedOption?.value ?? ""))
-                    }
-                    disabled={orgTypeLoading}
-                  />
+                  {!isVolunteerTeamJoin && (
+                    <SelectInput
+                      name="organizer_type"
+                      label={t("COMMON.ORGANIZER.TYPE")}
+                      options={visibleOrgTypeOptions}
+                      onChange={(selectedOption) =>
+                        setFieldValue("organizer_type", String(selectedOption?.value ?? ""))
+                      }
+                      disabled={orgTypeLoading}
+                    />
+                  )}
                 </div>
                 <div className="flex gap-6 xs:block">
                   <Input
