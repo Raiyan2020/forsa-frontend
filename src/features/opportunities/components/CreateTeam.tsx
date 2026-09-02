@@ -11,10 +11,12 @@ import Loader from "@/components/ui/Loader";
 import ModalInput from "@/components/ui/ModalInput";
 import { createTeam, getTeamById, updateTeam } from "@/features/opportunities/services/registrations";
 import { YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
+import { getApiErrorMessages } from "@/lib/api/errors";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface TeamFormValues {
-  team_name: string;
+  team_name_ar: string;
+  team_name_en: string;
 }
 
 interface CreateTeamModalProps {
@@ -48,11 +50,13 @@ export default function CreateTeam({
     createTeamMutation.isPending || updateTeamMutation.isPending;
 
   const initialValues: TeamFormValues = {
-    team_name: teamData?.data?.[`team_name_${selectedLanguage}`] || "",
+    team_name_ar: teamData?.data?.team_name_ar || "",
+    team_name_en: teamData?.data?.team_name_en || "",
   };
 
   const validationSchema = Yup.object({
-    team_name: YupStringMaxLength(100).concat(YupRequiredString),
+    team_name_ar: YupStringMaxLength(100).concat(YupRequiredString),
+    team_name_en: YupStringMaxLength(100).concat(YupRequiredString),
   });
 
   const handleSubmit = async (
@@ -60,10 +64,10 @@ export default function CreateTeam({
     { resetForm }: FormikHelpers<TeamFormValues>
   ) => {
     try {
-      // Only the active language's name is submitted; the backend keeps the other
       const payload = {
-        [`team_name_${selectedLanguage}`]: values.team_name,
-        opportunity: opportunityId,
+        team_name_ar: values.team_name_ar,
+        team_name_en: values.team_name_en,
+        opportunity_id: opportunityId,
       };
 
       if (teamId) {
@@ -78,20 +82,10 @@ export default function CreateTeam({
       setOpenForm();
       refetch();
       dropdownRefetch?.();
-    } catch (error: any) {
-      const data = error?.response?.data;
-      if (data?.errors && Object.keys(data.errors).length > 0) {
-        Object.keys(data.errors).forEach((key) => {
-          toast.error(
-            data.errors[key][selectedLanguage] ||
-              t("COMMON.TOAST.CREATE_TEAM_FAILED")
-          );
-        });
-      } else if (data?.message_en || data?.message_ar) {
-        toast.error(
-          data[`message_${selectedLanguage}`] ||
-            t("COMMON.TOAST.CREATE_TEAM_FAILED")
-        );
+    } catch (error) {
+      const messages = getApiErrorMessages(error, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
       } else {
         toast.error(t("COMMON.TOAST.CREATE_TEAM_FAILED"));
       }
@@ -113,8 +107,15 @@ export default function CreateTeam({
         <Form>
           <div>
             <ModalInput
-              name="team_name"
-              placeholder={t("TEAM.ENTER_TEAM_NAME")}
+              name="team_name_ar"
+              placeholder={t("TEAM.ENTER_TEAM_NAME_AR")}
+              type="text"
+            />
+          </div>
+          <div>
+            <ModalInput
+              name="team_name_en"
+              placeholder={t("TEAM.ENTER_TEAM_NAME_EN")}
               type="text"
             />
           </div>

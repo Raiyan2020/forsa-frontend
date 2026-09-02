@@ -32,6 +32,20 @@ export interface RegistrationsDownload {
   downloadUrl: string;
 }
 
+/**
+ * `volunteer-opportunity-registrations` nests its download payload under the
+ * standard `data` envelope field (unlike the sibling download endpoints,
+ * confirmed with backend — see docs/VOLUNTEER_REGISTRATIONS_DOWNLOAD_BUG.md)
+ * and additionally reports the outcome of the optional `mark_attendance` side
+ * effect requested in the same call.
+ */
+export interface VolunteerRegistrationsDownload extends RegistrationsDownload {
+  file_format?: string;
+  registrations_count?: number;
+  attendance_marked_count?: number;
+  attendance_already_marked_count?: number;
+}
+
 export interface FaqItem {
   id: number;
   question_en: string;

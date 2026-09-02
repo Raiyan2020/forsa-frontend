@@ -99,7 +99,7 @@ export default function ProfileDescriptionTabs({
       dir={selectedLanguage === "en" ? "ltr" : "rtl"}
     >
       <div className="flex 2xl:px-5 px-3 mobilescreen:px-[13px]">
-        <TabsList className="scrollbar-hidden h-auto max-w-full justify-start gap-[38px] overflow-x-auto bg-transparent p-0 xs:gap-3">
+        <TabsList className="h-auto w-auto justify-start gap-[38px] bg-transparent p-0 xs:gap-3">
           <TabsTrigger value="opportunity" className={TAB_TRIGGER_CLASS}>
             <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
               {t("COMMON.OPPORTUNITIES-")}

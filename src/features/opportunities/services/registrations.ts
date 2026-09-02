@@ -1,5 +1,5 @@
 import apiClient from "@/lib/api/client";
-import type { RegistrationsDownload } from "@/lib/api/types";
+import type { ApiResponse, VolunteerRegistrationsDownload } from "@/lib/api/types";
 
 // ─── Registrations ───────────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ export const downloadVolunteerRegistrations = ({
   search?: string;
   mark_attendance?: boolean;
   date?: string;
-}): Promise<RegistrationsDownload> => {
+}): Promise<VolunteerRegistrationsDownload> => {
   const params = new URLSearchParams();
   params.append("opportunity_id", opportunity_id);
   params.append("download", "true");
@@ -81,8 +81,11 @@ export const downloadVolunteerRegistrations = ({
   if (date) params.append("date", date);
 
   return apiClient
-    .get("/volunteer-opportunity-registrations/", { params })
-    .then((r) => r.data);
+    .get<ApiResponse<VolunteerRegistrationsDownload>>(
+      "/volunteer-opportunity-registrations/",
+      { params }
+    )
+    .then((r) => r.data.data);
 };
 
 export const directRegisterVolunteer = (data: any) =>
