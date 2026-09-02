@@ -13,9 +13,11 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
+import InlineSpinner from "@/components/ui/InlineSpinner";
 import Loader from "@/components/ui/Loader";
 import { SponsorsClient } from "@/features/home";
 import { bulkUpdateScanPermissions, downloadScanPermissions, getAllVolunteers, getScanPermissionsList } from "@/features/opportunities/services/attendance";
+import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
@@ -163,16 +165,20 @@ export default function ScanPermission() {
     setShowVolunteersModal(true);
   };
 
-  // Reset page and volunteers when search term changes
+  // Reset to page 1 when the search term changes. Keep the accumulated list on
+  // screen until the new results arrive — the small spinner next to the search
+  // icon signals the in-flight request, so the list never flashes empty.
   useEffect(() => {
     if (showVolunteersModal) {
       setVolunteerPage(1);
-      setAllVolunteers([]);
     }
   }, [debouncedSearchTerm, showVolunteersModal]);
 
   // Query for available volunteers when the modal is open
-  const { data: availableVolunteers, isLoading: loadingVolunteers } = useQuery({
+  const {
+    data: availableVolunteers,
+    isFetching: fetchingVolunteers,
+  } = useQuery({
     queryKey: [
       "all-volunteers",
       volunteerPage,
@@ -224,33 +230,49 @@ export default function ScanPermission() {
     });
   };
 
+  // Surfaces the API's localized validation messages (response_status.validation_errors,
+  // falling back to msg) as toasts — the bulk-update endpoint rejects with a
+  // `permissions` validation error today. Messages arrive already localized by
+  // the backend from the language header, so there is nothing to pick per
+  // language here; the translated fallback only covers "API said nothing".
+  const showBulkUpdateErrors = (error: unknown, fallback: string) => {
+    const messages = getApiErrorMessages(error, selectedLanguage);
+    if (messages.length > 0) {
+      messages.forEach((message) => toast.error(message));
+    } else {
+      toast.error(fallback);
+    }
+  };
+
   const handleRegisterSelectedVolunteers = async () => {
     if ((!opportunityId && !eventId) || selectedVolunteers.length === 0) return;
 
     try {
       setRegisteringVolunteers(true);
 
-      await bulkUpdateMutation.mutateAsync({
+      const response = await bulkUpdateMutation.mutateAsync({
         opportunity_id: opportunityId,
         event_id: eventId,
         user_ids: selectedVolunteers,
         is_allowed: true,
       });
 
+      // The API can answer a rejected request with HTTP 200 and key: "fail" —
+      // check the envelope, not just the axios error path below.
+      if (!isApiSuccess(response)) {
+        showBulkUpdateErrors(response, t("COMMON.PERMISSION_ADDED_FAILED"));
+        return;
+      }
+
       toast.success(t("COMMON.PERMISSION_ADDED_SUCCESS"));
       setShowVolunteersModal(false);
+      // `data[]` echoes the persisted `is_allowed` per user (trust it over what
+      // was sent) — the refetch is what the table renders, so the UI always
+      // shows server truth.
       refetchRegistrations();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating scan permissions:", error);
-      const payload = error?.response?.data;
-      if (payload?.message_en || payload?.message_ar) {
-        toast.error(
-          payload[`message_${selectedLanguage}`] ||
-            t("COMMON.PERMISSION_ADDED_FAILED")
-        );
-      } else {
-        toast.error(t("COMMON.PERMISSION_ADDED_FAILED"));
-      }
+      showBulkUpdateErrors(error, t("COMMON.PERMISSION_ADDED_FAILED"));
     } finally {
       setRegisteringVolunteers(false);
     }
@@ -266,26 +288,26 @@ export default function ScanPermission() {
     try {
       setIsDeleting(true);
 
-      await bulkUpdateMutation.mutateAsync({
+      const response = await bulkUpdateMutation.mutateAsync({
         opportunity_id: opportunityId,
         event_id: eventId,
         user_ids: [deletingVolunteerId],
         is_allowed: false,
       });
 
+      // Same envelope check: an HTTP 200 with key: "fail" is still a failure.
+      if (!isApiSuccess(response)) {
+        showBulkUpdateErrors(response, t("COMMON.SCAN_PERMISSION_FAILED"));
+        return;
+      }
+
       toast.success(t("COMMON.SCAN_PERMISSION_REMOVED"));
       setShowDeleteModal(false);
+      // Revoked rows persist with `is_allowed: false` and the list endpoint
+      // only returns allowed rows, so they drop out — refetch to refresh.
       refetchRegistrations();
-    } catch (error: any) {
-      const payload = error?.response?.data;
-      if (payload?.message_en || payload?.message_ar) {
-        toast.error(
-          payload[`message_${selectedLanguage}`] ||
-            t("COMMON.SCAN_PERMISSION_FAILED")
-        );
-      } else {
-        toast.error(t("COMMON.SCAN_PERMISSION_FAILED"));
-      }
+    } catch (error) {
+      showBulkUpdateErrors(error, t("COMMON.SCAN_PERMISSION_FAILED"));
     } finally {
       setIsDeleting(false);
       setDeletingVolunteerId(null);
@@ -344,13 +366,17 @@ export default function ScanPermission() {
         <div className="pb-10">
           {/* Search input */}
           <div className="mb-4 flex items-center searchitms bg-white border border-primary-5/20 rounded-full px-4 py-2">
-            <Image
-              src={asset("profile/searchicn.svg")}
-              alt="Search Icon"
-              width={24}
-              height={24}
-              className="lg:w-auto md:w-5"
-            />
+            {/* Small spinner next to the search icon while a search is in flight */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Image
+                src={asset("profile/searchicn.svg")}
+                alt="Search Icon"
+                width={24}
+                height={24}
+                className="lg:w-auto md:w-5"
+              />
+              {fetchingVolunteers && <InlineSpinner />}
+            </div>
             <input
               type="text"
               placeholder={t("COMMON.SEARCH_VOLUNTEERS")}
@@ -368,8 +394,8 @@ export default function ScanPermission() {
 
           {/* Volunteers list */}
           <div className="max-h-96 overflow-y-auto">
-            {loadingVolunteers ? (
-              <Loader />
+            {displayedVolunteers.length === 0 && fetchingVolunteers ? (
+              <Loader inline />
             ) : displayedVolunteers.length === 0 ? (
               <div className="text-center text-gray-500 p-4">
                 {t("COMMON.NO_VOLUNTEERS_FOUND")}

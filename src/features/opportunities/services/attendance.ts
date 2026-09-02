@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api/client";
+import type { ApiResponse } from "@/lib/api/types";
 
 // ─── Scan Permissions ────────────────────────────────────────────────────────
 
@@ -27,12 +28,25 @@ export const downloadScanPermissions = (params: {
 }): Promise<{ data: { downloadUrl: string } }> =>
   apiClient.get("/scan-permissions/list/", { params }).then((r) => r.data);
 
+/**
+ * One entry per requested user in the bulk-update `data[]`, in request order.
+ * The backend `updateOrCreate`s on (user_id, opportunity_id/event_id), so
+ * repeating a call updates the same row — `scan_permission_id` stays stable.
+ */
+export interface ScanPermissionBulkUpdateEntry {
+  user_id: number;
+  /** The persisted value — trust this over what was sent. */
+  is_allowed: boolean;
+  scan_permission_id: number;
+}
+
 export const bulkUpdateScanPermissions = (data: {
   user_ids: number[];
   is_allowed: boolean;
   opportunity_id?: string | number;
   event_id?: string | number;
-}) => apiClient.post("/scan-permissions/bulk-update/", data).then((r) => r.data);
+}): Promise<ApiResponse<ScanPermissionBulkUpdateEntry[]>> =>
+  apiClient.post("/scan-permissions/bulk-update/", data).then((r) => r.data);
 
 // ─── Attendance (QR scan + manual) ───────────────────────────────────────────
 
