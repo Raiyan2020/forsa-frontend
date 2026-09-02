@@ -81,6 +81,7 @@ export interface VolunteerOpportunityData {
   location_en?: string;
   location_ar?: string;
   location_url?: string | null;
+  map_desc?: string | null;
   latitude?: number | string;
   longitude?: number | string;
   from_age?: number;
@@ -1359,7 +1360,7 @@ export default function VolunteerEvent({
                         <p
                           onClick={() =>
                             openLocation(
-                              opportunityData?.location_url,
+                              null,
                               opportunityData?.latitude,
                               opportunityData?.longitude
                             )
@@ -1369,12 +1370,14 @@ export default function VolunteerEvent({
                             (selectedLanguage === "ar"
                               ? opportunityData?.location_ar
                               : opportunityData?.location_en) ||
+                            opportunityData?.map_desc ||
                             t("COMMON.ADDRESS_NOT_FOUND")
                           }
                         >
                           {(selectedLanguage === "ar"
                             ? opportunityData?.location_ar
                             : opportunityData?.location_en) ||
+                            opportunityData?.map_desc ||
                             t("COMMON.ADDRESS_NOT_FOUND")}
                         </p>
                       </div>
