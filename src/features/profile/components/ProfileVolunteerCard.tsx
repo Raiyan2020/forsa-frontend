@@ -421,7 +421,7 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
           }
           className="overflow-hidden pt-[25px] 2xl:pt-[50px] laptop:pt-[40px] lg:pt-[24px] md:pt-[30px] cross-class-visible"
         >
-          <div className="grid grid-cols-1 miniscreen4:grid-cols-2 2xl:grid-cols-3 xl:grid-cols-3 miniscreen:grid-cols-1 laptopitms:grid-cols-3 md:grid-cols-2 gap-[25px] mobilescreen:gap-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-[25px] mobilescreen:gap-0">
             {opportunities.map((item) => {
               const title =
                 item[selectedLanguage === "ar" ? "title_ar" : "title_en"] ?? "";

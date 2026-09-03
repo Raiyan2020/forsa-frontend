@@ -3,8 +3,32 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { clsx } from "clsx";
+import { useLanguageStore } from "@/store/languageStore";
 
-const Tabs = TabsPrimitive.Root;
+/**
+ * Radix's `Tabs.Root` sets its own `dir` attribute on the tablist (used for
+ * both keyboard nav and, since it overrides the inherited `<html dir>`, the
+ * actual visual flex order of the tab triggers) — defaulting to `"ltr"`
+ * whenever no `dir` prop is passed and no ambient `DirectionProvider` wraps
+ * it, which this app has neither of. Left alone, every `<Tabs>` renders its
+ * triggers left-to-right even on an Arabic (RTL) page, silently reversing
+ * their order. Default it to the app's actual language instead; a caller can
+ * still override with an explicit `dir` prop.
+ */
+const Tabs = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
+>(({ dir, ...props }, ref) => {
+  const language = useLanguageStore((s) => s.language);
+  return (
+    <TabsPrimitive.Root
+      ref={ref}
+      dir={dir ?? (language === "ar" ? "rtl" : "ltr")}
+      {...props}
+    />
+  );
+});
+Tabs.displayName = TabsPrimitive.Root.displayName;
 
 const TabsList = React.forwardRef<
   React.ComponentRef<typeof TabsPrimitive.List>,

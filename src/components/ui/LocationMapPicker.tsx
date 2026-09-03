@@ -1,8 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/helpers";
 
@@ -31,6 +32,23 @@ function ClickToPick({ onPick }: { onPick: (lat: number, lng: number) => void })
   useMapEvents({
     click: (e) => onPick(e.latlng.lat, e.latlng.lng),
   });
+  return null;
+}
+
+/**
+ * `MapContainer`'s `center`/`zoom` props only apply on the initial mount —
+ * react-leaflet doesn't re-pan the view when they change afterwards. Without
+ * this, typing an address into the location field (which resolves to new
+ * `latitude`/`longitude` props) silently repositions the marker with no
+ * visible movement of the map itself. Also fires after a click/drag pick,
+ * where it's a harmless no-op re-assertion of the same point.
+ */
+function RecenterMap({ position, zoom }: { position: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position, zoom);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position[0], position[1]]);
   return null;
 }
 
@@ -76,17 +94,20 @@ export default function LocationMapPicker({
             onPick={(newLat, newLng) => onPick(newLat.toString(), newLng.toString())}
           />
           {hasPosition && (
-            <Marker
-              position={position}
-              icon={markerIcon}
-              draggable
-              eventHandlers={{
-                dragend: (e) => {
-                  const { lat: newLat, lng: newLng } = e.target.getLatLng();
-                  onPick(newLat.toString(), newLng.toString());
-                },
-              }}
-            />
+            <>
+              <Marker
+                position={position}
+                icon={markerIcon}
+                draggable
+                eventHandlers={{
+                  dragend: (e) => {
+                    const { lat: newLat, lng: newLng } = e.target.getLatLng();
+                    onPick(newLat.toString(), newLng.toString());
+                  },
+                }}
+              />
+              <RecenterMap position={position} zoom={PICKED_ZOOM} />
+            </>
           )}
         </MapContainer>
       </div>

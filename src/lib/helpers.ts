@@ -137,6 +137,37 @@ export const handleGoogleLogin = async (tokenResponse: {
   }
 };
 
+/**
+ * Reverse/forward geocoding for the location map pickers (create/edit event,
+ * volunteer opportunity, learn & serve opportunity). Uses OpenStreetMap's
+ * Nominatim rather than Google's Geocoding API — that API rejects
+ * referrer-restricted keys outright ("API keys with referer restrictions
+ * cannot be used with this API"), and the referrer restriction is the
+ * correct one for a key that's otherwise embedded in client-side JS. Nominatim
+ * also matches the OSM tiles `LocationMapPicker` already renders, and needs
+ * no key. Its usage policy requires a valid Referer identifying the caller —
+ * satisfied automatically by the browser's own Referrer-Policy header, no
+ * code needed. `nominatim.openstreetmap.org` is on the CSP `connect-src`
+ * allowlist in `next.config.ts`.
+ */
+const NOMINATIM_BASE_URL = "https://nominatim.openstreetmap.org";
+// Every opportunity/event on this platform is local to Kuwait (see
+// LocationMapPicker's default map center) — biasing search to it avoids
+// forward-geocoding a generic place name to the wrong country.
+const NOMINATIM_COUNTRY_CODE = "kw";
+
+interface NominatimAddress {
+  road?: string;
+  neighbourhood?: string;
+  suburb?: string;
+  city_district?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  state?: string;
+  country?: string;
+}
+
 export const fetchAddress = async (
   latitude: number,
   longitude: number,
@@ -145,26 +176,28 @@ export const fetchAddress = async (
 ): Promise<string> => {
   try {
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&language=${language}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      `${NOMINATIM_BASE_URL}/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=${language}`
     );
     const data = await response.json();
 
-    if (data.results && data.results.length > 0) {
+    if (data && !data.error) {
       if (isSmallAddress) {
-        const addressComponents = data.results[0].address_components;
-        let smallAddress = "";
-        if (addressComponents.length > 0) {
-          smallAddress = addressComponents[0].long_name;
-          if (addressComponents.length > 1) {
-            smallAddress += `, ${addressComponents[1].long_name}`;
-          }
-        }
-        return smallAddress || t("COMMON.ADDRESS_NOT_FOUND");
+        const address: NominatimAddress = data.address || {};
+        const parts = [
+          address.road || address.neighbourhood || address.suburb,
+          address.city_district ||
+            address.city ||
+            address.town ||
+            address.village ||
+            address.state,
+        ].filter(Boolean);
+        return parts.length > 0
+          ? parts.join(", ")
+          : t("COMMON.ADDRESS_NOT_FOUND");
       }
-      return data.results[0].formatted_address;
-    } else {
-      return t("COMMON.ADDRESS_NOT_FOUND");
+      return data.display_name || t("COMMON.ADDRESS_NOT_FOUND");
     }
+    return t("COMMON.ADDRESS_NOT_FOUND");
   } catch (error) {
     console.error("Error fetching address:", error);
     return t("COMMON.ADDRESS_NOT_FOUND");
@@ -177,15 +210,14 @@ export const fetchCoordinates = async (
 ): Promise<{ lat: number; lng: number } | null> => {
   try {
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      `${NOMINATIM_BASE_URL}/search?format=jsonv2&q=${encodeURIComponent(
         address
-      )}&language=${language}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      )}&accept-language=${language}&countrycodes=${NOMINATIM_COUNTRY_CODE}&limit=1`
     );
     const data = await response.json();
 
-    if (data.results && data.results.length > 0) {
-      const { lat, lng } = data.results[0].geometry.location;
-      return { lat, lng };
+    if (Array.isArray(data) && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
     return null;
   } catch (error) {

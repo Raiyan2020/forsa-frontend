@@ -306,7 +306,7 @@ const EventListCard: React.FC<EventCardProps> = ({
             <p className="text-center py-4 text-secondary-102">{t("COMMON.NO_MORE_EVENTS")}</p>
           }
         >
-          <div className="grid grid-cols-1 miniscreen4:grid-cols-2 2xl:grid-cols-3 xl:grid-cols-3 miniscreen:grid-cols-1 laptopitms:grid-cols-3 md:grid-cols-2 gap-[25px] mobilescreen:gap-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-[25px] mobilescreen:gap-0">
             {allEvents.map((item: EventData) => (
               <div className="mb-[5px]" key={item.id}>
                 <div className="relative">

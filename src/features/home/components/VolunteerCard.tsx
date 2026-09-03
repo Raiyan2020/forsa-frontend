@@ -127,7 +127,7 @@ interface VolunteerCardProps {
 }
 
 const responsive = {
-  superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 3 },
+  superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 4 },
   desktop: { breakpoint: { max: 1200, min: 800 }, items: 2 },
   tablet: { breakpoint: { max: 800, min: 464 }, items: 1 },
   mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },

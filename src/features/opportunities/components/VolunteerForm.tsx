@@ -1226,15 +1226,16 @@ export default function VolunteerForm({
                       setFieldValue("latitude", lat);
                       setFieldValue("longitude", lng);
                       setFieldTouched("location", true);
-                      if (!values.location) {
-                        const address = await fetchAddress(
-                          Number(lat),
-                          Number(lng),
-                          selectedLanguage
-                        );
-                        skipNextGeocodeRef.current = true;
-                        setFieldValue("location", address);
-                      }
+                      // A map pick is always authoritative for the location
+                      // text — overwrite whatever was there (typed or a
+                      // previous pick), not just when the field was empty.
+                      const address = await fetchAddress(
+                        Number(lat),
+                        Number(lng),
+                        selectedLanguage
+                      );
+                      skipNextGeocodeRef.current = true;
+                      setFieldValue("location", address);
                     }}
                   />
 

@@ -440,7 +440,7 @@ export default function OpportunitiesListCard({
             : t("COMMON.NO_OPPORTUNITIES_AVAILABLE")}
         </div>
       ) : isStatic ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[25px] mobilescreen:gap-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[25px] mobilescreen:gap-0">
           {volunteerStaticData.map((item) => (
             <div key={item.id} className="">
               <div className="relative">
@@ -529,7 +529,7 @@ export default function OpportunitiesListCard({
             </p>
           }
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[25px] mobilescreen:gap-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[25px] mobilescreen:gap-0">
             {allOpportunities.map(
               (item: VolunteerOpportunityData | LearnServeOpportunityData) => (
                 <div key={item.id} className="relative">

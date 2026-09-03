@@ -93,8 +93,8 @@ const nextConfig: NextConfig = {
           "img-src 'self' data: blob: https:",
           // Fonts: self + Google Fonts CDN
           "font-src 'self' https://fonts.gstatic.com",
-          // Connections: self + backend API + Google services
-          "connect-src 'self' https://portal.fursa.raiyan.cc https://accounts.google.com https://maps.googleapis.com",
+          // Connections: self + backend API + Google services + OSM Nominatim (location map picker geocoding)
+          "connect-src 'self' https://portal.fursa.raiyan.cc https://accounts.google.com https://maps.googleapis.com https://nominatim.openstreetmap.org",
           // Frames: Google OAuth popup
           "frame-src https://accounts.google.com",
           // Media

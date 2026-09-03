@@ -717,8 +717,12 @@ function PublicProfileListings({
     ],
     queryFn: () => {
       if (isVolunteer && section === "opportunities") {
+        // A volunteer profile's single opportunities tab is labeled "Attended"
+        // (`COMMON.ATTENDED--` below), not "Organized" — a volunteer account
+        // never organizes anything. Match the same `filter_type` the
+        // volunteer's own profile sends for this tab (ProfileDescriptionTabs.tsx).
         return getUserOpportunities({
-          filter_type: "organized",
+          filter_type: "registered",
           user_id: userId,
           search: deferredSearch || undefined,
           ...filterParams,
