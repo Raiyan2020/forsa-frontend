@@ -2,18 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Link from "next/link";
 import moment from "moment";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import InfiniteScroll from "react-infinite-scroll-component";
 
 import ForsaCommunity from "./ForsaCommunity";
 import Post from "./Post";
 import AddBanner from "./AddBanner";
-import InnerPost from "./InnerPost";
+import InnerPost, { PostData } from "./InnerPost";
 import Loader from "@/components/ui/Loader";
 import { getCommunityPosts } from "@/features/community/services/communityApi";
 import { CommunityFiltersData } from "./CommunityFilterModal";
 
+type PostItem = PostData["data"];
+
+const PAGE_LIMIT = 10;
 
 function Community() {
   const { t } = useTranslation();
@@ -28,6 +31,12 @@ function Community() {
     type: "",
     tags: [],
   });
+
+  // For infinite scroll — accumulates every fetched page, same pattern as
+  // CommunityList.tsx (the "View All" page).
+  const [currentPage, setCurrentPage] = useState(1);
+  const [allPosts, setAllPosts] = useState<PostItem[]>([]);
+  const [hasMore, setHasMore] = useState(true);
 
   const handleApplyFilters = (
     newFilters: CommunityFiltersData,
@@ -45,17 +54,34 @@ function Community() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // A search or filter change restarts pagination from page 1. Compared
+  // during render (not in an effect) so the reset lands in the same commit
+  // as the change instead of triggering a cascading re-render.
+  const [previousQueryKey, setPreviousQueryKey] = useState({
+    debouncedSearch,
+    filters,
+  });
+  if (
+    previousQueryKey.debouncedSearch !== debouncedSearch ||
+    previousQueryKey.filters !== filters
+  ) {
+    setPreviousQueryKey({ debouncedSearch, filters });
+    setCurrentPage(1);
+    setAllPosts([]);
+    setHasMore(true);
+  }
+
   const {
     data: posts,
     isLoading,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["communityPosts", debouncedSearch, filters],
+    queryKey: ["communityPosts", currentPage, debouncedSearch, filters],
     queryFn: () =>
       getCommunityPosts({
-        page: 1,
-        limit: 22,
+        page: currentPage,
+        limit: PAGE_LIMIT,
         search: debouncedSearch,
         start_date: filters?.startDate
           ? moment(filters.startDate).format("YYYY-MM-DD")
@@ -74,18 +100,49 @@ function Community() {
     placeholderData: keepPreviousData,
   });
 
-  const isSearching = isFetching && !isLoading;
+  // Only a fresh page-1 fetch (search/filter change) drives the search
+  // field's small spinner — paging further down shouldn't.
+  const isSearching = isFetching && currentPage === 1;
 
-  const hasNoPosts = posts?.data?.length === 0 || !posts;
+  // Accumulate each page's posts, de-duplicated by id. Processes a given
+  // `posts` response object exactly once — gated during render rather than
+  // in an effect, same reasoning as the reset above.
+  const [processedPosts, setProcessedPosts] = useState(posts);
+  if (posts?.data && posts !== processedPosts) {
+    setProcessedPosts(posts);
 
-  useEffect(() => {
-    refetch();
-  }, [filters, debouncedSearch, refetch]);
+    if (currentPage === 1) {
+      const uniquePosts = posts.data.filter(
+        (post: PostItem, index: number, self: PostItem[]) =>
+          index === self.findIndex((p) => p.id === post.id)
+      );
+      setAllPosts(uniquePosts);
+    } else {
+      setAllPosts((previous) => {
+        const existingIds = new Set(previous.map((p) => p.id));
+        const newPosts = posts.data.filter(
+          (post: PostItem) => !existingIds.has(post.id)
+        );
+        return [...previous, ...newPosts];
+      });
+    }
+
+    setHasMore(currentPage < (posts?.meta?.pagination?.total_pages || 1));
+  }
+
+  const loadMore = () => {
+    if (hasMore && !isFetching) {
+      setCurrentPage((previous) => previous + 1);
+    }
+  };
+
+  const isInitialLoading = isLoading && currentPage === 1 && allPosts.length === 0;
+  const hasNoPosts = !isInitialLoading && allPosts.length === 0;
 
   return (
     <>
       <div className="mobilescreen:pb-[40px] pb-[40px] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] border-t border-[#000]">
-        {isLoading ? <Loader /> : <ForsaCommunity />}
+        {isInitialLoading ? <Loader /> : <ForsaCommunity />}
         <Post
           refetch={refetch}
           openfilter={openfilter}
@@ -96,46 +153,46 @@ function Community() {
           isSearching={isSearching}
         />
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] mx-auto relative">
-          {!hasNoPosts && isLoading ? (
+          {isInitialLoading ? (
             <Loader />
           ) : hasNoPosts ? (
             <div className="text-center py-8 text-secondary-102 text-lg font-medium">
               {t("COMMON.NO_POSTS_AVAILABLE")}
             </div>
           ) : (
-            <InnerPost data={posts?.data[0]} refetch={refetch} />
+            <InnerPost data={allPosts[0]} refetch={refetch} />
           )}
-          {isLoading ? (
-            <Loader />
-          ) : (
-            posts?.data?.length > 1 && (
-              <div className="mt-5">
-                <InnerPost data={posts?.data[1]} refetch={refetch} />
-              </div>
-            )
+          {!isInitialLoading && allPosts.length > 1 && (
+            <div className="mt-5">
+              <InnerPost data={allPosts[1]} refetch={refetch} />
+            </div>
           )}
         </div>
         <AddBanner />
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] mx-auto relative">
-          {isLoading ? (
+          {isInitialLoading ? (
             <Loader />
           ) : (
-            posts?.data?.length > 2 &&
-            posts.data.slice(2, 22).map((post: any, index: number) => (
-              <div key={post.id} className={index > 0 ? "mt-5" : ""}>
-                <InnerPost data={post} refetch={refetch} />
-              </div>
-            ))
-          )}
-
-          {posts?.data?.length > 2 && (
-            <div className="flex mx-auto justify-center pt-[50px] ">
-              <Link href="/Community-List">
-                <span className="text-center text-primary-5 text-[25px] border-b border-primary-5 font-bold cursor-pointer">
-                  {t("COMMON.VIEW_ALL")}
-                </span>
-              </Link>
-            </div>
+            allPosts.length > 2 && (
+              <InfiniteScroll
+                dataLength={allPosts.length - 2}
+                next={loadMore}
+                hasMore={hasMore}
+                hasChildren={allPosts.length > 2}
+                loader={<Loader inline />}
+                endMessage={
+                  <p className="text-center py-4 text-secondary-102">
+                    {t("COMMON.NO_MORE_POSTS")}
+                  </p>
+                }
+              >
+                {allPosts.slice(2).map((post, index) => (
+                  <div key={post.id} className={index > 0 ? "mt-5" : ""}>
+                    <InnerPost data={post} refetch={refetch} />
+                  </div>
+                ))}
+              </InfiniteScroll>
+            )
           )}
         </div>
       </div>

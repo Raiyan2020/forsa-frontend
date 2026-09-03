@@ -94,7 +94,6 @@ export default function VolunteerListToolbar({
             <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
               {t("COMMON.CONFIRM_ATTENDANCE")}
             </p>
-
             {/* QR and manual are offered together — the organizer picks. */}
             {checkInWindow.qrEnabled && checkInWindow.isOpen && (
               <div className="flex justify-center">

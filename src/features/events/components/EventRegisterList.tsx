@@ -195,6 +195,7 @@ export default function EventRegisterList() {
           {
             label: (
               <div className="flex items-center justify-center gap-2">
+                
                 <label className="flex items-center cursor-pointer gap-2">
                   <div className="border p-1 border-secondary-100">
                     <div

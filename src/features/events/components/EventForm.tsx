@@ -474,6 +474,10 @@ export default function EventForm({
   };
 
   const notInPast = (value?: string) => {
+    // Editing an already-scheduled event in place may legitimately keep its
+    // original date even if that date has since passed — only a brand-new
+    // event or a republish (a fresh copy, scheduled anew) must be future-dated.
+    if (id && !isRepublish) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Set to beginning of today
     return !value || new Date(value) >= today;

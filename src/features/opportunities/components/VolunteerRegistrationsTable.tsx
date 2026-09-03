@@ -245,7 +245,7 @@ export default function VolunteerRegistrationsTable({
                     <span
                       className="cursor-pointer text-primary-5"
                       onClick={() =>
-                        goToProfile(router, user, rowData.user_id || rowData.id)
+                        goToProfile(router, user, rowData.user )
                       }
                     >
                       {rowData.full_name}
