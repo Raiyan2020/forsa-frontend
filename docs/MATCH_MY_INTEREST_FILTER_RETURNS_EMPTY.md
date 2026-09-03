@@ -1,6 +1,6 @@
 # "Match My Interest" filter returns zero results on every listing endpoint
 
-Status: **Open — backend bug (or needs data verification), blocking. Please retest and reply with a new confirmation doc.**
+Status: **RESOLVED by backend, verified.** Real bug, unrelated to the interests-missing-on-opportunities doc: the filter only ever read the legacy `interests` relation, while the current profile UI (`PATCH /volunteer-profile/` with MasterChoice ids) writes a separate `masterInterests` relation — so any user who picked interests through the real UI always hit an empty set and the query was forced to `0 = 1`. Fixed by matching against both relations (translating MasterChoice ids to their `Interest` equivalents by name). `type=146` was never the cause — confirmed unrelated. Also fixed as a bonus: `/learn-serve-opportunities/` previously ignored `match_my_interest` entirely and returned the unfiltered list; it now filters too, so that endpoint's response **will change** for existing callers who pass the flag. No frontend changes required — `match_my_interest` was already sent correctly. Backend flagged one open UX question for us: whether to disable/annotate the toggle when the user has no interests saved at all (since an empty result is still indistinguishable from "filter broken" without checking `GET /volunteer-profile/` → `interest_display` first) — not picked up here, left for a future ask if wanted.
 
 ## What the frontend sends
 

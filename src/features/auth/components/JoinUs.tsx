@@ -73,27 +73,6 @@ export default function JoinUs() {
             </div>
           </label>
 
-          {/* Organizer Option */}
-          <label className={`cursor-pointer ${selectedLanguage === "ar" ? "lg:pr-[37px] md:pr-[37px] pr-[0px]" : "lg:pl-[37px] md:pl-[37px] pl-[0px]"}`}>
-            <input
-              type="radio"
-              name="role"
-              className="hidden peer"
-              checked={selectedOption === "organizer"}
-              onChange={() => handleOptionChange("organizer")}
-            />
-            <div className="xs:w-[300px] w-[195px] xs:mb-5 h-[155px] sm:w-[235px] sm:h-[180px] lg:w-[221px] lg:h-[200px] 2xl:h-[224px] border border-primary-5 rounded-[20px] flex flex-col items-center justify-center p-4 peer-checked:border-2 peer-checked:border-primary-5 peer-checked:shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] transition-all">
-              <img
-                src="/assets/auth/organizer.svg"
-                alt="organizericn"
-                className="mx-auto mb-[14px] rounded"
-              />
-              <p className="font-bold lg:text-[28px] md:text-[30px] text-[24px] xs:text-[18px] leading-[40.85px] tracking-[0px] text-primary-5">
-                {t("COMMON.ORGANIZATIONS")}-{t("COMMON.TEAM")}
-              </p>
-            </div>
-          </label>
-
           {/* Volunteer Team Option */}
           <label className={`cursor-pointer ${selectedLanguage === "ar" ? "lg:pr-[37px] md:pr-[37px] pr-[0px]" : "lg:pl-[37px] md:pl-[37px] pl-[0px]"}`}>
             <input
@@ -111,6 +90,27 @@ export default function JoinUs() {
               />
               <p className="font-bold lg:text-[28px] md:text-[30px] text-[24px] xs:text-[18px] leading-[40.85px] tracking-[0px] text-primary-5">
                 {t("COMMON.JOINUS.VOLUNTEER_TEAM")}
+              </p>
+            </div>
+          </label>
+
+          {/* Organizer Option */}
+          <label className={`cursor-pointer ${selectedLanguage === "ar" ? "lg:pr-[37px] md:pr-[37px] pr-[0px]" : "lg:pl-[37px] md:pl-[37px] pl-[0px]"}`}>
+            <input
+              type="radio"
+              name="role"
+              className="hidden peer"
+              checked={selectedOption === "organizer"}
+              onChange={() => handleOptionChange("organizer")}
+            />
+            <div className="xs:w-[300px] w-[195px] xs:mb-5 h-[155px] sm:w-[235px] sm:h-[180px] lg:w-[221px] lg:h-[200px] 2xl:h-[224px] border border-primary-5 rounded-[20px] flex flex-col items-center justify-center p-4 peer-checked:border-2 peer-checked:border-primary-5 peer-checked:shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] transition-all">
+              <img
+                src="/assets/auth/organizer.svg"
+                alt="organizericn"
+                className="mx-auto mb-[14px] rounded"
+              />
+              <p className="font-bold lg:text-[28px] md:text-[30px] text-[24px] xs:text-[18px] leading-[40.85px] tracking-[0px] text-primary-5">
+                {t("COMMON.ORGANIZATIONS")}-{t("COMMON.TEAM")}
               </p>
             </div>
           </label>
