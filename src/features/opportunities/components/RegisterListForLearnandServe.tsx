@@ -21,6 +21,7 @@ import CheckInWindowBanner from "./CheckInWindowBanner";
 import { deleteLearnServeRegistrationByOpportunity, downloadLearnServeRegistrations, getLearnServeRegistrations, updateLearnServeAttendance } from "@/features/opportunities/services/learnServe";
 import { getCheckInWindow } from "@/features/opportunities/checkInWindow";
 import { getDefaultProfileImage } from "@/lib/helpers";
+import { registrationPerson } from "@/features/opportunities/registrationRow";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 
@@ -629,8 +630,9 @@ export default function RegisterListForLearnandServe() {
                   columns={columns}
                   data={allRegisteredUsers}
                   renderCell={(column, rowData: any) => {
+                    const person = registrationPerson(rowData);
                     const defaultProfilePic = getDefaultProfileImage(
-                      rowData?.user?.gender_display?.value_en || "unknown",
+                      person.genderEn || "unknown",
                       asset("profile/male_profile.svg"),
                       asset("profile/female_profile.svg"),
                       asset("profile/org_profile.svg")
@@ -660,7 +662,7 @@ export default function RegisterListForLearnandServe() {
                                 }
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 disabled={rowData.is_attended}
-                                aria-label={`Select ${rowData.user.full_name}`}
+                                aria-label={`Select ${person.name}`}
                               />
                             </div>
                           </div>
@@ -669,14 +671,12 @@ export default function RegisterListForLearnandServe() {
                     }
 
                     if (column.type === "custom" && column.key === "full_name") {
-                      const user = rowData.user || {};
-                      const userId = user?.id || rowData.user_id || rowData.id;
-                      const isPublic = user?.is_public;
+                      const userId = person.userId || rowData.id;
                       return (
                         <div className="flex items-center gap-3">
                           <Image
-                            src={rowData.user.profile_pic || defaultProfilePic}
-                            alt={rowData.user.full_name}
+                            src={person.profilePic || defaultProfilePic}
+                            alt={person.name}
                             width={40}
                             height={40}
                             unoptimized
@@ -688,18 +688,18 @@ export default function RegisterListForLearnandServe() {
                               onClick={() => {
                                 if (!userId) return;
                                 router.push(
-                                  isPublic
+                                  person.isPublic
                                     ? `/public-profile/${userId}`
                                     : `/volunteer-private-profile/${userId}`
                                 );
                               }}
                             >
-                              {rowData.user.full_name}
+                              {person.name || "-"}
                             </span>
                             {/* Reports show the volunteer's civil ID under the name */}
-                            {(rowData.civil_id || user?.civil_id) && (
+                            {person.civilId && (
                               <span className="text-xs text-gray-500">
-                                {rowData.civil_id || user?.civil_id}
+                                {person.civilId}
                               </span>
                             )}
                           </div>
@@ -708,17 +708,11 @@ export default function RegisterListForLearnandServe() {
                     }
 
                     if (column.type === "email") {
-                      return <span>{rowData.user.email || "-"}</span>;
+                      return <span>{person.email || "-"}</span>;
                     }
 
                     if (column.type === "contact") {
-                      return (
-                        <span>
-                          {rowData.user.phone_number ||
-                            rowData.phone_number ||
-                            "-"}
-                        </span>
-                      );
+                      return <span>{person.phone || "-"}</span>;
                     }
 
                     if (column.type === "emergency") {
@@ -766,9 +760,7 @@ export default function RegisterListForLearnandServe() {
 
                     if (column.type === "actions") {
                       const localizedName =
-                        selectedLanguage === "ar"
-                          ? rowData.user.full_name_ar || rowData.user.full_name
-                          : rowData.user.full_name;
+                        selectedLanguage === "ar" ? person.nameAr : person.name;
 
                       return (
                         <div
@@ -781,7 +773,8 @@ export default function RegisterListForLearnandServe() {
                           <button
                             onClick={() =>
                               !isAfterAttendanceDeadline &&
-                              openDeleteModal(rowData.user.id, localizedName)
+                              person.userId &&
+                              openDeleteModal(person.userId, localizedName)
                             }
                             className={`text-primary-5 flex items-center gap-2 ${
                               isAfterAttendanceDeadline

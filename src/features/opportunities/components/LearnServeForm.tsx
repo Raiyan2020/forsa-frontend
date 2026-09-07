@@ -99,6 +99,13 @@ interface LearnServeFormValues {
 
 interface LearnServeFormProps {
   autoSetTimeOnClick?: boolean; // Auto-set time fields to 12:00 on first click
+  /**
+   * Set by the `/learn-and-share-form/edit/{id}` route. Takes precedence over
+   * the sessionStorage payload, so the edit screen survives a reload — the
+   * stashed nav state only ever survived one navigation. Repost still arrives
+   * through nav state (`isRepublish`), since it creates a new opportunity.
+   */
+  opportunityId?: string;
 }
 
 // Leaflet touches `window` at import time, so it can't be part of the SSR pass.
@@ -273,6 +280,8 @@ function LearnServeFormEffects({
 
 export default function LearnServeForm({
   autoSetTimeOnClick = true,
+  // Renamed: `opportunityId` is already taken by the in-progress-create state below.
+  opportunityId: editOpportunityId,
 }: LearnServeFormProps) {
   const { t } = useTranslation();
   const selectedLanguage = useLanguageStore((s) => s.language);
@@ -300,7 +309,9 @@ export default function LearnServeForm({
   const navState = useConsumedNavState<LearnServeFormNavState>(
     NAV_STATE_KEYS.learnServeForm
   );
-  const id = navState?.id;
+  // The route param wins; nav state is the fallback for repost and for any
+  // caller still pushing the bare form path.
+  const id = editOpportunityId ?? navState?.id;
   const isRepublish = navState?.isRepublish;
 
   const [open, setOpen] = useState(false);

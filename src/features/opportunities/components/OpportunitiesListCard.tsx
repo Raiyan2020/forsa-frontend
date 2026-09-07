@@ -17,6 +17,10 @@ import {
   getOpportunityButtonState,
   isCreatorRepostState,
 } from "@/features/shared/opportunityButtonState";
+import {
+  LEARN_SERVE_FORM_PATH,
+  learnServeEditPath,
+} from "@/features/opportunities/routes";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import OpportunityBadges, {
   OpportunityVisibilityInfo,
@@ -296,11 +300,20 @@ export default function OpportunitiesListCard({
       router.push(detailHref);
       return;
     }
+    const isRepublish = isCreatorRepostState(item);
+
+    // Editing a learn & serve opportunity has its own URL; reposting seeds a
+    // new one, so it keeps going through the bare form + nav state.
+    if (isLearnServe && !isRepublish) {
+      router.push(learnServeEditPath(item.id));
+      return;
+    }
+
     setNavState(
       isLearnServe ? NAV_STATE_KEYS.learnServeForm : NAV_STATE_KEYS.volunteerForm,
-      { id: String(item.id), isRepublish: isCreatorRepostState(item) }
+      { id: String(item.id), isRepublish }
     );
-    router.push(isLearnServe ? "/learn-and-share-form" : "/volunteer-form");
+    router.push(isLearnServe ? LEARN_SERVE_FORM_PATH : "/volunteer-form");
   };
 
   const fetchOpportunities = useCallback(

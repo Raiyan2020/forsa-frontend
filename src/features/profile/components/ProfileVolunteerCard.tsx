@@ -21,6 +21,10 @@ import {
   getOpportunityButtonState,
   isCreatorRepostState,
 } from "@/features/shared/opportunityButtonState";
+import {
+  LEARN_SERVE_FORM_PATH,
+  learnServeEditPath,
+} from "@/features/opportunities/routes";
 import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
 import { formatDateRange } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
@@ -363,11 +367,20 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
       return;
     }
     const isVolunteer = isVolunteerOpportunity(item.opportunity_type);
+    const isRepublish = isCreatorRepostState(item);
+
+    // Editing a learn & serve opportunity has its own URL; reposting seeds a
+    // new one, so it keeps going through the bare form + nav state.
+    if (!isVolunteer && !isRepublish) {
+      router.push(learnServeEditPath(item.id));
+      return;
+    }
+
     setNavState(
       isVolunteer ? NAV_STATE_KEYS.volunteerForm : NAV_STATE_KEYS.learnServeForm,
-      { id: String(item.id), isRepublish: isCreatorRepostState(item) }
+      { id: String(item.id), isRepublish }
     );
-    router.push(isVolunteer ? "/volunteer-form" : "/learn-and-share-form");
+    router.push(isVolunteer ? "/volunteer-form" : LEARN_SERVE_FORM_PATH);
   };
 
   const hasNoOpportunities = !opportunities || opportunities.length === 0;

@@ -21,7 +21,10 @@ export const NAV_STATE_KEYS = {
   eventForm: "event_form_details",
   /** Opportunity card "edit"/"repost" → /volunteer-form */
   volunteerForm: "volunteer_form_details",
-  /** Learn & serve card "edit"/"repost" → /learn-and-share-form */
+  /**
+   * Learn & serve card "repost" → /learn-and-share-form. Editing has its own
+   * URL (`/learn-and-share-form/edit/{id}`) and no longer needs this payload.
+   */
   learnServeForm: "learn_serve_form_details",
   /** LinkedIn sign-up handoff, consumed by the volunteer mandate modal */
   linkedinNewUser: "linkedin_new_user_data",

@@ -13,6 +13,52 @@ live in this folder.
 - Ids are never reused or renumbered. New items take the next free number, whatever section they land in.
 - Items move between the two sections as their status changes; the id and the evidence stay put.
 - When you fix something, please reply on the item with a concrete request/response pair, not just "done" — every item below says exactly what would let us verify it.
+- **When you have worked through the open items, send one reply file back.** The exact format is in the next section — please don't skip it, it is how we know whether anything is left for us.
+
+## How to reply — one file back to us
+
+When you have finished the open items above (or as many as you are going to do in this
+round), hand back **one markdown file**: `BACKEND_REPLY_<YYYY-MM-DD>.md`, in this same
+folder or over chat. Please don't reply item-by-item across several messages — one file per
+round keeps this log easy to reconcile.
+
+The reply has exactly two possible shapes.
+
+### Shape 1 — something is left for the frontend
+
+List **only** what we have to do on our side, one block per item, quoting the `BE-NN` id:
+
+```markdown
+# Backend reply — 2026-09-DD
+
+## BE-NN — <title>
+**Done:** <what changed on the API>
+**Proof:** <the request + the response body, or the id list, that shows it>
+**Frontend must:** <the exact change we need to make — field renamed, param value,
+                    new endpoint path, response shape, anything we now have to read
+                    or send differently>
+```
+
+`Frontend must:` is the part we act on, so please be concrete: name the field, the accepted
+values, the endpoint. "Use the new field" is not enough; `interest_display` now returns
+`{ id, value_en, value_ar }` is.
+
+Also list, in the same file, anything you **did not** do and why — a deferred item is fine,
+silently skipping one is what we can't work with.
+
+### Shape 2 — nothing is left for the frontend
+
+If every open item is done **and** none of them needs a single change on our side, then the
+whole file is just this:
+
+```markdown
+Hi Medo
+```
+
+That greeting is a **sentinel**: it means "backend side is complete, frontend has nothing to
+change." So please send it *only* when that is literally true. If even one item needs a
+field renamed, a param adjusted, or a response re-read on our end, use Shape 1 instead — a
+"Hi Medo" that turns out to need frontend work costs us a whole debugging round to discover.
 
 <details>
 <summary><b>Template for a new item (copy this)</b></summary>
@@ -45,13 +91,16 @@ live in this folder.
 |---|---|---|---|
 | [BE-01](#be-01--interest-tags-are-empty-on-every-opportunity-learn-serve-and-event) | Interest tags empty platform-wide | `/opportunities/{id}/details/` + all listings | **Open** |
 | [BE-02](#be-02--is_creator-dropped-from-the-opportunity-detail-payload) | `is_creator` dropped from detail payload | `GET /opportunities/{id}/details/` | **Open** |
-| [BE-03](#be-03--opportunity_status-is-always-upcoming-on-list-all-opportunities) | `opportunity_status` always `upcoming` | `GET /list-all-opportunities/` | **Open** |
 | [BE-04](#be-04--list-user-opportunities-filters-are-accepted-but-not-applied) | Filters accepted but not applied | `GET /list-user-opportunities/` | **Open** |
 | [BE-05](#be-05--name-filter-on-community-posts-has-no-effect) | `name` filter has no effect | `GET /posts/` | **Open** |
 | [BE-06](#be-06--sort_bynewest-doesnt-return-newest-first) | `sort_by=newest` isn't newest-first | `GET /list-volunteer-opportunities/` | **Open** |
 | [BE-07](#be-07--sponsorship-form-choice-ids-not-persisted-on-record-9) | Sponsor record 9 lost its choice ids | `POST /sponsors/` | **Open** |
 | [BE-08](#be-08--two-competing-mechanisms-for-attaching-a-sponsor-to-an-opportunity) | Two ways to attach a sponsor | opportunity create/update + `/sponsors/` | **Open (blocking question)** |
 | [BE-09](#be-09--volunteer-team-join-option--payload-confirmation) | Volunteer Team registration payload | `POST /register/`, `/social-auth/` | **Open (confirmation only)** |
+| [BE-15](#be-15--opportunity_type-filter-not-applied-on-list-all-opportunities) | `opportunity_type` filter not applied | `GET /list-all-opportunities/` | **Open** |
+| [BE-16](#be-16--learn-serve-registrations-carry-no-phone-number-picture-or-gender) | Registrations row missing phone / picture / gender | `GET /learn-serve-opportunities/{id}/registrations/` | **Open** |
+| [BE-17](#be-17--learning_type_display-format_display-and-certificate_type_display-are-null) | Learn-serve choice fields all `null` | `GET /learn-serve-opportunities/{id}/` | **Open** |
+| [BE-03](#be-03--opportunity_status-was-always-upcoming-on-list-all-opportunities) | `opportunity_status` always `upcoming` | `GET /list-all-opportunities/` | Fixed 2026-09-07 |
 | [BE-10](#be-10--download-sheet-returned-no-file-link) | Download sheet returned no link | `GET /volunteer-opportunity-registrations/?download=true` | Resolved (one question left) |
 | [BE-11](#be-11--re-registering-after-unregistering-threw-a-500) | Re-registration 500 | `POST /volunteer-opportunity-registrations/` | Resolved |
 | [BE-12](#be-12--scan-permissions-bulk-update--request-contract) | Bulk-update contract | `POST /scan-permissions/bulk-update/` | Resolved |
@@ -66,18 +115,20 @@ live in this folder.
 
 | | |
 |---|---|
-| **Status** | **Open.** Started as one record (#35); the 2026-09-06 audit shows it is platform-wide. |
+| **Status** | **Open.** Started as one record (#35); the 2026-09-06 audit showed it is platform-wide; 2026-09-07 pins it to **the same record id on both backends**. |
 | **Endpoint** | `GET /opportunities/{id}/details/`, `/learn-serve-opportunities/{id}/`, `/events/{id}/`, all listings |
 | **Frontend** | `lib/interests.ts`, tag pills on every detail + card |
-| **Raised** | 2026-09-03, escalated 2026-09-06 |
+| **Raised** | 2026-09-03, escalated 2026-09-06, same-id proof 2026-09-07 |
 
-**The same opportunity exists on both backends.** #98 on the old API and #97 on the new
-Laravel API — same organizer (user `905`, "omniya"), same Arabic title
-("مسابقة أمنية مدرستك الرابعة"), same description, same dates (2026-09-17 → 2026-09-30).
+**Opportunity `97` on the old API vs. opportunity `97` on the new one.** Not two similar
+records — the same primary key, the same organizer (user `905`, "omniya"), the same title,
+description and dates (2026-09-17 → 2026-09-30), and **the same opportunity-image row,
+`id: 545`**. There is no ambiguity about which record this is.
 
-Old API, #98:
+Old API, `GET` details for `97`:
 
 ```json
+"interests": [],
 "interest_display": [
   { "id": 71, "choice_type": "volunteer_opportunity_interest", "value_en": "Community Service", "value_ar": "خدمة مجتمعية" },
   { "id": 74, "choice_type": "volunteer_opportunity_interest", "value_en": "Event Management & Organization", "value_ar": "تنظيم واداره الفعاليات" },
@@ -85,14 +136,41 @@ Old API, #98:
 ]
 ```
 
-New API, #97:
+New API, `GET /opportunities/97/details/`:
 
 ```json
 "interests": [],
 "interest_display": null
 ```
 
-So the tags were not "left unset by the organizer" — this record demonstrably had three.
+So the tags were not "left unset by the organizer" — **this exact record had three of them,
+and the old payload says where they lived**: `interest_display`, carrying
+`choice_type: "volunteer_opportunity_interest"` entries. Those are **choice-table
+(MasterChoice) ids**, and `GET /choices/volunteer_opportunity_interest/` still returns the
+same 18 rows with the same ids today — `71` is still "Community Service", `74` and `80` are
+still there. `interests` was empty on the old backend too, exactly as `lib/interests.ts`
+documents ("`interests` comes from its own table, so its ids don't necessarily match the
+choice ids").
+
+**That points at a specific gap, and you have already bridged it once.** The detail Resource
+serializes the newer `interests` relation (empty for every record) and `null` for
+`interest_display`, while the actual assignments were choice-table rows. This is the same
+two-relation split you found and fixed for BE-13: *"the filter only ever read the legacy
+`interests` relation, while the current profile UI writes a separate `masterInterests`
+relation … fixed by matching against both relations (translating MasterChoice ids to their
+`Interest` equivalents by name)."* Opportunity tags look like the other side of that same
+coin — the bridge that `match_my_interest` now has is missing in the serializer.
+
+**Other fields that changed between the two payloads for `97`** — not asks, just so none of
+this reads as a different record:
+
+| Field | Old | New | Note |
+|---|---|---|---|
+| `location_en` / `location_ar` | `"8W3M+MX6, Kuwait City, Kuwait"` | gone; `map_desc` + `lat`/`lng` instead | Frontend falls back to `map_desc`, so no visible break. |
+| `is_creator` | `false` (present) | absent | See BE-02 — the field existed in this contract. |
+| `participants_needed` | `20` | `30` | Edited after migration. |
+| `registered_volunteers_count` | `2` | `3` | New registrations since. |
+| `created_by.is_public` | `true` | `false` | Flips the organizer link between `/public-profile/` and `/volunteer-private-profile/`; presumably the org changed it, but worth a glance if it wasn't deliberate. |
 
 **Scope** — checked live, unauthenticated, 2026-09-06:
 
@@ -110,29 +188,31 @@ Not one record and not one endpoint: **nothing on the API currently carries a si
 interest tag.** This also supersedes the earlier "id 35 is really an Event, wrong table"
 diagnosis — events are empty too.
 
-**The vocabulary survived; the assignments didn't.** `GET /choices/volunteer_opportunity_interest/`
-returns 18 choices with the *same ids as the old payload* — `71` is still "Community
-Service", `74` and `80` still exist. The choice table migrated intact; the link between
-opportunities and choices is what's missing. That leaves two possibilities:
+**The vocabulary survived; the assignments are unreachable.** Three possibilities, in the
+order we'd check them:
 
-1. **The pivot rows didn't migrate** — the join table came over empty. A data-backfill job; the old DB still has the assignments (#98 proves it).
-2. **The relation is never loaded/serialized** — the Resource returns `$this->interests` without eager-loading, or maps a relationship name that no longer matches after the rename. A one-line fix.
+1. **The assignments are in the choice/MasterChoice pivot and the Resource reads the `interests` relation** — most likely, given the old payload delivered them as `choice_type` entries and `interests` was empty on *both* backends. Nothing is lost; the serializer needs the same bridge BE-13's filter fix already uses.
+2. **The pivot rows didn't migrate at all** — a data-backfill job. The old database still has them (record `97` above lists exactly `71`, `74`, `80`).
+3. **The relation is never eager-loaded** — the Resource maps a relationship name that stopped matching after the rename.
 
-A `SELECT COUNT(*)` on the pivot table separates these in ten seconds. Please run that first.
+Two queries separate all three in about a minute: `SELECT COUNT(*)` on the opportunity↔choice
+pivot, and the same on the newer `interests` pivot. Please run those before anything else and
+tell us the two numbers — everything below depends on which it is.
 
 **Also check the write path.** Our create/edit forms post interests as a repeated
-`_interests` form field of choice ids — `VolunteerForm.tsx:818`, `LearnServeForm.tsx:1010`,
-`EventForm.tsx:653`, unchanged from the old API's contract. If the Laravel controllers
-ignore that field name, then even after a backfill every newly created opportunity comes
-back untagged — which matches #97 (created on the new backend) being empty just like the
-migrated records.
+`_interests` form field **of choice ids** — `VolunteerForm.tsx:818`, `LearnServeForm.tsx:1010`,
+`EventForm.tsx:653`, unchanged from the old API's contract. So the frontend writes in the
+choice-id vocabulary and reads back a relation keyed differently. If the controllers ignore
+that field name, or write it to one relation while the Resource reads the other, then even
+after a backfill every newly created opportunity comes back untagged.
 
 **Ask**
 
-1. Run the pivot-table count and tell us which of the two causes it is.
-2. If the assignments were lost, backfill from the old database — start with #97, whose twin #98 lists exactly ids `71`, `74`, `80`.
-3. Confirm `_interests` is still accepted on create **and** update for all three resource types, and that it syncs the pivot.
-4. Send back `GET /opportunities/97/details/` with `interests` populated in the `{ id, name_en, name_ar, interest_type }` shape.
+1. Run the two pivot counts and tell us which of the three causes it is.
+2. If it is (1), add the MasterChoice → `Interest` bridge to the detail and list Resources — the same translation BE-13's fix does — so the tags serialize regardless of which relation holds them.
+3. If it is (2), backfill from the old database — record `97` needs exactly `71`, `74`, `80`.
+4. Confirm `_interests` (choice ids) is still accepted on create **and** update for all three resource types, and say which relation it writes to.
+5. Send back `GET /opportunities/97/details/` with this record's three tags present, in whichever field you settle on (`interests` in the `{ id, name_en, name_ar, interest_type }` shape, or `interest_display` in the old choice shape — we read both).
 
 **Frontend status** — nothing to change. `normalizeInterests()` (`lib/interests.ts`) already
 reads `interests` first and falls back to `interest_display`, so the pills light up as soon
@@ -196,70 +276,16 @@ per-user fields (`is_registered`) on the same row.
 `isViewerOrganizer(item, userId)`, which ORs three signals in order: `relationship_tags`
 contains `"organizer"` → `is_creator` → `created_by.id === user.id`. `VolunteerEvent.tsx`
 uses it for every owner-gated control, so the screen works regardless of which of the four
-shapes above an endpoint returns. `LearnServeDetails.tsx` and `EventDetails.tsx` still use
-the old two-signal derivation, deliberately left until question 1 is answered —
-`/learn-serve-opportunities/{id}/` has the same missing field, so that screen is likely
-broken the same way.
+shapes above an endpoint returns. **Update 2026-09-07:** `LearnServeDetails.tsx` now uses it
+too — `/learn-serve-opportunities/{id}/` is missing `is_creator` in exactly the same way, and
+that screen's Edit button was falling through into the registration-confirmation modal for
+the creator. `EventDetails.tsx` still uses the old two-signal derivation; `/events/{id}/` is
+the one endpoint that still sends `is_creator`, so it isn't broken today — but it will be the
+moment that resource is migrated like the other two, which is what question 1 is about.
 
 > The old backend's response for #98 carries `"is_creator": false` as a top-level field —
 > independent proof this was part of the contract and was dropped in the rewrite, not a
 > field the frontend invented. Same migration as BE-01.
-
----
-
-### BE-03 — `opportunity_status` is always "upcoming" on `list-all-opportunities`
-
-| | |
-|---|---|
-| **Status** | **Open, blocking.** No frontend fix is possible until the value is correct. |
-| **Endpoint** | `GET /list-all-opportunities/` |
-| **Frontend** | `features/profile/components/ProfileVolunteerCard.tsx` (status badge) |
-| **Raised** | 2026-09-03 |
-
-Two real responses captured the same minute (`~2026-09-03T09:0X`), today being `2026-09-03`:
-
-`?search=&page=1&limit=9&filter_type=organized&opportunity_type=&status=`
-
-| id | start_date | end_date | opportunity_status | action_state | has_started | has_ended |
-|---|---|---|---|---|---|---|
-| 113 | 2026-08-29 | 2026-08-31 | **upcoming** | ended | false | true |
-| 115 | 2026-09-02 | 2026-09-17 | **upcoming** | started | true | false |
-| 118 | 2026-08-31 | 2026-08-31 | **upcoming** | ended | false | true |
-| 121 | 2026-09-01 | 2026-09-04 | **upcoming** | started | true | false |
-| 124 | 2026-09-02 | 2026-09-03 | **upcoming** | started | true | false |
-| 125 | 2026-09-03 | 2026-09-04 | **upcoming** | started | true | false |
-
-`?filter_type=organized&user_id=975&page=1&limit=30`
-
-| id | start_date | end_date | opportunity_status | action_state | has_started | has_ended |
-|---|---|---|---|---|---|---|
-| 114 | 2026-08-28 | 2026-08-31 | **upcoming** | ended | false | true |
-| 116 | 2026-09-01 | 2026-09-03 | **upcoming** | started | true | false |
-| 117 | 2026-08-30 | 2026-08-30 | **upcoming** | ended | false | true |
-| 119 | 2026-08-30 | 2026-08-30 | **upcoming** | ended | false | true |
-
-**Every item reports `upcoming`**, including ones that ended days earlier (#113) and ones
-in progress (#125, started that day). `action_state`, `has_started` and `has_ended` are
-clearly recomputed per item against the current date; `opportunity_status` is not.
-
-**Effect.** Every card on an organizer's own profile or a public profile shows a "قادمة"
-(Upcoming) badge regardless of real state.
-
-**Hypothesis.** The endpoint serializes `opportunity_status` from a stored/cached column
-(or one only updated on write / by a scheduled job) instead of deriving it live the way
-`action_state` does. `/opportunities/{id}/details/` returns a value that does vary
-correctly, so this looks specific to this list serializer — or to whatever recomputes the
-stored value not running for these records.
-
-**Ask**
-
-1. Make `opportunity_status` here reflect real current state, consistent with `action_state` / `has_started` / `has_ended` on the same payload.
-2. If `opportunity_status` and `action_state` are deliberately different concepts (one admin-set, one date-derived), say which one the status badge should read — today they disagree on effectively every record.
-3. Send back a re-tested response showing `opportunity_status` varying per item.
-
-**Frontend status** — unchanged. The badge already reads the field documented as the
-opportunity's status; switching it to `action_state` without confirmation would just swap
-one field for another without knowing which is authoritative.
 
 ---
 
@@ -514,9 +540,275 @@ strongly suggest — there's nothing to do.
 
 ---
 
+### BE-15 — `opportunity_type` filter not applied on `list-all-opportunities`
+
+| | |
+|---|---|
+| **Status** | **Open, blocking.** Also needs the accepted vocabulary settled — our two callers disagree. |
+| **Endpoint** | `GET /list-all-opportunities/` (`filter_type=organized`) |
+| **Frontend** | `features/profile/components/ProfileDescriptionTabs.tsx` (own profile), `CommonProfile.tsx` (public profile) |
+| **Raised** | 2026-09-07 |
+
+Three requests, captured minutes apart on 2026-09-07, differing **only** in
+`opportunity_type`:
+
+```
+1) …&filter_type=organized&opportunity_type=&status=                          → 7 rows
+2) …&filter_type=organized&opportunity_type=volunteer_opportunity&status=     → the same 7 rows
+3) …&filter_type=organized&opportunity_type=learn_serve_opportunity&status=   → the same 7 rows
+```
+
+All three return ids `115, 122, 113, 118, 121, 124, 125`, same order, `"total": 7` — and
+**every one of those rows self-reports `"opportunity_type": "volunteer_opportunity"`**.
+
+Request 3 is the decisive one: it asks for learn-serve opportunities and gets back seven
+records that the response's own `opportunity_type` field labels `volunteer_opportunity`. The
+payload contradicts the filter it was given, whatever vocabulary is expected — so either the
+param isn't wired into the query, or an unrecognised value falls through to "no filter"
+instead of erroring.
+
+**Our two screens send two different vocabularies** — please tell us which one is right, we
+will fix the other:
+
+| Caller | Sends |
+|---|---|
+| `ProfileDescriptionTabs.tsx:41-42` (logged-in user's own profile tabs) | `volunteer_opportunity` / `learn_serve_opportunity` — the long form, as in the test above |
+| `CommonProfile.tsx:160-165` (public profile tabs) | `volunteer` / `learn` — the short form |
+
+Both hit `list-all-opportunities` with `filter_type=organized`, and each carries a comment
+claiming its own form is "the value `/list-all-opportunities/` accepts". One of them is
+wrong and we can't tell which from the outside, because **both are accepted with `200` and
+neither changes the result**.
+
+**Hypothesis (Laravel).** Same shape as BE-04 and BE-05 — a param accepted with `200`, no
+validation error, no effect. Worth checking whether `opportunity_type` is missing from this
+controller's validation rules, and whether the intended filter is a `where` on the
+opportunities table's own type column or a union/`whereHasMorph` across the two opportunity
+models (this endpoint deliberately merges both types, so a naive `where` on one model's
+column would silently drop out of the merged query).
+
+**Ask**
+
+1. Wire `opportunity_type` into the query on this endpoint, and confirm request 3 above returns learn-serve records only (or an empty set if this organizer has none — either is a correct answer; seven volunteer opportunities is not).
+2. **State the accepted values** — `volunteer` / `learn`, or `volunteer_opportunity` / `learn_serve_opportunity`, or both. We'll align both screens on whichever you name.
+3. Make an unrecognised value a `422` rather than a silent full list. A no-op filter is indistinguishable from a working one on the frontend, which is how this survived unnoticed on the own-profile tab.
+4. While in this endpoint, confirm `status` and `search` are actually applied too — the tests above sent `status=` empty, so they're untested, and this endpoint now has three params we can't trust.
+5. Send back one request per accepted `opportunity_type` value with the resulting id list, so we can verify the vocabulary and the filtering in one go.
+
+**Frontend status** — unchanged. Both screens already send a type param on every tab switch;
+nothing to adjust until we know which vocabulary is authoritative. Note that
+`GET /list-user-opportunities/` (BE-04) takes the same `opportunity_type` param from
+`CommonProfile.tsx` for volunteer profiles, so please answer the vocabulary question for
+both endpoints.
+
+---
+
+### BE-16 — Learn-serve registrations carry no phone number, picture or gender
+
+| | |
+|---|---|
+| **Status** | **Open.** The frontend now renders what this row does carry; three columns can't be filled from it. |
+| **Endpoint** | `GET /learn-serve-opportunities/{id}/registrations/` |
+| **Frontend** | `features/opportunities/components/RegisterList.tsx`, `RegisterListForLearnandServe.tsx` |
+| **Raised** | 2026-09-07 |
+
+A row from opportunity `30` (three registrations, `total: 3`):
+
+```json
+{
+  "id": 215,
+  "opportunity_id": 30,
+  "user_id": 690,
+  "user_name": "Ahmed Abdullah",
+  "user_email": "ahmednabeeh98@gmail.com",
+  "civil_id": "295101912002",
+  "passport_number": null,
+  "registration_date": "2026-09-07T08:03:22+00:00",
+  "status": "pending",
+  "is_attended": false,
+  "is_certified": false,
+  "certificate_image": null,
+  "time_slot": null
+}
+```
+
+**This one is on us, mostly** — the register-list screens were written against an older
+nested shape (`user.full_name`, `user.email`, `user.phone_number`) and read `undefined` from
+every cell, so the table showed blank names and "-" for email and phone even though the
+name and email were right there in the payload. Fixed on 2026-09-07 (see below). **No
+backend action needed for that part.**
+
+What we can't fix from this payload is three columns' worth of data that simply isn't in it:
+
+| Column | Field we'd need | In this payload? |
+|---|---|---|
+| رقم الاتصال (contact number) | `user_contact_number` / `phone_number` | **No** |
+| avatar next to the name | `profile_pic` | **No** |
+| avatar fallback (male/female placeholder) | `gender_display` | **No** |
+| profile-link target (public vs. private profile) | `is_public` | **No** |
+
+**The volunteer equivalent already sends all of them.**
+`GET /volunteer-opportunity-registrations/` returns `full_name`, `user_email`,
+`user_contact_number`, `phone_number` and `civil_id` on each row — same screen family, same
+columns, richer payload. So the two registration endpoints disagree on both the **field
+names** (`full_name` vs. `user_name`) and the **field set**.
+
+**Ask**
+
+1. Add `user_contact_number` (or `phone_number` + `country_code`), `profile_pic`, `gender_display` and `is_public` to this row — the same four the volunteer registrations endpoint already carries. Without the first one the contact column is permanently "-"; without the others every volunteer gets the generic placeholder avatar and the name links to the private profile even when their profile is public.
+2. Tell us whether `user_name` vs. `full_name` is a deliberate difference or an accident. If you can align both endpoints on one name for the same concept we'll follow it; if not, say so and we'll keep reading both.
+3. Confirm what `status` (`pending` here for all three) and `time_slot` are meant to drive — neither screen renders them today, and `pending` on every row makes us wonder whether an approval step exists that the organizer is supposed to see.
+
+**Frontend status — fixed 2026-09-07.** New `features/opportunities/registrationRow.ts`
+exports `registrationPerson(row)`, which reads either shape: flat (`user_name`, `user_email`,
+`user_id`, `civil_id`) or nested (`user.full_name`, …). Both register-list screens go through
+it, so names and emails now render, the civil id shows under the name, and the profile link
+uses `user_id`. It also fixed a harder failure in `RegisterListForLearnandServe.tsx` (the
+certificate-type variant at `/leran-share-register-list`), which read `rowData.user.profile_pic`
+and `rowData.user.full_name` unguarded — with no `user` object in the payload that threw and
+took the whole page down, rather than merely rendering dashes.
+
+---
+
+### BE-17 — `learning_type_display`, `format_display` and `certificate_type_display` are null
+
+| | |
+|---|---|
+| **Status** | **Open.** Same family as BE-01, different fields — these are single-choice FKs, not a pivot. |
+| **Endpoint** | `GET /learn-serve-opportunities/{id}/` |
+| **Frontend** | `features/opportunities/components/LearnServeDetails.tsx` |
+| **Raised** | 2026-09-07 |
+
+`GET /learn-serve-opportunities/30/`, checked live:
+
+```json
+"learning_type_display": null,
+"format_display": null,
+"certificate_type_display": null,
+"interests": [], "interest_display": [],
+"requires_check_in": true,
+"manual_attendance_enabled": true,
+"qr_attendance_enabled": true
+```
+
+There is no raw `learning_type` / `format` / `certificate_type` id field on the payload
+either — only the three `_display` objects, and all three are `null`. Note the record is
+internally inconsistent about itself: it has **no learning type** yet reports
+`requires_check_in: true`, which only makes sense for one of the types.
+
+**What it costs on the screen**
+
+| Field | Consequence |
+|---|---|
+| `learning_type_display` | The detail page's "Type" row renders blank. It also **routed the organizer to the wrong registrations screen** — see the frontend note below. |
+| `format_display` | The page falls back to showing "Online" (`t("COMMON.ONLINE")`) and picks the online icon, so an in-person opportunity is silently mislabelled — the fallback was written for old records with no format, not for every record. |
+| `certificate_type_display` | The certificate row is hidden entirely (it only renders for Course/Internship, which is decided by the null field above). |
+
+**Ask**
+
+1. Are these three ever populated for any learn-serve record? A `SELECT` of the three FK columns with a `COUNT(*) WHERE ... IS NOT NULL` would tell us in one query whether the data is missing or just not serialized.
+2. If the columns hold values but the Resource doesn't load them, load them — same shape as BE-01's third hypothesis.
+3. If the values were lost in migration, tell us, and please also send the raw `learning_type` / `format` / `certificate_type` ids alongside the `_display` objects. The forms already submit `learningType` / `format` / `certificateType` as choice ids, so a raw id on read would let us render from `/choices/` ourselves instead of depending on the nested object.
+4. Confirm what `requires_check_in: true` means on a record with no learning type — is it a default, or is the type actually set in the database and only missing from the response?
+
+**Frontend status — routing fixed 2026-09-07, display still degraded.** `LearnServeDetails.tsx`
+used to pick between the two register-list screens by matching
+`learning_type_display.value_en` against `["Course", "Internship"]`. With the field `null`
+that matched nothing, so **every** learn-serve opportunity — including this one, which
+requires a check-in — landed on `/learn-share-register-list`, the read-only list with no
+attendance control, leaving the organizer no way to mark anyone present. It now routes on
+`requires_check_in !== false` instead, which is the flag that actually describes the need
+(and the destination self-gates the button on the check-in window anyway). The old label
+check also never included "Class", which the code's own comment lists as needing a check-in.
+
+The Type / Format / Certificate rows stay blank-or-wrong until the fields carry data; we
+haven't papered over `format_display` with a guess, since "Online" vs "In person" changes
+what the page shows (a map link vs. a meeting link).
+
+---
+
 # Answered / Resolved
 
 Kept for the record. Reopen by moving the item back up and adding a dated note.
+
+### BE-03 — `opportunity_status` was always "upcoming" on `list-all-opportunities`
+
+| | |
+|---|---|
+| **Status** | **Fixed — confirmed 2026-09-07 from a live `filter_type=organized` response.** |
+| **Endpoint** | `GET /list-all-opportunities/` |
+| **Frontend** | `features/profile/components/ProfileVolunteerCard.tsx` (status badge) |
+| **Raised** | 2026-09-03 |
+
+Two real responses captured the same minute (`~2026-09-03T09:0X`), today being `2026-09-03`:
+
+`?search=&page=1&limit=9&filter_type=organized&opportunity_type=&status=`
+
+| id | start_date | end_date | opportunity_status | action_state | has_started | has_ended |
+|---|---|---|---|---|---|---|
+| 113 | 2026-08-29 | 2026-08-31 | **upcoming** | ended | false | true |
+| 115 | 2026-09-02 | 2026-09-17 | **upcoming** | started | true | false |
+| 118 | 2026-08-31 | 2026-08-31 | **upcoming** | ended | false | true |
+| 121 | 2026-09-01 | 2026-09-04 | **upcoming** | started | true | false |
+| 124 | 2026-09-02 | 2026-09-03 | **upcoming** | started | true | false |
+| 125 | 2026-09-03 | 2026-09-04 | **upcoming** | started | true | false |
+
+`?filter_type=organized&user_id=975&page=1&limit=30`
+
+| id | start_date | end_date | opportunity_status | action_state | has_started | has_ended |
+|---|---|---|---|---|---|---|
+| 114 | 2026-08-28 | 2026-08-31 | **upcoming** | ended | false | true |
+| 116 | 2026-09-01 | 2026-09-03 | **upcoming** | started | true | false |
+| 117 | 2026-08-30 | 2026-08-30 | **upcoming** | ended | false | true |
+| 119 | 2026-08-30 | 2026-08-30 | **upcoming** | ended | false | true |
+
+**Every item reports `upcoming`**, including ones that ended days earlier (#113) and ones
+in progress (#125, started that day). `action_state`, `has_started` and `has_ended` are
+clearly recomputed per item against the current date; `opportunity_status` is not.
+
+**Effect.** Every card on an organizer's own profile or a public profile shows a "قادمة"
+(Upcoming) badge regardless of real state.
+
+**Hypothesis.** The endpoint serializes `opportunity_status` from a stored/cached column
+(or one only updated on write / by a scheduled job) instead of deriving it live the way
+`action_state` does. `/opportunities/{id}/details/` returns a value that does vary
+correctly, so this looks specific to this list serializer — or to whatever recomputes the
+stored value not running for these records.
+
+**Ask**
+
+1. Make `opportunity_status` here reflect real current state, consistent with `action_state` / `has_started` / `has_ended` on the same payload.
+2. If `opportunity_status` and `action_state` are deliberately different concepts (one admin-set, one date-derived), say which one the status badge should read — today they disagree on effectively every record.
+3. Send back a re-tested response showing `opportunity_status` varying per item.
+
+**Frontend status** — unchanged. The badge already reads the field documented as the
+opportunity's status; switching it to `action_state` without confirmation would just swap
+one field for another without knowing which is authoritative.
+
+**Resolution (2026-09-07).** The same request now returns a per-item value that agrees with
+`action_state` on every row:
+
+| id | start_date | end_date | opportunity_status | action_state |
+|---|---|---|---|---|
+| 115 | 2026-09-02 | 2026-09-17 | inprogress | started |
+| 122 | 2026-09-02 | 2026-09-17 | inprogress | started |
+| 113 | 2026-08-29 | 2026-08-31 | completed | ended |
+| 118 | 2026-08-31 | 2026-08-31 | completed | ended |
+| 121 | 2026-09-01 | 2026-09-04 | completed | ended |
+| 124 | 2026-09-02 | 2026-09-03 | completed | ended |
+| 125 | 2026-09-03 | 2026-09-04 | completed | ended |
+
+No frontend change was needed — the badge always read `opportunity_status`, and it is now
+correct. Question 2 (whether `opportunity_status` and `action_state` are deliberately
+different concepts) is effectively answered by them now agreeing.
+
+> **Minor, no action needed:** the ended rows report `has_started: false` alongside
+> `has_ended: true` (e.g. #121, which started 2026-09-01). We read `action_state`, not these
+> two, so it costs us nothing — but if `has_started` is meant to mean "started **and** not
+> yet ended", that's worth a line in the field docs, since the name reads as "has ever
+> started".
+
+---
 
 ### BE-10 — "Download Sheet" returned no file link
 
@@ -635,9 +927,12 @@ relations (translating MasterChoice ids to their `Interest` equivalents by name)
 `match_my_interest` entirely and returned the unfiltered list; it now filters too, so that
 endpoint's response **changed** for existing callers passing the flag.
 
-> **Watch:** if BE-01 turns out to be lost pivot data, this filter still returns empty in
-> practice — there's nothing on the opportunity side to intersect against, regardless of the
-> matching logic being correct now.
+> **Watch:** this filter still returns empty in practice for as long as BE-01 stands —
+> there's nothing on the opportunity side to intersect against, regardless of the matching
+> logic being correct now. The two are likely the *same* two-relation split seen from
+> opposite ends: the fix here translates MasterChoice ids to `Interest` equivalents for the
+> **query**, while the detail/list Resources still serialize only `interests` and so show
+> nothing. Worth re-reading that fix while looking at BE-01.
 
 > **Open UX question backend raised (not picked up):** whether to disable or annotate the
 > toggle when the user has no interests saved at all, since an empty result is otherwise

@@ -33,7 +33,14 @@ import {
   toNumber,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
-import { isCreatorRepostState } from "@/features/shared/opportunityButtonState";
+import {
+  isCreatorRepostState,
+  isViewerOrganizer,
+} from "@/features/shared/opportunityButtonState";
+import {
+  LEARN_SERVE_FORM_PATH,
+  learnServeEditPath,
+} from "@/features/opportunities/routes";
 import {
   NAV_STATE_KEYS,
   clearNavState,
@@ -85,6 +92,8 @@ export interface LearnServeOpportunityData {
   opportunity_status?: string;
   action_state?: string;
   is_creator?: boolean;
+  /** Per-viewer: "organizer" | "sponsor" | "registered" | "attended". */
+  relationship_tags?: string[] | null;
   is_registration_closed?: boolean;
   is_registration_open?: boolean;
   is_registered?: boolean;
@@ -155,7 +164,7 @@ const TAG_TEXT_COLORS = [
   "text-white",
 ];
 
-/** Courses and internships get their registrations on a different list screen. */
+/** Learning types that always carry a certificate, and so a check-in. */
 const CERTIFICATE_TYPES = ["Course", "Internship"];
 
 export default function LearnServeDetails({
@@ -209,6 +218,13 @@ export default function LearnServeDetails({
     | LearnServeOpportunityData
     | undefined;
   const refetch = opportunityQuery.refetch;
+
+  // `/learn-serve-opportunities/{id}/` stopped sending `is_creator` and reports
+  // ownership through `relationship_tags: ["organizer"]` instead, so all three
+  // signals are ORed — see `isViewerOrganizer`. Declared here, above the click
+  // handlers, so the creator's own Edit button can't fall through into the
+  // registration flow.
+  const isCreator = isViewerOrganizer(opportunityData, user?.id);
 
   const updateImagesMutation = useMutation({
     mutationFn: updateLearnServeOpportunityImages,
@@ -370,9 +386,8 @@ export default function LearnServeDetails({
 
 
   const handleRegisterClick = () => {
-    if (opportunityData?.is_creator) {
-      setNavState(NAV_STATE_KEYS.learnServeForm, { id });
-      router.push("/learn-and-share-form");
+    if (isCreator) {
+      router.push(learnServeEditPath(id));
       return;
     }
 
@@ -409,9 +424,10 @@ export default function LearnServeDetails({
     }
   };
 
+  /** Reposting starts a *new* opportunity seeded from this one. */
   const handleRepublishClick = () => {
     setNavState(NAV_STATE_KEYS.learnServeForm, { id, isRepublish: true });
-    router.push("/learn-and-share-form");
+    router.push(LEARN_SERVE_FORM_PATH);
   };
 
   /** Creator-only: stop accepting registrations without waiting for the due date. */
@@ -490,10 +506,28 @@ export default function LearnServeDetails({
         opportunityData?.is_preparation_window_closed,
       preparation_reopened_until: opportunityData?.preparation_reopened_until,
     });
-    router.push(
+    /**
+     * Only one of the two register-list screens can mark attendance, so the
+     * choice has to follow the opportunity's own attendance flags — not its
+     * learning-type label. `learning_type_display` comes back `null` on live
+     * records (same empty choice relations as BE-01 in `docs/BACKEND_ISSUES.md`),
+     * so the old label check matched nothing and even a `requires_check_in: true`
+     * opportunity landed on the read-only list with no way to mark anyone
+     * present. It also never listed "Class", which the API does require a
+     * check-in for.
+     *
+     * Workshops and consultations are the deliberate exception: they report
+     * `requires_check_in: false` and the backend marks their registrants
+     * attended on its own, so they keep the read-only list.
+     */
+    const needsAttendance =
+      opportunityData?.requires_check_in !== false ||
       CERTIFICATE_TYPES.includes(
         opportunityData?.learning_type_display?.value_en || ""
-      )
+      );
+
+    router.push(
+      needsAttendance
         ? "/leran-share-register-list"
         : "/learn-share-register-list"
     );
@@ -503,14 +537,6 @@ export default function LearnServeDetails({
     return <Loader />;
   }
 
-  // The cards list this same opportunity via a direct `created_by.id`
-  // comparison and never relied on the backend's `is_creator` flag alone —
-  // trusting only that flag here left the creator without an Edit button
-  // whenever it came back false/missing while the card still showed one.
-  const isCreator =
-    Boolean(opportunityData?.is_creator) ||
-    (Boolean(user?.id) &&
-      String(opportunityData?.created_by?.id) === String(user?.id));
   const hasStarted = moment().isAfter(
     moment(opportunityData?.start_date).startOf("day")
   );

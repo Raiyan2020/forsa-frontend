@@ -15,6 +15,7 @@ import Loader from "@/components/ui/Loader";
 import { SponsorsClient } from "@/features/home";
 import { downloadLearnServeRegistrations, getLearnServeRegistrations } from "@/features/opportunities/services/learnServe";
 import { getDefaultProfileImage } from "@/lib/helpers";
+import { registrationPerson } from "@/features/opportunities/registrationRow";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
 
@@ -320,53 +321,55 @@ export default function RegisterList() {
                   columns={columns}
                   data={allRegistrations}
                   renderCell={(column, rowData: any) => {
+                    const person = registrationPerson(rowData);
+
                     if (column.key === "user_full_name") {
                       return (
                         <div className="flex items-center gap-3">
                           <Image
                             src={
-                              rowData?.user?.profile_pic ||
+                              person.profilePic ||
                               getDefaultProfileImage(
-                                rowData?.user?.gender_display?.value_en,
+                                person.genderEn,
                                 asset("profile/male_profile.svg"),
                                 asset("profile/female_profile.svg"),
                                 asset("profile/org_profile.svg")
                               )
                             }
-                            alt={rowData?.user_full_name}
+                            alt={person.name}
                             width={40}
                             height={40}
                             unoptimized
                             className="w-10 h-10 rounded-full object-cover"
                           />
-                          <span
-                            className="cursor-pointer text-primary-5"
-                            onClick={() => {
-                              const user = rowData?.user;
-                              if (!user) return;
-                              router.push(
-                                user?.is_public
-                                  ? `/public-profile/${user.id}`
-                                  : `/volunteer-private-profile/${user.id}`
-                              );
-                            }}
-                          >
-                            {rowData?.user_full_name}
-                          </span>
+                          <div className="flex flex-col">
+                            <span
+                              className="cursor-pointer text-primary-5"
+                              onClick={() => {
+                                if (!person.userId) return;
+                                router.push(
+                                  person.isPublic
+                                    ? `/public-profile/${person.userId}`
+                                    : `/volunteer-private-profile/${person.userId}`
+                                );
+                              }}
+                            >
+                              {person.name || "-"}
+                            </span>
+                            {person.civilId && (
+                              <span className="text-xs text-gray-500">
+                                {person.civilId}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     }
                     if (column.type === "email") {
-                      return <span>{rowData?.user?.email || "-"}</span>;
+                      return <span>{person.email || "-"}</span>;
                     }
                     if (column.type === "contact") {
-                      return (
-                        <span>
-                          {rowData?.user?.phone_number ||
-                            rowData?.phone_number ||
-                            "-"}
-                        </span>
-                      );
+                      return <span>{person.phone || "-"}</span>;
                     }
                     if (column.type === "emergency") {
                       if (!shouldShowEmergencyContact(rowData)) {
