@@ -119,7 +119,9 @@ export default function CommunityList() {
           ? moment(filters.endDate).format("YYYY-MM-DD")
           : undefined,
         name: filters?.name,
-        type: filters?.type,
+        // `/posts/` has no `type` param — the filter values are the endpoint's
+        // own boolean flags. See the note in `Community.tsx` (BE-05).
+        ...(filters?.type ? { [filters.type]: true } : {}),
         tags: filters?.tags?.length ? filters?.tags : undefined,
       }),
     enabled: !isTagView,

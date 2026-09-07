@@ -90,7 +90,15 @@ function Community() {
           ? moment(filters.endDate).format("YYYY-MM-DD")
           : undefined,
         name: filters?.name,
-        type: filters?.type,
+        /**
+         * There is no `type` param on `/posts/` — the endpoint filters on the
+         * boolean flags `post` / `proposing_idea` / `is_funding_required`
+         * instead, and a `type=` value was accepted and silently ignored
+         * (BE-05). The filter modal's own values are already those flag names,
+         * so the selection becomes `<flag>=true`. Only `true` is parsed: `=1`
+         * falls through to an unfiltered list.
+         */
+        ...(filters?.type ? { [filters.type]: true } : {}),
         tags: filters?.tags?.length ? filters?.tags : undefined,
       }),
     // A search or filter change rewrites the query key. Keeping the previous

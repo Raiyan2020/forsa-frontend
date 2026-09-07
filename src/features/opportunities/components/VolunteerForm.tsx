@@ -846,19 +846,19 @@ export default function VolunteerForm({
         formData.append("license_image_removed", "1");
       }
 
-      values.sponsors.forEach((sponsor, index) => {
-        const idKey = index + 1;
-        if (sponsor.sponsorId) {
-          formData.append(
-            `opportunity_sponsor_images_organization_${idKey}`,
-            sponsor.sponsorId
-          );
-          formData.append(
-            `opportunity_sponsor_images_position_${idKey}`,
-            String(idKey)
-          );
-        }
-      });
+      /**
+       * Sponsors are deliberately NOT part of this request. The
+       * `opportunity_sponsor_images_organization_{n}` / `_position_{n}` fields
+       * this used to append have never been read by the backend — confirmed
+       * 2026-09-07 (BE-08 in `docs/BACKEND_ISSUES.md`), which also confirmed
+       * that omitting them cannot clear existing sponsors, since neither
+       * `update()` touches the sponsor relation at all.
+       *
+       * The only mechanism that writes them is the dedicated
+       * `POST` / `DELETE /…-opportunities/{id}/sponsors/` pair. The picker below
+       * is therefore still read-only in effect: it shows and pre-selects
+       * sponsors but cannot save a change until it is wired to those endpoints.
+       */
 
       if (id && !isRepublish) {
         // Show confirmation modal for update

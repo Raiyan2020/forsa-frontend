@@ -28,7 +28,10 @@ const TAB_TRIGGER_CLASS =
 
 /**
  * The opportunity tabs split by type on top of the organized/sponsored tag.
- * `opportunity_type` is the value `/list-all-opportunities/` accepts.
+ * `/list-all-opportunities/` accepts both the long `volunteer_opportunity` /
+ * `learn_serve_opportunity` form used here and the short `volunteer` / `learn`
+ * one (BE-15) — `CommonProfile.tsx` sends the same long form, so keep them in
+ * step if either changes.
  */
 type OpportunityTypeFilter = "all" | "volunteer" | "development";
 

@@ -85,21 +85,37 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 ```
 </details>
 
+## Round 1 — replied 2026-09-07
+
+Backend answered every open item in one file (`BACKEND_REPLY_2026-09-07.md`) and it did not
+say "Hi Medo", correctly: **five items needed work on our side**, all of it now done —
+BE-02 (`EventDetails.tsx` on the shared derivation), BE-05 (the `type` param that never
+existed), BE-08 (dead inline sponsor fields removed), BE-15 (one vocabulary across both
+profile screens), BE-16 (the five new registration fields).
+
+Everything they claimed as fixed and that can be checked without a login was re-verified
+against the live API the same day — each item's reply block says exactly what was run and
+what came back. **Two items stay open, and neither is waiting on backend code:** BE-01 needs
+their backfill command actually run on the live database, and BE-17 needs a product decision
+from us. Three smaller follow-ups are noted inside the resolved items rather than as new
+ids — boolean `=1` parsing on `/posts/` (BE-05), the `422` we still want for unknown
+`opportunity_type` values (BE-15), and the approve/reject UI that has no home yet (BE-16).
+
 ## Index
 
 | id | Title | Endpoint | Status |
 |---|---|---|---|
-| [BE-01](#be-01--interest-tags-are-empty-on-every-opportunity-learn-serve-and-event) | Interest tags empty platform-wide | `/opportunities/{id}/details/` + all listings | **Open** |
-| [BE-02](#be-02--is_creator-dropped-from-the-opportunity-detail-payload) | `is_creator` dropped from detail payload | `GET /opportunities/{id}/details/` | **Open** |
-| [BE-04](#be-04--list-user-opportunities-filters-are-accepted-but-not-applied) | Filters accepted but not applied | `GET /list-user-opportunities/` | **Open** |
-| [BE-05](#be-05--name-filter-on-community-posts-has-no-effect) | `name` filter has no effect | `GET /posts/` | **Open** |
-| [BE-06](#be-06--sort_bynewest-doesnt-return-newest-first) | `sort_by=newest` isn't newest-first | `GET /list-volunteer-opportunities/` | **Open** |
-| [BE-07](#be-07--sponsorship-form-choice-ids-not-persisted-on-record-9) | Sponsor record 9 lost its choice ids | `POST /sponsors/` | **Open** |
-| [BE-08](#be-08--two-competing-mechanisms-for-attaching-a-sponsor-to-an-opportunity) | Two ways to attach a sponsor | opportunity create/update + `/sponsors/` | **Open (blocking question)** |
-| [BE-09](#be-09--volunteer-team-join-option--payload-confirmation) | Volunteer Team registration payload | `POST /register/`, `/social-auth/` | **Open (confirmation only)** |
-| [BE-15](#be-15--opportunity_type-filter-not-applied-on-list-all-opportunities) | `opportunity_type` filter not applied | `GET /list-all-opportunities/` | **Open** |
-| [BE-16](#be-16--learn-serve-registrations-carry-no-phone-number-picture-or-gender) | Registrations row missing phone / picture / gender | `GET /learn-serve-opportunities/{id}/registrations/` | **Open** |
-| [BE-17](#be-17--learning_type_display-format_display-and-certificate_type_display-are-null) | Learn-serve choice fields all `null` | `GET /learn-serve-opportunities/{id}/` | **Open** |
+| [BE-01](#be-01--interest-tags-are-empty-on-every-opportunity-learn-serve-and-event) | Interest tags empty platform-wide | `/opportunities/{id}/details/` + all listings | **Open — awaiting live backfill run** |
+| [BE-17](#be-17--learning_type_display-format_display-and-certificate_type_display-are-null) | Learn-serve choice fields all `null` | `GET /learn-serve-opportunities/{id}/` | **Open — product decision ours** |
+| [BE-02](#be-02--is_creator-dropped-from-the-opportunity-detail-payload) | `is_creator` dropped from detail payload | `GET /opportunities/{id}/details/` | Resolved 2026-09-07 |
+| [BE-04](#be-04--list-user-opportunities-filters-are-accepted-but-not-applied) | Filters accepted but not applied | `GET /list-user-opportunities/` | Resolved |
+| [BE-05](#be-05--name-filter-on-community-posts-has-no-effect) | `name` filter has no effect | `GET /posts/` | Resolved 2026-09-07 |
+| [BE-06](#be-06--sort_bynewest-doesnt-return-newest-first) | `sort_by=newest` isn't newest-first | `GET /list-volunteer-opportunities/` | Resolved 2026-09-07 |
+| [BE-07](#be-07--sponsorship-form-choice-ids-not-persisted-on-record-9) | Sponsor record 9 lost its choice ids | `POST /sponsors/` | Closed 2026-09-07 |
+| [BE-08](#be-08--two-competing-mechanisms-for-attaching-a-sponsor-to-an-opportunity) | Two ways to attach a sponsor | opportunity create/update + `/sponsors/` | Answered 2026-09-07 |
+| [BE-09](#be-09--volunteer-team-join-option--payload-confirmation) | Volunteer Team registration payload | `POST /register/`, `/social-auth/` | Resolved 2026-09-07 |
+| [BE-15](#be-15--opportunity_type-filter-not-applied-on-list-all-opportunities) | `opportunity_type` filter not applied | `GET /list-all-opportunities/` | Resolved 2026-09-07 |
+| [BE-16](#be-16--learn-serve-registrations-carry-no-phone-number-picture-or-gender) | Registrations row missing phone / picture / gender | `GET /learn-serve-opportunities/{id}/registrations/` | Resolved 2026-09-07 |
 | [BE-03](#be-03--opportunity_status-was-always-upcoming-on-list-all-opportunities) | `opportunity_status` always `upcoming` | `GET /list-all-opportunities/` | Fixed 2026-09-07 |
 | [BE-10](#be-10--download-sheet-returned-no-file-link) | Download sheet returned no link | `GET /volunteer-opportunity-registrations/?download=true` | Resolved (one question left) |
 | [BE-11](#be-11--re-registering-after-unregistering-threw-a-500) | Re-registration 500 | `POST /volunteer-opportunity-registrations/` | Resolved |
@@ -115,7 +131,7 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 | | |
 |---|---|
-| **Status** | **Open.** Started as one record (#35); the 2026-09-06 audit showed it is platform-wide; 2026-09-07 pins it to **the same record id on both backends**. |
+| **Status** | **Open — code fix written and confirmed, waiting on one ops step.** Cause confirmed as diagnosed; the backfill command has not been run against the live database yet. |
 | **Endpoint** | `GET /opportunities/{id}/details/`, `/learn-serve-opportunities/{id}/`, `/events/{id}/`, all listings |
 | **Frontend** | `lib/interests.ts`, tag pills on every detail + card |
 | **Raised** | 2026-09-03, escalated 2026-09-06, same-id proof 2026-09-07 |
@@ -218,13 +234,134 @@ after a backfill every newly created opportunity comes back untagged.
 reads `interests` first and falls back to `interest_display`, so the pills light up as soon
 as either field carries data.
 
+## Backend reply — 2026-09-07, and where this stands
+
+Cause confirmed, and it is hypothesis (1) from above. Legacy production data tags records
+through **MasterChoice pivots** (`master_choice_volunteer_opportunity`,
+`master_choice_learn_serve_opportunity`, `master_choice_event`), imported from the old
+database, while every current Resource reads `interests` / `interest_display` exclusively
+from the `Interest` model's own pivots (`interest_volunteer_opportunity` etc.) — empty for
+those records. No write path, admin or API, has ever touched the MasterChoice pivots: dead
+data waiting to be bridged, not a live write-path bug.
+
+Backend added `fursa:backfill-legacy-opportunity-interest-tags` — a one-time, idempotent
+command that translates each legacy MasterChoice tag to its `Interest` equivalent by name
+(creating the `Interest` row when none matches) and inserts it into the current pivot,
+skipping anything already tagged. Covered by
+`tests/Feature/BackfillLegacyOpportunityInterestTagsTest.php`.
+
+**Why this item stays open:** the command still has to be run on the **live** database —
+backend flagged it as an ops step they don't have access to from where they were working.
+Verified live 2026-09-07 after their reply: `GET /opportunities/97/details/` still returns
+`"interests": []` / `"interest_display": null`, so nothing has changed for users yet.
+
+**Closing condition:** run `php artisan fursa:backfill-legacy-opportunity-interest-tags` on
+the live box, then send `GET /opportunities/97/details/` showing ids `71`, `74`, `80` present
+(under whichever field name). No frontend change is needed either way — `normalizeInterests()`
+already reads `interests` first and falls back to `interest_display`.
+
 ---
+
+### BE-17 — `learning_type_display`, `format_display` and `certificate_type_display` are null
+
+| | |
+|---|---|
+| **Status** | **Open — not a serialization bug. The three columns are genuinely `NULL`, and closing this needs a product decision from us.** |
+| **Endpoint** | `GET /learn-serve-opportunities/{id}/` |
+| **Frontend** | `features/opportunities/components/LearnServeDetails.tsx` |
+| **Raised** | 2026-09-07 |
+
+`GET /learn-serve-opportunities/30/`, checked live:
+
+```json
+"learning_type_display": null,
+"format_display": null,
+"certificate_type_display": null,
+"interests": [], "interest_display": [],
+"requires_check_in": true,
+"manual_attendance_enabled": true,
+"qr_attendance_enabled": true
+```
+
+There is no raw `learning_type` / `format` / `certificate_type` id field on the payload
+either — only the three `_display` objects, and all three are `null`. Note the record is
+internally inconsistent about itself: it has **no learning type** yet reports
+`requires_check_in: true`, which only makes sense for one of the types.
+
+**What it costs on the screen**
+
+| Field | Consequence |
+|---|---|
+| `learning_type_display` | The detail page's "Type" row renders blank. It also **routed the organizer to the wrong registrations screen** — see the frontend note below. |
+| `format_display` | The page falls back to showing "Online" (`t("COMMON.ONLINE")`) and picks the online icon, so an in-person opportunity is silently mislabelled — the fallback was written for old records with no format, not for every record. |
+| `certificate_type_display` | The certificate row is hidden entirely (it only renders for Course/Internship, which is decided by the null field above). |
+
+**Ask**
+
+1. Are these three ever populated for any learn-serve record? A `SELECT` of the three FK columns with a `COUNT(*) WHERE ... IS NOT NULL` would tell us in one query whether the data is missing or just not serialized.
+2. If the columns hold values but the Resource doesn't load them, load them — same shape as BE-01's third hypothesis.
+3. If the values were lost in migration, tell us, and please also send the raw `learning_type` / `format` / `certificate_type` ids alongside the `_display` objects. The forms already submit `learningType` / `format` / `certificateType` as choice ids, so a raw id on read would let us render from `/choices/` ourselves instead of depending on the nested object.
+4. Confirm what `requires_check_in: true` means on a record with no learning type — is it a default, or is the type actually set in the database and only missing from the response?
+
+**Frontend status — routing fixed 2026-09-07, display still degraded.** `LearnServeDetails.tsx`
+used to pick between the two register-list screens by matching
+`learning_type_display.value_en` against `["Course", "Internship"]`. With the field `null`
+that matched nothing, so **every** learn-serve opportunity — including this one, which
+requires a check-in — landed on `/learn-share-register-list`, the read-only list with no
+attendance control, leaving the organizer no way to mark anyone present. It now routes on
+`requires_check_in !== false` instead, which is the flag that actually describes the need
+(and the destination self-gates the button on the check-in window anyway). The old label
+check also never included "Class", which the code's own comment lists as needing a check-in.
+
+The Type / Format / Certificate rows stay blank-or-wrong until the fields carry data; we
+haven't papered over `format_display` with a guess, since "Online" vs "In person" changes
+what the page shows (a map link vs. a meeting link).
+
+## Backend reply — 2026-09-07
+
+Not a bug in this code path. Backend traced the full chain for opportunity 30 — the model
+relations, the `masterChoicePayload()` helper and the `loadMissing()` call are byte-for-byte
+identical to `gender_display` on the same resource in the same request, and to every other
+`_display` field in the app. No typo, no missing eager-load, no structural gap. So
+hypothesis (2)/(3) from above are both out: the three columns (`learning_type_id`,
+`format_id`, `certificate_type_id`) are simply `NULL` on that row — the opportunity was
+saved without them, and all three are optional on both the admin and API create/update paths
+today. Valid data, not corruption.
+
+`requires_check_in: true` alongside a null learning type is also **documented, deliberate
+behaviour**: the model defaults to "requires check-in" when the type is unknown, as the safe
+default. That retroactively confirms our routing fix — routing on `requires_check_in` rather
+than on the learning-type label is reading the field that is actually authoritative here.
+
+**Two things left, and both are ours to answer:**
+
+1. **Product decision: should a learn-serve opportunity be creatable without a learning
+   type?** It drives `requires_check_in`, which register-list screen the organizer gets, and
+   whether the certificate row renders — so a null type quietly degrades three separate
+   behaviours. Backend offered to make it required on create. Our recommendation: yes, make
+   it required, and decide what should happen to the existing rows that are already null.
+2. **Yes, please add the raw ids** (`learning_type_id`, `format_id`, `certificate_type_id`)
+   alongside the `_display` objects, per their question 3. Not as a workaround for the null
+   data — it doesn't help there — but because the create/update forms already submit these as
+   choice ids, so a raw id on read lets the edit form seed its selects without depending on
+   the nested object's shape.
+
+Until the type is set on a record, its Type row stays blank and `format_display: null` still
+makes the page fall back to "Online" with the online icon and a meeting link instead of a map
+link. We have not papered over that with a guess, because the fallback changes what the page
+actually shows.
+
+---
+
+# Answered / Resolved
+
+Kept for the record. Reopen by moving the item back up and adding a dated note.
 
 ### BE-02 — `is_creator` dropped from the opportunity detail payload
 
 | | |
 |---|---|
-| **Status** | **Open.** Frontend worked around it; we need the intended contract confirmed before rolling that out to the other detail screens. |
+| **Status** | **Resolved 2026-09-07, verified live.** `relationship_tags` is now on every opportunity, learn-serve, event and list resource. |
 | **Endpoint** | `GET /opportunities/{id}/details/` |
 | **Frontend** | `features/opportunities/components/VolunteerEvent.tsx` |
 | **Raised** | 2026-09-06 |
@@ -287,13 +424,43 @@ moment that resource is migrated like the other two, which is what question 1 is
 > independent proof this was part of the contract and was dropped in the rewrite, not a
 > field the frontend invented. Same migration as BE-01.
 
+## Backend reply — 2026-09-07, verified
+
+Confirmed all three inconsistent families and made `relationship_tags` universal, computed
+identically everywhere — added to `/events/{id}/` and to `list-all-opportunities`,
+`list-volunteer-opportunities` and `list-user-opportunities`. `is_creator` on `/events/{id}/`
+and `profile_activity_tag` on the list rows were left untouched; the change is additive.
+
+Answers to our questions:
+
+1. **Dropping `is_creator` was deliberate** — the same commit introduced `relationship_tags`
+   and removed `is_creator` from the two opportunity detail resources; it just wasn't carried
+   through to events and the lists. Now it has been, and backend recommends standardising on
+   `relationship_tags` going forward.
+2. `profile_activity_tag` answers a **different question** — "what is the *profile being
+   viewed*'s relationship to this record", not "is this the *current viewer*'s record". So it
+   was never the field we were looking for.
+3. **Not gated on `pass_token`** — `$request->user()` resolves from the `Authorization`
+   header on every request carrying a valid token, regardless of route middleware.
+
+Verified live, unauthenticated, 2026-09-07: `GET /events/1/` now returns
+`relationship_tags: []` (alongside its `is_creator: false`), and a
+`/list-volunteer-opportunities/` row returns `relationship_tags: []` too — both keys present
+where they were absent the day before.
+
+**Frontend done.** `EventDetails.tsx` now derives ownership through the shared
+`isViewerOrganizer()` like the two opportunity detail screens, so all three read
+`relationship_tags` → `is_creator` → `created_by.id` in that order. The list cards still
+compare `created_by.id` directly, which keeps working; they can adopt the helper whenever
+they're next touched.
+
 ---
 
 ### BE-04 — `list-user-opportunities` filters are accepted but not applied
 
 | | |
 |---|---|
-| **Status** | **Open, blocking.** `tags` confirmed broken; the others need re-verifying rather than assuming. |
+| **Status** | **Resolved.** Backend fixed it the same day this was raised; `tags[]` verified live 2026-09-07. |
 | **Endpoint** | `GET /list-user-opportunities/` |
 | **Frontend** | `features/profile/components/CommonProfile.tsx` |
 | **Raised** | 2026-09-02 |
@@ -324,13 +491,24 @@ the unfiltered one**. `200 OK`, no validation error, no effect.
 **Frontend status** — unchanged; the request already matches this app's established
 array-filter convention.
 
+## Backend reply — 2026-09-07, verified
+
+Already fixed earlier on the day this item was written, and still fixed: `tags[]`,
+`start_date`/`end_date` and `page`/`limit` (a second gap found alongside `tags`) are all
+wired in. Test:
+`tests/Feature/ClientFeedbackRoundTwoTest.php::test_list_user_opportunities_applies_tags_date_range_and_pagination`.
+
+Verified live 2026-09-07: `filter_type=registered&user_id=65` returns `total: 50` unfiltered
+and `total: 0` with `tags[]=rrr` added — the param now changes the result set instead of
+being ignored.
+
 ---
 
 ### BE-05 — `name` filter on community `/posts/` has no effect
 
 | | |
 |---|---|
-| **Status** | **Open, blocking.** |
+| **Status** | **Resolved 2026-09-07, verified live.** One small follow-up on boolean parsing, below. |
 | **Endpoint** | `GET /posts/` |
 | **Frontend** | `features/community/components/CommunityFilterModal.tsx`, `Community.tsx:92` |
 | **Raised** | 2026-09-02 |
@@ -362,13 +540,41 @@ needs `whereHas('user', …)`, since the posts table has no `name` column.
 
 **Frontend status** — unchanged; `name` is forwarded exactly as typed.
 
+## Backend reply — 2026-09-07, verified
+
+`name` was never read by `PostController::index()` at all — not dropped by validation (this
+endpoint validates nothing), simply never inspected. Now wired to match the author's
+`first_name`+`last_name` or their volunteer/organization profile `nickname`, mirroring the
+existing `user` filter's `whereHas('user', …)`.
+
+Verified live 2026-09-07: `GET /posts/?page=1&limit=20` returns `total: 11`, and adding
+`name=isl` returns `total: 1` — post `15`, the one authored by "islam". Exactly the narrowing
+this item asked for.
+
+**And the answer to ask #3 turned up a frontend bug of our own.** `search` already worked
+correctly. **`type` does not exist on this endpoint** and never did — it was accepted and
+ignored, like `name` used to be. The real filters are the boolean flags `post`,
+`proposing_idea` and `is_funding_required`. Verified live: `post=true` → 11 (every post in
+the dataset is a post), `proposing_idea=true` → 0 (none are ideas), and both are genuine
+filters, not no-ops.
+
+**Frontend fixed.** `Community.tsx` and `CommunityList.tsx` were sending `type=<value>` from
+the filter modal's type select, so that filter silently did nothing. The modal's own option
+values (`post`, `proposing_idea`) are already the flag names, so the selection now goes out
+as `<flag>=true`.
+
+> **Follow-up (small):** only `=true` is parsed. `proposing_idea=1` returned the full
+> unfiltered list of 11 rather than filtering or erroring. Please make `1`/`0` parse like
+> `true`/`false` (Laravel's `boolean` cast does this) or reject them — a truthy-looking value
+> that silently disables the filter is the same trap this item was about.
+
 ---
 
 ### BE-06 — `sort_by=newest` doesn't return newest-first
 
 | | |
 |---|---|
-| **Status** | **Open, blocking.** |
+| **Status** | **Resolved 2026-09-07, verified live.** |
 | **Endpoint** | `GET /list-volunteer-opportunities/` |
 | **Frontend** | `features/opportunities/components/AllOpportuniteFilterModal.tsx` |
 | **Raised** | 2026-09-03 |
@@ -403,13 +609,33 @@ instead of `created_at`, making "newest" mean "most recently modified for any re
 
 **Frontend status** — unchanged; the modal already sends the literal `newest`/`oldest`.
 
+## Backend reply — 2026-09-07, verified
+
+Both halves of the hypothesis were right. `sort_by` was only ever a **secondary**
+`orderBy('start_date', …)` applied *after* an unconditional status-relevance `CASE`/`WHEN`
+bucket — a secondary key can only break ties inside a bucket, so it could never lift an
+in-progress record above an upcoming one whatever "newest" meant. It was also ordering by
+`start_date`, not `created_at`. An explicit `sort_by` now bypasses the status bucketing and
+orders by `created_at`; the unsorted default keeps status-relevance-then-`start_date`, which
+backend confirms is intentional and matches earlier feedback.
+
+Verified live 2026-09-07 on `/list-volunteer-opportunities/?page=1&limit=9`:
+
+| Request | Returned ids |
+|---|---|
+| no `sort_by` | `97, 98, 12, 13, 15, 18, 14, 16, 21` (status buckets) |
+| `sort_by=newest` | `128, 127, 126, 125, 124, 123, 121, 120, 119` |
+| `sort_by=oldest` | `12, 13, 14, 15, 16, 17, 18, 19, 21` |
+
+Strictly descending and strictly ascending. Fixed.
+
 ---
 
 ### BE-07 — Sponsorship form: choice ids not persisted on record 9
 
 | | |
 |---|---|
-| **Status** | **Open** — data-persistence investigation. Frontend payload confirmed correct. |
+| **Status** | **Closed 2026-09-07.** Already fixed on 2026-09-01; record 9 simply predates that deploy. |
 | **Endpoint** | `POST /sponsors/` (`multipart/form-data`) |
 | **Frontend** | `features/partners/components/SponsorshipForm.tsx` |
 | **Raised** | 2026-09-01 |
@@ -457,13 +683,29 @@ whether it's stored. Please check the record directly.
 with valid ids, given record 8 with the same values saved successfully. Backend logs around
 that record's creation are the place to start. No frontend change requested pending that.
 
+## Backend reply — 2026-09-07
+
+This was the underscore-prefix bug backend found and fixed on **2026-09-01**: the controller
+read plain `org_type_id` while the form sent `_org_type_id` (`SponsorController.php`, commit
+`c8896ab`). Re-checked for record 9 specifically: there is exactly one public write path
+(`Api\Sponsor\SponsorController::store()`, now fixed) plus an admin dashboard form that was
+never affected (plain field names). Record 9 predates the fix; record 8 succeeding with the
+identical `26`/`34` pair is the ordinary before/after of that deploy — not a race and not a
+second broken path.
+
+The endpoint now accepts **both** the underscore-prefixed and the plain field names, so no
+frontend change: keep sending `_org_type_id` / `_sponsor_type_id` / `_type_of_support_id`.
+
+> Note this makes our "isolated to record 9, intermittent" reading wrong — the evidence was
+> right but the explanation wasn't. Left above as written so the trail is honest.
+
 ---
 
 ### BE-08 — Two competing mechanisms for attaching a sponsor to an opportunity
 
 | | |
 |---|---|
-| **Status** | **Open — blocking question.** No frontend work started on the new UI. |
+| **Status** | **Answered 2026-09-07.** No hazard, and no coexistence problem — the inline fields were never read at all. Frontend cleanup done; one decision left for us. |
 | **Endpoint** | opportunity create/update (inline) vs. proposed `/…/{id}/sponsors/` |
 | **Frontend** | `features/opportunities/components/LearnServeForm.tsx` |
 | **Raised** | 2026-08-31 |
@@ -504,13 +746,37 @@ how a full update that includes (or omits) the sponsors array is handled.
 
 **Frontend status** — untouched pending the answer.
 
+## Backend reply — 2026-09-07
+
+Better than either option this item imagined: `opportunity_sponsor_images_organization_{n}` /
+`_position_{n}` **are not read anywhere in the backend and never have been**. The inline
+picker's fields have always been silently discarded — not a regression, just never
+implemented on that side. The only thing that writes `opportunity_sponsor_images` is the
+dedicated `POST` / `DELETE …/{id}/sponsors/` pair.
+
+That also answers question 2 with a stronger guarantee than asked for: backend read both
+opportunity `update()` methods end to end and **neither touches the sponsor relation**, so a
+title-only (or any other) update cannot clear existing sponsors. There is no
+sync-to-empty-when-the-field-is-absent risk, because the field was never wired to anything.
+
+**Frontend done.** The dead `opportunity_sponsor_images_organization_{n}` / `_position_{n}`
+appends are removed from both `LearnServeForm.tsx` and `VolunteerForm.tsx` (they were sent on
+every create and update).
+
+> **Decision left for us, not backend:** the sponsor picker in both forms is now honestly
+> read-only — it lists and pre-selects sponsors but cannot save a change, which is what it
+> already did in practice. Making it work means wiring it to `POST` / `DELETE
+> …/{id}/sponsors/` after save (new API wrappers, a diff of added/removed sponsors, and a
+> decision about the create flow where the id only exists after the first save). Backend has
+> the endpoints ready; this is frontend work, not a backend ask.
+
 ---
 
 ### BE-09 — "Volunteer Team" join option — payload confirmation
 
 | | |
 |---|---|
-| **Status** | **Open — confirmation only. No backend work expected.** |
+| **Status** | **Resolved 2026-09-07.** `/register/` was already correct; a real gap on `/social-auth/` was found and fixed. Needs one manual retest. |
 | **Endpoint** | `POST /register/`, `POST /social-auth/` (`multipart/form-data`) |
 | **Frontend** | `/joinus` → `/entities-form` / `/complete-details` |
 | **Raised** | 2026-08-30 |
@@ -538,13 +804,30 @@ on the resulting profile, matching what `/profiles/volunteer-teams/` already ret
 existing volunteer-team organizers. If that's already true — which that endpoint and flag
 strongly suggest — there's nothing to do.
 
+## Backend reply — 2026-09-07
+
+`POST /register/` with `organizer_type: "21"` already behaved exactly as assumed: stored
+generically on `OrganizationProfile.organizer_type_id` and matched generically by
+`/profiles/volunteer-teams/` (by `value_en === 'Volunteer Team'`, never a hardcoded id) — any
+org_type row with that name would work identically.
+
+**But `POST /social-auth/` never listed `organizer_type` in its validation rules**, so it was
+stripped before registration: every Volunteer Team signup through Google or LinkedIn landed
+with `organizer_type_id: null` and was invisible to `/profiles/volunteer-teams/`. Fixed by
+adding the field to that endpoint's validation.
+
+**Frontend:** nothing to change — we were already sending `organizer_type` on both endpoints;
+it just wasn't read on one. **Still to do on our side:** one manual retest of the Google /
+LinkedIn "Volunteer Team" signup path end to end, since it needs a real OAuth round trip and
+can't be curled.
+
 ---
 
 ### BE-15 — `opportunity_type` filter not applied on `list-all-opportunities`
 
 | | |
 |---|---|
-| **Status** | **Open, blocking.** Also needs the accepted vocabulary settled — our two callers disagree. |
+| **Status** | **Resolved 2026-09-07, verified live.** Both vocabularies accepted on both endpoints; one follow-up on unknown values. |
 | **Endpoint** | `GET /list-all-opportunities/` (`filter_type=organized`) |
 | **Frontend** | `features/profile/components/ProfileDescriptionTabs.tsx` (own profile), `CommonProfile.tsx` (public profile) |
 | **Raised** | 2026-09-07 |
@@ -601,13 +884,47 @@ nothing to adjust until we know which vocabulary is authoritative. Note that
 `CommonProfile.tsx` for volunteer profiles, so please answer the vocabulary question for
 both endpoints.
 
+## Backend reply — 2026-09-07, verified
+
+The filter mechanism was already correct and already shared with `list-user-opportunities` —
+the bug was purely the **vocabulary**. Both endpoints only ever matched the short form
+(`volunteer` / `learn` / `event`); the own-profile screen sends the long form
+(`volunteer_opportunity` / `learn_serve_opportunity`, the same values the rows report back in
+their own `opportunity_type` field), which matched nothing and fell through to unfiltered.
+**Both forms are now accepted on both endpoints.**
+
+Verified live 2026-09-07 on `/list-user-opportunities/?filter_type=registered&user_id=65`
+(`total: 50` unfiltered):
+
+| `opportunity_type` | Total | Types returned |
+|---|---|---|
+| `volunteer` | 44 | `volunteer_opportunity` only |
+| `volunteer_opportunity` | 44 | `volunteer_opportunity` only |
+| `learn` | 6 | `learn_serve_opportunity` only |
+| `learn_serve_opportunity` | 6 | `learn_serve_opportunity` only |
+| `bogus_type` | **50** | unfiltered |
+
+44 + 6 = 50, so the two halves partition the set exactly. Both vocabularies work.
+
+**Frontend done.** Our two screens no longer disagree: `CommonProfile.tsx` now sends the long
+form (`volunteer_opportunity` / `learn_serve_opportunity`) like `ProfileDescriptionTabs.tsx`,
+and both comments now state that either form is accepted instead of each claiming to be the
+only one.
+
+> **Follow-up on ask #3 — yes, we would still like the `422`.** The `bogus_type` row above is
+> the reason: an unrecognised value returns a full, unfiltered list that looks like a working
+> filter with a wide result. That is exactly how this bug survived unnoticed on the
+> own-profile tab for weeks. A `422` turns a future typo into an immediate, visible error
+> instead of a silently wrong screen. Both our callers' values are valid today, so this can
+> land whenever convenient.
+
 ---
 
 ### BE-16 — Learn-serve registrations carry no phone number, picture or gender
 
 | | |
 |---|---|
-| **Status** | **Open.** The frontend now renders what this row does carry; three columns can't be filled from it. |
+| **Status** | **Resolved 2026-09-07.** All five fields added; frontend reads them. One product decision left, below. |
 | **Endpoint** | `GET /learn-serve-opportunities/{id}/registrations/` |
 | **Frontend** | `features/opportunities/components/RegisterList.tsx`, `RegisterListForLearnandServe.tsx` |
 | **Raised** | 2026-09-07 |
@@ -668,68 +985,34 @@ certificate-type variant at `/leran-share-register-list`), which read `rowData.u
 and `rowData.user.full_name` unguarded — with no `user` object in the payload that threw and
 took the whole page down, rather than merely rendering dashes.
 
----
+## Backend reply — 2026-09-07
 
-### BE-17 — `learning_type_display`, `format_display` and `certificate_type_display` are null
+Added `user_contact_number` (country code + phone, matching the volunteer endpoint's combined
+shape), `phone_number` (raw), `profile_pic`, `gender_display`
+(`{id, choice_type, value_en, value_ar}` — the same shape as every other `_display` field)
+and `is_public`, reusing the helpers the volunteer registrations endpoint already had. Also
+added `full_name` **alongside** `user_name`, which stays; backend recommends reading
+`full_name` going forward for consistency with the volunteer endpoint. Test:
+`tests/Feature/RegistrationManagementTest.php::test_learn_serve_registrations_list_includes_contact_picture_gender_and_visibility`.
 
-| | |
-|---|---|
-| **Status** | **Open.** Same family as BE-01, different fields — these are single-choice FKs, not a pivot. |
-| **Endpoint** | `GET /learn-serve-opportunities/{id}/` |
-| **Frontend** | `features/opportunities/components/LearnServeDetails.tsx` |
-| **Raised** | 2026-09-07 |
+On question 3: `status: "pending"` is genuine — there **is** a real approve/reject step,
+`PATCH /learn-serve-opportunities/{id}/registrations/status/`, that neither register-list
+screen surfaces. `time_slot` is populated only for opportunities using per-day scheduling and
+correctly `null` otherwise.
 
-`GET /learn-serve-opportunities/30/`, checked live:
+**Frontend done.** `registrationPerson()` (`features/opportunities/registrationRow.ts`) now
+reads all of them flat-first, then nested: `full_name` → `user_name` → `user_full_name` →
+`user.full_name` for the name, and the flat `profile_pic` / `gender_display` / `is_public` /
+`user_contact_number` before their nested equivalents. So the contact column, the real
+avatars and the public-vs-private profile link all work on both register-list screens.
 
-```json
-"learning_type_display": null,
-"format_display": null,
-"certificate_type_display": null,
-"interests": [], "interest_display": [],
-"requires_check_in": true,
-"manual_attendance_enabled": true,
-"qr_attendance_enabled": true
-```
-
-There is no raw `learning_type` / `format` / `certificate_type` id field on the payload
-either — only the three `_display` objects, and all three are `null`. Note the record is
-internally inconsistent about itself: it has **no learning type** yet reports
-`requires_check_in: true`, which only makes sense for one of the types.
-
-**What it costs on the screen**
-
-| Field | Consequence |
-|---|---|
-| `learning_type_display` | The detail page's "Type" row renders blank. It also **routed the organizer to the wrong registrations screen** — see the frontend note below. |
-| `format_display` | The page falls back to showing "Online" (`t("COMMON.ONLINE")`) and picks the online icon, so an in-person opportunity is silently mislabelled — the fallback was written for old records with no format, not for every record. |
-| `certificate_type_display` | The certificate row is hidden entirely (it only renders for Course/Internship, which is decided by the null field above). |
-
-**Ask**
-
-1. Are these three ever populated for any learn-serve record? A `SELECT` of the three FK columns with a `COUNT(*) WHERE ... IS NOT NULL` would tell us in one query whether the data is missing or just not serialized.
-2. If the columns hold values but the Resource doesn't load them, load them — same shape as BE-01's third hypothesis.
-3. If the values were lost in migration, tell us, and please also send the raw `learning_type` / `format` / `certificate_type` ids alongside the `_display` objects. The forms already submit `learningType` / `format` / `certificateType` as choice ids, so a raw id on read would let us render from `/choices/` ourselves instead of depending on the nested object.
-4. Confirm what `requires_check_in: true` means on a record with no learning type — is it a default, or is the type actually set in the database and only missing from the response?
-
-**Frontend status — routing fixed 2026-09-07, display still degraded.** `LearnServeDetails.tsx`
-used to pick between the two register-list screens by matching
-`learning_type_display.value_en` against `["Course", "Internship"]`. With the field `null`
-that matched nothing, so **every** learn-serve opportunity — including this one, which
-requires a check-in — landed on `/learn-share-register-list`, the read-only list with no
-attendance control, leaving the organizer no way to mark anyone present. It now routes on
-`requires_check_in !== false` instead, which is the flag that actually describes the need
-(and the destination self-gates the button on the check-in window anyway). The old label
-check also never included "Class", which the code's own comment lists as needing a check-in.
-
-The Type / Format / Certificate rows stay blank-or-wrong until the fields carry data; we
-haven't papered over `format_display` with a guess, since "Online" vs "In person" changes
-what the page shows (a map link vs. a meeting link).
+> **Decision left for us, not backend:** surfacing approve/reject. The endpoint exists and
+> the rows already carry `status`, but neither screen shows the status or offers the action,
+> so every registration sits at `pending` with no way for the organizer to act on it. That's
+> a new UI, so it needs a product call on where it belongs and what the states should look
+> like.
 
 ---
-
-# Answered / Resolved
-
-Kept for the record. Reopen by moving the item back up and adding a dated note.
 
 ### BE-03 — `opportunity_status` was always "upcoming" on `list-all-opportunities`
 

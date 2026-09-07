@@ -152,17 +152,24 @@ const OPPORTUNITY_TYPE_TABS: Array<{
 ];
 
 /**
- * `opportunity_type` values `/list-all-opportunities/` and
- * `/list-user-opportunities/` accept: `learn` or `volunteer`. Same vocabulary
- * as `OpportunityCategories`, so the chips and the filter modal's type select
- * send identical params.
+ * `/list-all-opportunities/` and `/list-user-opportunities/` accept **both**
+ * vocabularies for `opportunity_type` — the short `volunteer` / `learn` and the
+ * long `volunteer_opportunity` / `learn_serve_opportunity` (backend confirmed
+ * 2026-09-07, BE-02/BE-15 in `docs/BACKEND_ISSUES.md`; the short form was the
+ * only one matched before that, which is why the long form silently returned
+ * everything). The long form is used here so this screen and
+ * `ProfileDescriptionTabs.tsx` send one vocabulary, and so the param matches
+ * the `opportunity_type` value the same rows report back.
+ *
+ * Note an unrecognised value is still a silent no-op server-side, not a 422 —
+ * a typo here returns an unfiltered list rather than an error.
  */
 const OPPORTUNITY_TYPE_PARAM: Record<
   Exclude<OpportunityTypeFilter, "all">,
   string
 > = {
-  volunteer: "volunteer",
-  development: "learn",
+  volunteer: "volunteer_opportunity",
+  development: "learn_serve_opportunity",
 };
 
 const asset = (path: string) => `/assets/${path}`;

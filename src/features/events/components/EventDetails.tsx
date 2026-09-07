@@ -19,6 +19,7 @@ import Title from "@/components/shared/Title";
 import { SponsorsClient } from "@/features/home";
 import { getEventById, getEventTimeSlots, registerForEvent, unregisterFromEvent } from "@/features/events/services/eventsApi";
 import { formatSingleDate, openLocation } from "@/lib/helpers";
+import { isViewerOrganizer } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
@@ -53,6 +54,8 @@ interface EventDetailsData {
   registration_fee?: string;
   registration_link?: string;
   is_creator?: boolean;
+  /** Per-viewer: "organizer" | "sponsor" | "registered" | "attended". */
+  relationship_tags?: string[] | null;
   is_registered?: boolean;
   event_status?: string;
   primary_language?: string;
@@ -277,6 +280,15 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   });
   const event = eventQuery.data?.data as EventDetailsData | undefined;
 
+  /**
+   * `/events/{id}/` sends both `is_creator` and (since 2026-09-07)
+   * `relationship_tags`, so ownership goes through the one shared derivation
+   * every other detail screen uses — see BE-02 in `docs/BACKEND_ISSUES.md`.
+   * That keeps this screen working if `is_creator` is ever dropped here the way
+   * it already was on the two opportunity resources.
+   */
+  const isCreator = isViewerOrganizer(event, user?.id);
+
   useEffect(() => {
     const responseStatus = (
       eventQuery.error as { response?: { status?: number; data?: unknown } }
@@ -367,7 +379,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const isActive = event.event_status === "upcoming" || event.event_status === "inprogress";
 
   const openRegistration = () => {
-    if (event.is_creator) {
+    if (isCreator) {
       const republish = event.event_status === "completed" || event.event_status === "inprogress";
       setNavState(NAV_STATE_KEYS.eventForm, {
         id: String(event.id),
@@ -392,7 +404,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   };
 
   const actionButton = (mobile = false) => {
-    if (event.is_creator) {
+    if (isCreator) {
       // Unlike the register/unregister action below, managing your own event
       // (Edit/Repost) isn't gated behind verification — the list cards never
       // hid it for an unverified creator either. A banned user still can't.
