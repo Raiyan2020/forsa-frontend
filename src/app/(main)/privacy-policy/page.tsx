@@ -1,9 +1,9 @@
 /**
  * Privacy policy — content is admin-editable (`GET /pages/privacy/`).
  */
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CmsPageView from "@/features/cms/components/CmsPageView";
+import PrivacyPolicy from "@/features/info/components/PrivacyPolicy";
 import { fetchCmsPage } from "@/features/cms/services/server";
 import { sanitizeCmsHtml } from "@/lib/sanitizeHtml";
 
@@ -16,7 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Page() {
   const page = await fetchCmsPage("privacy");
-  if (!page) notFound();
+
+  // The CMS page is admin-editable; until one is published, fall back to the
+  // static translated privacy policy instead of rendering the not-found page.
+  if (!page) return <PrivacyPolicy />;
 
   return (
     <CmsPageView

@@ -543,47 +543,51 @@ export default function EventDetails({ eventId }: { eventId: string }) {
         )}
       </Modal>
 
-      <div className="relative h-[320px] w-full md:h-[460px]">
-        {(event.event_images?.length ?? 0) > 1 ? (
-          <Swiper
-            modules={[Autoplay, Pagination]}
-            autoplay={{ delay: 4000, disableOnInteraction: false }}
-            loop
-            pagination={{ clickable: true }}
-            className="event-details-swiper h-full w-full"
-          >
-            {event.event_images!.map((img) => (
-              <SwiperSlide key={img.id}>
-                <a
-                  href={img.image}
-                  data-fancybox={`event-gallery-${event.id}`}
-                  data-caption={language === "ar" ? event.title_ar : event.title_en}
-                  className="block h-full w-full cursor-zoom-in"
-                >
-                  <img
-                    src={img.image}
-                    alt={language === "ar" ? event.title_ar : event.title_en}
-                    className="h-full w-full object-cover"
-                  />
-                </a>
-              </SwiperSlide>
-            ))}
-          </Swiper>
-        ) : (
-          <a
-            href={event.event_images?.[0]?.image || asset("voluneteerevent/eventbaner.svg")}
-            data-fancybox={`event-gallery-${event.id}`}
-            data-caption={language === "ar" ? event.title_ar : event.title_en}
-            className="block h-full w-full cursor-zoom-in"
-          >
-            <img
-              src={event.event_images?.[0]?.image || asset("voluneteerevent/eventbaner.svg")}
-              alt={language === "ar" ? event.title_ar : event.title_en}
-              className="h-full w-full object-cover"
-            />
-          </a>
-        )}
-      </div>
+      {event.event_images?.length ? (
+        <div className="relative h-[320px] w-full md:h-[460px]">
+          {(event.event_images?.length ?? 0) > 1 ? (
+            <Swiper
+              modules={[Autoplay, Pagination]}
+              autoplay={{ delay: 4000, disableOnInteraction: false }}
+              loop
+              pagination={{ clickable: true }}
+              className="event-details-swiper h-full w-full"
+            >
+              {event.event_images!.map((img) => (
+                <SwiperSlide key={img.id}>
+                  <a
+                    href={img.image}
+                    data-fancybox={`event-gallery-${event.id}`}
+                    data-caption={language === "ar" ? event.title_ar : event.title_en}
+                    className="block h-full w-full cursor-zoom-in"
+                  >
+                    <img
+                      src={img.image}
+                      alt={language === "ar" ? event.title_ar : event.title_en}
+                      className="h-full w-full object-cover"
+                    />
+                  </a>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          ) : (
+            event.event_images?.[0] && (
+              <a
+                href={event.event_images?.[0]?.image}
+                data-fancybox={`event-gallery-${event.id}`}
+                data-caption={language === "ar" ? event.title_ar : event.title_en}
+                className="block h-full w-full cursor-zoom-in"
+              >
+                <img
+                  src={event.event_images?.[0]?.image}
+                  alt={language === "ar" ? event.title_ar : event.title_en}
+                  className="h-full w-full object-cover"
+                />
+              </a>
+            )
+          )}
+        </div>
+      ) : null}
 
       <div className="mx-auto w-[90%] py-10 2xl:py-[70px] mobilescreen:w-full">
         <div className="grid grid-cols-1 gap-0 lg:grid-cols-[380px_auto] lg:gap-[30px] 2xl:grid-cols-[470px_auto] 2xl:gap-[69px]">
