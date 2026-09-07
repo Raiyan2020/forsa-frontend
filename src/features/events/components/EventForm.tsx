@@ -866,7 +866,7 @@ export default function EventForm({
                             selectedOption?.value || ""
                           )
                         }
-                        disabled={eventTypeLoading || isRepublish}
+                        disabled={eventTypeLoading}
                       />
                       <SelectInput
                         name="participation_type"
