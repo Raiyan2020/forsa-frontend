@@ -1055,19 +1055,36 @@ export default function OrganizerAccountInformation() {
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
+
+                            const hasChanges =
+                              dirty ||
+                              isOnlyProfilePicChanged ||
+                              keptDocIds.length !== originalDocCount;
+
+                            // With unsaved edits Cancel discards them and keeps
+                            // the user on the form; with a pristine form there
+                            // is nothing to discard, so it just leaves.
+                            if (!hasChanges) {
+                              router.push("/");
+                              return;
+                            }
+
                             resetForm();
                             setIsOnlyProfilePicChanged(false);
+                            if (nicknameCheckTimeoutRef.current) {
+                              clearTimeout(nicknameCheckTimeoutRef.current);
+                            }
+                            setNicknameAvailability({
+                              checking: false,
+                              available: null,
+                              message: "",
+                            });
                             setKeptDocIds(
                               organizerProfile?.data?.documents?.map(
                                 (d: { id: number }) => d.id
                               ) ?? []
                             );
                           }}
-                          disabled={
-                            !dirty &&
-                            !isOnlyProfilePicChanged &&
-                            keptDocIds.length === originalDocCount
-                          }
                         >
                           {t("COMMON.CANCEL")}
                         </Button>

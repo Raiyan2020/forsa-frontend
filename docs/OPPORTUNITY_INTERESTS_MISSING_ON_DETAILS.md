@@ -1,6 +1,75 @@
 # Opportunity interest tags missing on `/opportunities/{id}/details/` — but not the field you'd expect
 
-Status: **Open — backend's "wrong endpoint" diagnosis doesn't hold up against the actual evidence for id `35`. Please re-verify against this exact id, not a substitute record, before we touch any frontend routing.**
+Status: **Open — and no longer about one record. As of 2026-09-06 *every* opportunity, learn-serve opportunity and event on the API returns empty interests, on both the detail and list endpoints. The old backend returned them populated for the same opportunity. Read the 2026-09-06 update first; the id-`35` argument below is now history.**
+
+## Update 2026-09-06 — this is platform-wide, and the old backend has the data
+
+The same opportunity exists on both backends: **#98 on the old API** and **#97 on the new Laravel API** — same organizer (user `905`, "omniya"), same Arabic title ("مسابقة أمنية مدرستك الرابعة"), same description, same dates (2026-09-17 → 2026-09-30), same `total_roles`.
+
+Old API response for **#98**:
+
+```json
+"interest_display": [
+  { "id": 71, "choice_type": "volunteer_opportunity_interest", "value_en": "Community Service", "value_ar": "خدمة مجتمعية" },
+  { "id": 74, "choice_type": "volunteer_opportunity_interest", "value_en": "Event Management & Organization", "value_ar": "تنظيم واداره الفعاليات" },
+  { "id": 80, "choice_type": "volunteer_opportunity_interest", "value_en": "Environment", "value_ar": "البيئة" }
+]
+```
+
+New API response for **#97**:
+
+```json
+"interests": [],
+"interest_display": null
+```
+
+So the tags are not "unset by the organizer" — this record demonstrably had three of them, and the copy of it on the new backend has none.
+
+### Scope, checked live on `https://portal.fursa.raiyan.cc/api` (2026-09-06, unauthenticated)
+
+| Request | `interests` | `interest_display` |
+|---|---|---|
+| `GET /opportunities/97/details/` | `[]` | `null` |
+| `GET /opportunities/98/details/` | `[]` | `null` |
+| `GET /opportunities/124/details/` | `[]` | `null` |
+| `GET /opportunities/35/details/` | `[]` | `null` |
+| `GET /learn-serve-opportunities/24/` | `[]` | `null` |
+| `GET /events/1/` | `[]` | `[]` |
+| `GET /list-volunteer-opportunities/?per_page=100` | — | `[]` on **all 20** rows |
+
+Not one record, not one endpoint: **no opportunity, learn-serve opportunity or event anywhere on the API currently carries a single interest tag.** That also supersedes the "id 35 is really an Event, wrong table" diagnosis below — events return empty interests too.
+
+### The vocabulary survived; the assignments didn't
+
+`GET /choices/volunteer_opportunity_interest/` returns **18 choices, with the same ids as the old payload** — `71` is still "Community Service", and `74` / `80` are still there. So the choice table migrated intact; what's missing is the link between opportunities and those choices.
+
+That narrows it to one of two things, and we can't tell which from outside:
+
+1. **The pivot rows didn't migrate** — the `opportunity_interest` (or equivalent) join table came over empty, so the relation genuinely resolves to nothing. If so this is a data-backfill job, and the old database still has the assignments (as #98 proves).
+2. **The relation is never loaded/serialized** — the API Resource returns `$this->interests` without the relation being eager-loaded, or maps a relationship name that no longer matches after the rename to `interests`. If so the data is fine and it's a one-line resource fix.
+
+A `SELECT COUNT(*)` on the pivot table would separate these two in about ten seconds; please run that first.
+
+### Also check the write path
+
+Our create/edit forms post interests as a **repeated `_interests` form field carrying choice ids** (`VolunteerForm.tsx`, `LearnServeForm.tsx`, `EventForm.tsx` — unchanged from the old API's contract). Please confirm the Laravel controllers still accept that field name and still sync the pivot on store/update. If they silently ignore `_interests`, then even after a backfill every newly created opportunity would come back untagged again — which would match the fact that #97 (created on the new backend) is empty just like the migrated records.
+
+### Ask
+
+1. Run the pivot-table count and tell us which of the two causes above it is.
+2. If the assignments were lost in migration, backfill them from the old database (start with #97, whose old-backend twin #98 lists exactly ids `71`, `74`, `80`).
+3. Confirm `_interests` is still the accepted write field on create **and** update for all three resource types, and that it syncs the pivot.
+4. Send back `GET /opportunities/97/details/` with `interests` populated in the `{ id, name_en, name_ar, interest_type }` shape as confirmation.
+
+No frontend change is needed either way: `lib/interests.ts`'s `normalizeInterests()` already reads `interests` first and falls back to `interest_display`, so the tag pills on the detail and list screens will light up as soon as either field carries data.
+
+### Side note for the `is_creator` report
+
+The old #98 payload also carries **`"is_creator": false`** as a top-level field. That's independent confirmation for `OPPORTUNITY_DETAILS_IS_CREATOR_MISSING.md`: `is_creator` was part of this endpoint's contract on the old backend and disappeared in the Laravel rewrite — it wasn't a field the frontend invented.
+
+---
+
+*Everything below predates the 2026-09-06 update and concerns only opportunity id `35`.*
 
 ## Second correction — backend's "this is an Event, wrong table" diagnosis doesn't match the evidence for id 35
 

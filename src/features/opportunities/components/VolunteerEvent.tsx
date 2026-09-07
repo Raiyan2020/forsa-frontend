@@ -40,6 +40,7 @@ import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
+  isViewerOrganizer,
 } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
 import { useAuthStore } from "@/store/authStore";
@@ -104,6 +105,8 @@ export interface VolunteerOpportunityData {
   preparation_reopened_until?: string | null;
   requires_check_in?: boolean;
   is_creator?: boolean;
+  /** Per-viewer: "organizer" | "sponsor" | "registered" | "attended". */
+  relationship_tags?: string[] | null;
   is_registered?: boolean;
   is_registration_closed?: boolean;
   is_registration_open?: boolean;
@@ -239,6 +242,13 @@ export default function VolunteerEvent({
     | VolunteerOpportunityData
     | undefined;
   const refetch = opportunityQuery.refetch;
+
+  // `/opportunities/{id}/details/` stopped sending `is_creator` and reports
+  // ownership through `relationship_tags: ["organizer"]` instead, so all three
+  // signals are ORed — see `isViewerOrganizer`. Losing the creator here hides
+  // the whole sidebar block (List of Volunteers, Scan Permission) and sends the
+  // creator's own Edit button into the registration modal.
+  const isCreator = isViewerOrganizer(opportunityData, user?.id);
 
   const updateImagesMutation = useMutation({
     mutationFn: updateVolunteerOpportunityImages,
@@ -415,7 +425,7 @@ export default function VolunteerEvent({
   };
 
   const handleRegisterClick = () => {
-    if (opportunityData?.is_creator) {
+    if (isCreator) {
       setNavState(NAV_STATE_KEYS.volunteerForm, { id });
       router.push("/volunteer-form");
       return;
@@ -578,14 +588,6 @@ export default function VolunteerEvent({
     return <Loader />;
   }
 
-  // The cards list this same opportunity via a direct `created_by.id`
-  // comparison and never relied on the backend's `is_creator` flag alone —
-  // trusting only that flag here left the creator without an Edit button
-  // whenever it came back false/missing while the card still showed one.
-  const isCreator =
-    Boolean(opportunityData?.is_creator) ||
-    (Boolean(user?.id) &&
-      String(opportunityData?.created_by?.id) === String(user?.id));
   const nowUtc = moment.utc();
   const dueDate = parseIsoUtcDate(opportunityData?.due_date);
   const startDate = parseIsoUtcDate(opportunityData?.start_date);

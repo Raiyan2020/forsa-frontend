@@ -1557,7 +1557,7 @@ export default function LearnServeForm({
                             )
                           }
                           // The type is fixed once an opportunity is reposted
-                          disabled={learningTypeLoading || isRepublish}
+                          disabled={learningTypeLoading}
                         />
                         <DatePickerInput
                           name="dueDate"

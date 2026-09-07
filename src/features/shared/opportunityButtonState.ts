@@ -146,3 +146,36 @@ export function isOpportunityButtonActionable(
 ): boolean {
   return ACTIONABLE_STATES.has(state);
 }
+
+/** The subset of a payload the "is the viewer this opportunity's organizer?" check reads. */
+export interface OrganizerSource {
+  /** `organizer` / `sponsor` / `registered` / `attended`, computed per requesting user. */
+  relationship_tags?: string[] | null;
+  /** Legacy flag — missing on newer detail payloads, false/absent on some older ones. */
+  is_creator?: boolean | null;
+  created_by?: { id?: number | string | null } | null;
+}
+
+/**
+ * Whether the current viewer owns this opportunity.
+ *
+ * Three signals, ORed, because none of them is reliable on its own:
+ *   1. `relationship_tags` contains `"organizer"` — the current, per-user field.
+ *      `GET /opportunities/{id}/details/` no longer sends `is_creator` at all,
+ *      so this is the only positive signal on that response.
+ *   2. `is_creator` — still sent by the list endpoints; false/missing on some
+ *      records that really are the viewer's (see opportunity #121).
+ *   3. `created_by.id === user.id` — what the cards have always compared, and
+ *      the only fallback for payloads carrying neither field.
+ */
+export function isViewerOrganizer(
+  item: OrganizerSource | null | undefined,
+  userId?: number | string | null
+): boolean {
+  if (!item) return false;
+  if (item.relationship_tags?.includes("organizer")) return true;
+  if (item.is_creator) return true;
+  return (
+    Boolean(userId) && String(item.created_by?.id ?? "") === String(userId)
+  );
+}
