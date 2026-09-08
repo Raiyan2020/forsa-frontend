@@ -65,17 +65,29 @@ export const getUserCertificates = (userId: string | number) =>
     .get("/user-certificates/", { params: { user_id: userId } })
     .then((r) => r.data);
 
-/** Download the generated certificate attached to a volunteer registration. */
+/**
+ * Download the generated certificate attached to a registration.
+ *
+ * `registration_type` is optional but worth passing whenever the caller knows
+ * it: the learn-serve and volunteer registration tables have independent id
+ * sequences, so an id can exist in both. Without the param the backend tries
+ * learn-serve first and falls back to volunteer, which silently returns the
+ * wrong document on a collision (BE-14).
+ */
 export const downloadUserCertificate = ({
   registration_id,
+  registration_type,
   fallbackName = "certificate",
 }: {
   registration_id: string | number;
+  registration_type?: "volunteer" | "learn_serve";
   fallbackName?: string;
 }) =>
   apiClient
     .get("/download-certificate/", {
-      params: { registration_id },
+      params: registration_type
+        ? { registration_id, registration_type }
+        : { registration_id },
       responseType: "blob",
     })
     .then((response) => {

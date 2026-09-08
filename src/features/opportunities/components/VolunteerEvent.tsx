@@ -26,7 +26,7 @@ import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import { SponsorsClient } from "@/features/home";
 import { closeVolunteerOpportunityRegistration, reopenVolunteerOpportunityRegistration, resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
-import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, updateVolunteerOpportunityImages } from "@/features/opportunities/services/opportunities";
+import { deleteOpportunityImage, downloadOpportunityImage, getOpportunityById, sendVolunteerOpportunityCertificates, updateVolunteerOpportunityImages } from "@/features/opportunities/services/opportunities";
 import {
   formatSingleDate,
   getDefaultProfileImage,
@@ -265,6 +265,9 @@ export default function VolunteerEvent({
   const resubmitMutation = useMutation({
     mutationFn: () => resubmitVolunteerOpportunity(id),
   });
+  const sendCertificatesMutation = useMutation({
+    mutationFn: () => sendVolunteerOpportunityCertificates(id),
+  });
   const downloadImageMutation = useMutation({
     mutationFn: downloadOpportunityImage,
   });
@@ -359,6 +362,26 @@ export default function VolunteerEvent({
     } catch (error) {
       console.error("Close registration failed:", error);
       toast.error(t("COMMON.TOAST.CLOSE_REGISTRATION_FAILED"));
+    }
+  };
+
+  /**
+   * Creator-only: issue certificates for anyone marked attended since the
+   * automatic pass at completion. `certificates_sent: 0` is a normal answer,
+   * not a failure — it means nothing new was eligible.
+   */
+  const handleSendCertificates = async () => {
+    try {
+      const response = await sendCertificatesMutation.mutateAsync();
+      const sent = response?.data?.certificates_sent ?? 0;
+      if (sent > 0) {
+        toast.success(t("COMMON.TOAST.CERTIFICATES_SENT", { count: sent }));
+      } else {
+        toast.info(t("COMMON.TOAST.NO_CERTIFICATES_TO_SEND"));
+      }
+    } catch (error) {
+      console.error("Send certificates failed:", error);
+      toast.error(t("COMMON.TOAST.CERTIFICATES_SEND_FAILED"));
     }
   };
 
@@ -656,6 +679,13 @@ export default function VolunteerEvent({
   // creator before the opportunity starts or completes.
   const canRequestDeletion =
     isCreator && status !== "completed" && status !== "inprogress";
+  /**
+   * Completion issues certificates for everyone already marked attended, so
+   * this action exists for attendance recorded after that automatic pass — it
+   * is only offered once the opportunity is actually completed, and is safe to
+   * press more than once (BE-14).
+   */
+  const canSendCertificates = isCreator && status === "completed";
 
   /**
    * Six states off the API's own flags — Ended / Started / Full / Closed /
@@ -1137,6 +1167,18 @@ export default function VolunteerEvent({
                       onClick={() => setShowResubmit(true)}
                     >
                       {t("COMMON.RESUBMIT_WITHOUT_EDIT")}
+                    </Button>
+                  )}
+
+                  {canSendCertificates && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="whitespace-nowrap block xss:hidden"
+                      onClick={handleSendCertificates}
+                      disabled={sendCertificatesMutation.isPending}
+                    >
+                      {t("COMMON.SEND_CERTIFICATES")}
                     </Button>
                   )}
 

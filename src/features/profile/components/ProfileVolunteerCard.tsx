@@ -158,6 +158,19 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
   const isNewApiTab =
     useNewApi && (filter_type === "registered" || filter_type === "organized");
 
+  /**
+   * On `/list-user-opportunities/` the tab this component calls "organized" has
+   * never filtered by creator — it has always meant "completed, with at least
+   * one attended registration", which is why the UI labels it Attended. The
+   * backend gave that query its real name in BE-14; `organized` still runs the
+   * identical query for back-compat, but `attended` is the going-forward value.
+   * The prop keeps the old name because it also drives this card's styling and
+   * the legacy `/list-all-opportunities/` path, where `organized` genuinely
+   * does mean created-by-me.
+   */
+  const userOpportunitiesFilterType =
+    filter_type === "organized" ? "attended" : filter_type;
+
   const commonParams = {
     search: searchQuery,
     start_date: filters?.startDate
@@ -173,11 +186,16 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
   };
 
   const newQuery = useQuery({
-    queryKey: ["user-opportunities", filter_type, commonParams, filters],
+    queryKey: [
+      "user-opportunities",
+      userOpportunitiesFilterType,
+      commonParams,
+      filters,
+    ],
     queryFn: () =>
       getUserOpportunities({
         ...commonParams,
-        filter_type,
+        filter_type: userOpportunitiesFilterType,
         opportunity_type: filters?.opportunity_type,
         opportunity_status: filters?.opportunity_status,
       }),

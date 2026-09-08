@@ -635,7 +635,6 @@ export default function OrganizerAccountInformation() {
               isValid,
               touched,
               dirty,
-              resetForm,
             }) => {
               const isSocialMediaTouched =
                 Array.isArray(touched.socialMedia) &&
@@ -1049,42 +1048,20 @@ export default function OrganizerAccountInformation() {
                         >
                           {t("COMMON.SAVE")}
                         </Button>
+                        {/* Cancel abandons the edit and leaves, whether or not
+                            anything was typed. It used to branch on `dirty` and
+                            only navigate from a pristine form, which read as
+                            "Cancel is broken" the moment you had actually
+                            changed something. Form state, the kept-document
+                            list and the pending nickname check all die with the
+                            component — the unmount cleanup clears the timeout —
+                            so there is nothing to reset on the way out.
+                            VolunteerAccountInformation does the same. */}
                         <Button
                           variant="secondary"
                           size="medium"
                           type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-
-                            const hasChanges =
-                              dirty ||
-                              isOnlyProfilePicChanged ||
-                              keptDocIds.length !== originalDocCount;
-
-                            // With unsaved edits Cancel discards them and keeps
-                            // the user on the form; with a pristine form there
-                            // is nothing to discard, so it just leaves.
-                            if (!hasChanges) {
-                              router.push("/");
-                              return;
-                            }
-
-                            resetForm();
-                            setIsOnlyProfilePicChanged(false);
-                            if (nicknameCheckTimeoutRef.current) {
-                              clearTimeout(nicknameCheckTimeoutRef.current);
-                            }
-                            setNicknameAvailability({
-                              checking: false,
-                              available: null,
-                              message: "",
-                            });
-                            setKeptDocIds(
-                              organizerProfile?.data?.documents?.map(
-                                (d: { id: number }) => d.id
-                              ) ?? []
-                            );
-                          }}
+                          onClick={() => router.push("/")}
                         >
                           {t("COMMON.CANCEL")}
                         </Button>

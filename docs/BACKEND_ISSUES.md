@@ -98,9 +98,9 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 | id | Title | Endpoint | Status |
 |---|---|---|---|
-| [BE-14](#be-14--volunteer-attendance-is-counted-but-attended-list-and-certificate-are-missing) | Attendance is counted, but Attended list and certificate are missing | attendance, profile activity, and certificate endpoints | **Open — feature request** |
-| [BE-19](#be-19--achievement-report-pdf-export-is-not-implemented-but-answers-key-success) | Report PDF export not implemented, returns `success` | `GET /volunteer-detail/?download=true` | **Open** |
-| [BE-20](#be-20--event-details-returns-event_type_display-null) | Event details returns `event_type_display: null` | `GET /events/{id}/` | **Open** |
+| [BE-14](#be-14--volunteer-attendance-is-counted-but-attended-list-and-certificate-are-missing) | Attendance is counted, but Attended list and certificate are missing | attendance, profile activity, and certificate endpoints | Resolved 2026-09-08 |
+| [BE-19](#be-19--achievement-report-pdf-export-is-not-implemented-but-answers-key-success) | Report PDF export not implemented, returns `success` | `GET /volunteer-detail/?download=true` | Resolved 2026-09-08 |
+| [BE-20](#be-20--event-details-returns-event_type_display-null) | Event details returns `event_type_display: null` | `GET /events/{id}/` | Answered 2026-09-08 |
 
 ---
 
@@ -110,7 +110,7 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 | | |
 |---|---|
-| **Status** | **Reopened 2026-09-08 — feature request.** Round 1 established that this is not implemented for `volunteer_opportunity`; the product now requires it. |
+| **Status** | **Resolved 2026-09-08.** Built as specified; frontend switched over. Three follow-ups left open inside the reply block, one of them ours (BE-21). |
 | **Endpoints** | `POST /volunteer-attendance/manual/`; `PATCH /volunteer-attendance/{attendance_id}/hours/`; `GET /list-user-opportunities/`; `GET /user-certificates/`; `GET /download-certificate/` |
 | **Frontend** | `/volunteerlist`; `/volunteer-profile` → Opportunities → Registered / Attended and Certificates; `features/profile/components/ProfileDescriptionTabs.tsx`; `features/profile/components/ProfileVolunteerCard.tsx`; `features/profile/services/profileApi.ts` |
 | **Raised** | Originally answered in Round 1; reopened with a complete live reproduction on 2026-09-08 |
@@ -325,12 +325,61 @@ was documented.
 legacy `filter_type=organized`; we will replace it with the backend's documented attended
 filter as soon as ask 1 is answered. Attendance entry, hours editing and aggregate display
 are already working for this reproduction.
+## Backend reply — 2026-09-08, frontend done
+
+**`filter_type=attended` now exists** on `/list-user-opportunities/` and is the going-forward
+name. The key detail: `organized` on *this* endpoint never filtered by `created_by` — it
+already meant "completed opportunity + at least one attended registration", i.e. it was
+attended logic wearing the wrong name. Both values run the identical query, so the rename is
+safe, and `registered` stays a strict superset (every `attended` row is also `registered`).
+
+**Certificates for `volunteer_opportunity` are built**: issued and emailed automatically when
+the opportunity completes (hooked into `fursa:advance-statuses`), plus
+`POST /volunteer-opportunities/{id}/certificates/send/` for attendance marked *after* that
+automatic pass. It answers `{"certificates_sent": N}` and is idempotent — `0` on a repeat
+call. Hours printed are the sum of attended rows at issuance time. Certificates are HTML,
+like Learn&Serve's, not PDF.
+
+**Frontend done.**
+- The Attended tab and the achievement report both send `attended` now.
+  `ProfileVolunteerCard` maps at the request layer rather than renaming its prop, because the
+  same `filter_type` prop also drives that card's styling *and* the legacy
+  `/list-all-opportunities/` path — where `organized` genuinely does mean created-by-me. The
+  mapping is commented so the two meanings don't get merged later.
+- "Send Certificates" added to the creator's manage-action column on the volunteer
+  opportunity detail screen, shown only while `opportunity_status === "completed"`.
+  `certificates_sent: 0` is surfaced as an info toast, not an error — it is a normal answer.
+- `downloadUserCertificate` takes an optional `registration_type`.
+
+> **Open, ours — raised as BE-21:** we cannot actually *pass* `registration_type` from the
+> certificates tab, because `/user-certificates/` doesn't say which table a row came from.
+
+> **Open, yours — re-issue after an hours correction.** You flagged that a corrected
+> `total_hours` leaves an already-issued certificate showing the original number. We do want
+> the re-issue path (clearing `is_certified` when `total_hours` changes, as you suggested) —
+> a certificate stating the wrong hours is worse than a late one. Not urgent, but please
+> don't close it silently.
+
+> **Open, yours — the backfill has not been run.** `fursa:backfill-missing-volunteer-certificates`
+> still needs executing against the live database, including registration 996. Same
+> outstanding action as round 1's interest-tags backfill; nothing on our side can verify this
+> item until it runs.
+
+> **Not needed:** `/certificate/preview/{registration_id}/` staying Learn&Serve-only is fine,
+> no frontend reads it.
+
+> **Attendance-id mismatch (765 vs 768) — accepted.** Your reading of `updateHours()` is
+> right and we're not pursuing it as an API bug. If it recurs we'll capture both requests'
+> timestamps and check for a concurrent check-in first.
+
+---
+
 
 ### BE-19 — Achievement report PDF export is not implemented, but answers `key: "success"`
 
 | | |
 |---|---|
-| **Status** | Open |
+| **Status** | **Resolved 2026-09-08, frontend switched over.** Streamed-bytes contract, not a URL. |
 | **Endpoint** | `GET /volunteer-detail/?download=true` |
 | **Frontend** | `features/achievements/components/AchievementReports.tsx` (the "تصدير التقرير" / "Export Report" button), `features/achievements/services/achievementsApi.ts` (`downloadVolunteerDetail`) |
 | **Raised** | 2026-09-08 |
@@ -445,12 +494,44 @@ opportunities **and** events. So the on-screen report is complete and only the P
 missing — whatever the document ends up rendering should be checked against
 `features/achievements/components/AchievementReports.tsx`, not against `/volunteer-detail/`'s
 current payload.
+## Backend reply — 2026-09-08, frontend done
+
+**Streamed bytes, not a URL.** `GET /volunteer-detail/?download=true` now returns
+`Content-Type: application/pdf` with the document as the body — no envelope, no `pdf_url`,
+no second request. Built with `mpdf`, matching the screen's design and including the identity
+block. The table is built from the *same* `list-user-opportunities` and
+`list-all-opportunities` queries the screen runs, called internally as user-scoped
+sub-requests, so the PDF cannot drift from `/achievement-reports`. Language comes from
+`app()->getLocale()` — i.e. the `x-lang` / `Accept-Language` headers, not
+`preferred_language`.
+
+This also settles ask 2 by making it moot: there is no longer a `success` envelope that means
+failure, because success is now literally the file.
+
+**Frontend done.** `downloadVolunteerDetail` reads the body as a blob (`responseType: "blob"`)
+and the export button saves it directly; the `fetch(pdf_url)` round-trip and the
+`VolunteerDetailDownload` / `pdf_url` type are gone. Nothing was needed for the language ask —
+the axios request interceptor has always sent `x-lang`, `Accept-Language` and `Lang` on every
+request.
+
+One guard added rather than trusting the content type blindly: if the response body isn't a
+PDF, it is read as text and the envelope's `msg` is surfaced instead of saving a `.pdf` full
+of JSON. That is exactly the shape this item was originally about — a `200` that isn't a
+document — and it also catches a Laravel error page.
+
+> **Answered, no action wanted:** the missing gender-fallback avatar and the omitted trophy
+> icon are both fine as they are. A volunteer with no `profile_pic` getting no avatar in the
+> PDF is a reasonable difference from the screen, and the trophy is decoration — not worth
+> shipping an asset for.
+
+---
+
 
 ### BE-20 — Event details returns `event_type_display: null`
 
 | | |
 |---|---|
-| **Status** | Open |
+| **Status** | **Answered 2026-09-08 — not a serializer bug.** Guarded going forward; event 19's stored row still needs a look. |
 | **Endpoint** | `GET /events/{id}/` — reproduced with `GET /events/19/` |
 | **Frontend** | Route `/event-details/{eventId}`; `features/events/components/EventDetails.tsx` |
 | **Raised** | 2026-09-08 |
@@ -536,6 +617,77 @@ localized value from `event_type_display`; it will render as soon as the endpoin
 the existing contract. We intentionally do not infer the type from another field because
 the current detail response supplies neither the raw event-type id nor a reliable localized
 label.
+## Backend reply — 2026-09-08
+
+**Not a serializer bug.** The field is structurally identical to its three sibling `_display`
+fields; `event_type_id` was simply optional on both create paths, so event 19 most likely
+holds a genuine `NULL`. Now required going forward, so it can't recur. `choice_type` was added
+to `event_type_display`.
+
+**Frontend done.** Nothing — `EventDetails.tsx` already reads
+`event_type_display.value_en` / `value_ar` and renders correctly as soon as the row has a
+value.
+
+> **Open, ours to check:** `SELECT event_type_id FROM events WHERE id = 19;` against the live
+> database, and pick a real value if it is `NULL`. Backend can't reach it from their side and
+> the correct value can't be inferred from the other fields.
+
+> **Declined for now:** adding `choice_type` to the other three `_display` fields. Nothing
+> reads it, so leaving them alone keeps the payload smaller.
+
+---
+
+### BE-21 — `/user-certificates/` gives no way to tell the two registration types apart
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `GET /user-certificates/?user_id=`, `GET /download-certificate/` |
+| **Frontend** | `features/profile/components/ProfileDescriptionTabs.tsx` (`CertificateTabs`), `features/profile/services/profileApi.ts` |
+| **Raised** | 2026-09-08 |
+
+**What we get.** Per BE-14, `/user-certificates/` now unions both registration types and each
+row is:
+
+```json
+{
+  "registration_id": 996,
+  "certificate_image": "https://…",
+  "opportunity__title_en": "…",
+  "opportunity__title_ar": "…",
+  "organizer_name": "…"
+}
+```
+
+**Why it's wrong.** In the same reply you told us two things that don't fit together:
+
+1. Pass `registration_type` to `/download-certificate/` "when you already know which type a
+   given id is", because the two registration tables have independent id sequences and *"they
+   can, in principle, collide"*.
+2. The rows this list returns carry no field saying which table they came from.
+
+So the one screen that lists certificates is exactly the screen that cannot supply the
+disambiguator. Every download from the certificates tab has to fall through to the
+learn-serve-first search order — the path you warned us about. On a collision the volunteer
+downloads someone else's certificate, and nothing in either response would reveal it.
+
+**Ask.**
+
+1. Add `registration_type` (`volunteer` | `learn_serve`) to each `/user-certificates/` row.
+   We already read the field opportunistically and pass it straight through, so this needs no
+   further frontend change once it appears.
+2. Alternatively, if you would rather not change that shape: confirm whether ids actually can
+   collide in practice. If the two sequences are in fact disjoint, say so plainly and we will
+   drop the param and stop worrying about it.
+3. To verify: one `/user-certificates/` response for a user holding certificates of both types
+   showing the new field, plus a `/download-certificate/` call for each using it.
+
+**Frontend status.** `downloadUserCertificate` already accepts the optional param and the
+certificate row type already declares `registration_type` — both no-ops until the field
+exists. Nothing to change on our side when it lands.
+
+---
+
 
 ---
 

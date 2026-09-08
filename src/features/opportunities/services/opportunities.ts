@@ -1,4 +1,5 @@
 import apiClient from "@/lib/api/client";
+import type { ApiResponse } from "@/lib/api/types";
 
 // ─── Opportunities ───────────────────────────────────────────────────────────
 
@@ -27,6 +28,23 @@ export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any
 // Same PATCH/PUT removal as `updateVolunteerOpportunity` above.
 export const updateVolunteerOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
   apiClient.post(`/volunteer-opportunities/${id}/update_images/`, formData).then((r) => r.data);
+
+/**
+ * Organizer-only: issue and email certificates for a completed volunteer
+ * opportunity's attended registrations.
+ *
+ * Completion already issues certificates automatically, so this covers
+ * attendance marked *after* that pass ran. It is idempotent — a second call
+ * answers `certificates_sent: 0` when nothing new is eligible (BE-14). Learn &
+ * serve has its own separate certificate pipeline; this route is only for
+ * `volunteer_opportunity`.
+ */
+export const sendVolunteerOpportunityCertificates = (id: string) =>
+  apiClient
+    .post<ApiResponse<{ certificates_sent?: number }>>(
+      `/volunteer-opportunities/${id}/certificates/send/`
+    )
+    .then((r) => r.data);
 
 export const deleteOpportunityImage = (data: any) =>
   apiClient.delete("/delete-opportunity-image/", { data }).then((r) => r.data);

@@ -63,15 +63,15 @@ export interface VolunteerDetailData {
 }
 
 /**
- * `download=true` answers with a link to the generated PDF instead — except PDF
- * generation isn't built yet, so today it always answers `pdf_url: null` with a
- * prose `message`, inside a `key: "success"` envelope (BE-19 in
- * `docs/BACKEND_ISSUES.md`). Don't branch on `message`: it is unlocalized prose,
- * and the localized equivalent is the envelope's own `msg`.
+ * `download=true` streams the report PDF back as bytes — `Content-Type:
+ * application/pdf`, no envelope and no `pdf_url` to fetch separately (BE-19,
+ * resolved 2026-09-08). The document's language comes from the `x-lang` /
+ * `Accept-Language` headers the request interceptor already sends, so there is
+ * no language param to pass.
  */
-export interface VolunteerDetailDownload {
-  pdf_url?: string | null;
-  message?: string;
+export interface VolunteerDetailPdf {
+  blob: Blob;
+  filename: string;
 }
 
 /**
@@ -83,9 +83,40 @@ export const getVolunteerDetail = (params?: { page?: number; limit?: number }) =
     .get<ApiResponse<VolunteerDetailData>>("/volunteer-detail/", { params })
     .then((r) => r.data);
 
-export const downloadVolunteerDetail = () =>
+export const downloadVolunteerDetail = (): Promise<VolunteerDetailPdf> =>
   apiClient
-    .get<ApiResponse<VolunteerDetailDownload>>("/volunteer-detail/", {
+    .get("/volunteer-detail/", {
       params: { download: true },
+      responseType: "blob",
     })
-    .then((r) => r.data);
+    .then(async (response) => {
+      const blob = response.data as Blob;
+
+      // A 200 carrying JSON rather than a PDF is how this endpoint reported
+      // "not implemented" before BE-19 was built, and how a Laravel error page
+      // would come back too. With `responseType: "blob"` axios doesn't parse it,
+      // so it would otherwise be saved as a .pdf full of JSON.
+      if (!blob.type.includes("pdf")) {
+        const text = await blob.text();
+        let message = "";
+        try {
+          const payload = JSON.parse(text);
+          message = payload?.msg || payload?.data?.message || "";
+        } catch {
+          // Not JSON either — fall through to the caller's generic message.
+        }
+        throw new Error(message || "Report PDF was not returned");
+      }
+
+      const disposition = response.headers["content-disposition"] as
+        | string
+        | undefined;
+      const match = disposition?.match(/filename="?([^"]+)"?/);
+
+      return {
+        blob,
+        filename:
+          match?.[1] ||
+          `achievement-report-${new Date().toISOString().split("T")[0]}.pdf`,
+      };
+    });

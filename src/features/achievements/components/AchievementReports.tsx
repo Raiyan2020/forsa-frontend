@@ -189,7 +189,7 @@ export default function AchievementReports() {
   const { data: attendedData, isLoading: isLoadingAttended } = useQuery({
     queryKey: ["report-activities", "attended", activityParams],
     queryFn: () =>
-      getUserOpportunities({ ...activityParams, filter_type: "organized" }),
+      getUserOpportunities({ ...activityParams, filter_type: "attended" }),
     enabled: Boolean(authToken),
   });
 
@@ -332,28 +332,23 @@ export default function AchievementReports() {
     qrCodeData?.data?.qr_code_url ||
     qrCodeData?.qr_code_url;
 
+  // The endpoint streams the PDF itself, so the bytes in hand are the document —
+  // there is no URL to fetch afterwards.
   const handleExport = async () => {
     try {
-      const result = await exportMutation.mutateAsync();
-      const pdfUrl = result?.data?.pdf_url;
-      if (pdfUrl) {
-        const response = await fetch(pdfUrl);
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
+      const { blob, filename } = await exportMutation.mutateAsync();
+      const blobUrl = window.URL.createObjectURL(blob);
 
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.download = `achievement-report-${new Date().toISOString().split("T")[0]}.pdf`;
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
 
-        document.body.appendChild(link);
-        link.click();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
 
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
-        toast.success(t("COMMON.DOWNLOAD_SUCCESS"));
-      } else {
-        toast.error(t("COMMON.NO_PDF_URL"));
-      }
+      toast.success(t("COMMON.DOWNLOAD_SUCCESS"));
     } catch (e) {
       console.error("Export error:", e);
       toast.error(t("COMMON.EXPORT_ERROR"));

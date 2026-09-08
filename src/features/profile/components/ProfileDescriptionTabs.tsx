@@ -154,6 +154,15 @@ interface ProfileCertificate {
   certificate_image: string;
   opportunity__title_en?: string;
   opportunity__title_ar?: string;
+  organizer_name?: string;
+  /**
+   * `/user-certificates/` unions the learn-serve and volunteer registration
+   * tables, whose ids are independent sequences — so an id here is ambiguous
+   * unless the row says which table it came from. The endpoint does not send
+   * this yet; it is read opportunistically so downloads disambiguate as soon
+   * as it does (BE-14).
+   */
+  registration_type?: "volunteer" | "learn_serve";
 }
 
 const EMPTY_PROFILE_CERTIFICATES: ProfileCertificate[] = [];
@@ -212,6 +221,7 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
       setDownloadingId(certificate.registration_id);
       const { blob, filename } = await downloadUserCertificate({
         registration_id: certificate.registration_id,
+        registration_type: certificate.registration_type,
         fallbackName: `certificate_${index}`,
       });
       const blobUrl = URL.createObjectURL(blob);

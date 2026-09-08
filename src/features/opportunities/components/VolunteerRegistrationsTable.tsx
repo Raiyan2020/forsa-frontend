@@ -269,10 +269,7 @@ export default function VolunteerRegistrationsTable({
                   onChange={(value) => onUpdate(rowData.id, "team", value)}
                   onMenuScrollToBottom={onTeamMenuScroll}
                   isLoading={teamsLoading}
-                  isDisabled={
-                    teamsLoading ||
-                    (updatingId === rowData.id && updating === "team")
-                  }
+                  isDisabled={false}
                   placeholder={t("COMMON.TEAM")}
                 />
               );

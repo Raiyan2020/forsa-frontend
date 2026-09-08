@@ -857,7 +857,6 @@ export default function VolunteerAccountInformation() {
             errors,
             touched,
             dirty,
-            resetForm,
           }) => {
             const isSocialMediaTouched =
               Array.isArray(touched.socialMedia) &&
@@ -1354,16 +1353,19 @@ export default function VolunteerAccountInformation() {
                       >
                         {t("COMMON.SAVE")}
                       </Button>
+                      {/* Matches OrganizerAccountInformation: Cancel abandons
+                          the edit and leaves, whether or not anything was
+                          typed. It used to reset in place and disable itself on
+                          a pristine form, which left no way to back out of the
+                          screen at all. Form state and the pending nickname
+                          check die with the component — the unmount cleanup
+                          clears the timeout — so there is nothing to reset on
+                          the way out. */}
                       <Button
                         variant="secondary"
                         size="medium"
                         type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          resetForm();
-                          setIsOnlyProfilePicChanged(false);
-                        }}
-                        disabled={!dirty && !isOnlyProfilePicChanged}
+                        onClick={() => router.push("/")}
                       >
                         {t("COMMON.CANCEL")}
                       </Button>

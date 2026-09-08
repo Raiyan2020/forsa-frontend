@@ -522,6 +522,13 @@ const Header = () => {
                   {t("COMMON.ACCOUNT.SETTINGS")}
                 </Link>
               </li>
+              {isVolunteer && (
+                <li className="border-b text-primary-5 text-sm">
+                  <Link href="/volunteer-qr-code" onClick={close} className="px-4 py-3 block w-full">
+                    {t("COMMON.QRCODE")}
+                  </Link>
+                </li>
+              )}
               <li className="border-b text-primary-5 text-sm">
                 <button className="px-4 py-3 block w-full text-start text-primary-5" onClick={handleLogout}>
                   {t("COMMON.LOGOUT")}
