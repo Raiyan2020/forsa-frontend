@@ -12,6 +12,9 @@ export const getEventById = ({ id, passToken }: { id: string; passToken?: boolea
 export const createEvent = (data: any) =>
   apiClient.post("/events/", data).then((r) => r.data);
 
+export const republishEvent = ({ id, formData }: { id: string; formData: FormData }) =>
+  apiClient.post(`/event/republish/${id}`, formData).then((r) => r.data);
+
 // See `updateVolunteerOpportunity` — same PATCH+multipart workaround.
 export const updateEvent = ({ id, formData }: { id: string; formData: FormData }) => {
   formData.append("_method", "PATCH");

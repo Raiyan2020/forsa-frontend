@@ -31,7 +31,12 @@ import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
 import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
-import { createEvent, getEventById, updateEvent } from "@/features/events/services/eventsApi";
+import {
+  createEvent,
+  getEventById,
+  republishEvent,
+  updateEvent,
+} from "@/features/events/services/eventsApi";
 import { getAllOrganizations } from "@/features/shared/services/directory";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
@@ -228,6 +233,7 @@ export default function EventForm({
   const eventData = apiResponse?.data;
 
   const createEventMutation = useMutation({ mutationFn: createEvent });
+  const republishEventMutation = useMutation({ mutationFn: republishEvent });
   const updateEventMutation = useMutation({ mutationFn: updateEvent });
 
   // Extract sponsors from eventData for edit/repost mode
@@ -498,6 +504,19 @@ export default function EventForm({
           .trim();
         return textContent.length > 0;
       }
+    )
+    .test(
+      "description-min-length",
+      i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
+      function (value) {
+        if (!value) return true; // emptiness is the required rule's business
+        // Count visible text, not raw HTML — tags and entities are not content
+        const textContent = value
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .trim();
+        return textContent.length >= 10;
+      }
     );
 
   const validationSchema = Yup.object({
@@ -652,10 +671,6 @@ export default function EventForm({
       values._interests.forEach((interest) => {
         formData.append("_interests", interest);
       });
-      if (isRepublish && id) {
-        formData.append("event_id", id);
-      }
-
       // On update, tell the backend which existing images to keep. Sending no
       // existing_image_ids at all means "drop them".
       if (id && eventData?.event_images?.length > 0) {
@@ -689,8 +704,12 @@ export default function EventForm({
         // Update existing event — ask for confirmation first
         setPendingFormData(formData);
         setShowUpdateConfirmModal(true);
+      } else if (id && isRepublish) {
+        await republishEventMutation.mutateAsync({ id, formData });
+        toast.success(t("COMMON.TOAST.CREATE_EVENT_SUCCESS"));
+        router.push("/event-post-thankyou");
       } else {
-        // Create new event (either fresh or republish)
+        // Create a brand-new event
         await createEventMutation.mutateAsync(formData);
         toast.success(t("COMMON.TOAST.CREATE_EVENT_SUCCESS"));
         router.push("/event-post-thankyou");

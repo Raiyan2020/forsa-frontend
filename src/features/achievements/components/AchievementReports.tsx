@@ -22,6 +22,7 @@ import {
   getQRCode,
   getVolunteerProfile,
 } from "@/features/profile/services/profileApi";
+import { getDefaultProfileImage } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 
 const fadeStyles = `
@@ -45,6 +46,23 @@ interface ActivityRow {
   title_ar: string;
   year?: number;
   kind: "opportunity" | "event";
+}
+
+/**
+ * The slice of `GET /account/` this report renders. The endpoint returns far
+ * more (birth year, nationality, emergency contact, …) — only the identity the
+ * report is meant to certify is read here.
+ */
+interface AccountIdentity {
+  profile_pic?: string | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  country_code?: string | null;
+  civil_id?: string | null;
+  gender_display?: { value_en?: string | null } | null;
 }
 
 interface ListedActivity {
@@ -203,13 +221,45 @@ export default function AchievementReports() {
 
   // Report fields live under the standard `data` envelope key.
   const report = data?.data;
-  const account = accountInfoData?.data;
+  const account: AccountIdentity | undefined = accountInfoData?.data;
   const profile = volunteerProfileData?.data;
 
   const fullName =
     report?.full_name ||
     account?.full_name ||
+    [account?.first_name, account?.last_name].filter(Boolean).join(" ") ||
     [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+
+  // `profile_pic` is null for anyone who never uploaded one, so the report
+  // falls back to the gender avatar the profile header uses rather than to a
+  // broken image.
+  const profilePic =
+    account?.profile_pic ||
+    profile?.profile_pic ||
+    getDefaultProfileImage(
+      account?.gender_display?.value_en ??
+        profile?.gender_display?.value_en ??
+        undefined,
+      "/assets/profile/male_profile.svg",
+      "/assets/profile/female_profile.svg",
+      "/assets/profile/org_profile.svg"
+    );
+
+  // Built as a list so a field the account never filled in is left out
+  // entirely — a report certifying "الرقم المدني: -" is worse than one that
+  // doesn't mention it. `ltr` keeps the phone and civil id from being reordered
+  // around their digits when the page renders right-to-left.
+  const identityRows: Array<{ label: string; value: string; ltr?: boolean }> = [
+    { label: t("COMMON.EMAIL"), value: account?.email ?? "", ltr: true },
+    {
+      label: t("COMMON.PHONE"),
+      value: [account?.country_code, account?.phone_number]
+        .filter(Boolean)
+        .join(" "),
+      ltr: true,
+    },
+    { label: t("COMMON.CIVIL_ID"), value: account?.civil_id ?? "", ltr: true },
+  ].filter((row) => Boolean(row.value));
 
   // `/volunteer-detail/` and `/volunteer-profile/` both answer with either a
   // nested `statistics` block or flat counters — prefer the nested one, exactly
@@ -365,19 +415,45 @@ export default function AchievementReports() {
         )}
       </div>
 
-      {/* Name */}
+      {/* Identity */}
       <div
         className={`relative lg:py-8 py-8 flex flex-col items-center 2xl:px-5 px-3 2xl:px-32 lg:px-20 md:px-14 ${
           i18n.language === "ar" ? "font-arabic" : ""
         }`}
       >
+        <img
+          src={profilePic}
+          alt={fullName || t("COMMON.FULL_NAME")}
+          className="mb-4 h-[110px] w-[110px] rounded-full border-[3px] border-primary-5 object-cover"
+        />
         <p
-          className={`2xl:text-[36px] md:text-4xl text-3xl text-primary-5 font-bold pb-5 border-b border-primary-5 w-max mx-auto ${
+          className={`2xl:text-[36px] md:text-4xl text-3xl text-primary-5 font-bold pb-5 border-b border-primary-5 w-max mx-auto text-center ${
             i18n.language === "ar" ? "font-arabic" : ""
           }`}
         >
           {fullName || "-"}
         </p>
+
+        {identityRows.length > 0 && (
+          <dl className="mt-6 grid gap-x-12 gap-y-3 md:grid-cols-2">
+            {identityRows.map((row) => (
+              <div
+                key={row.label}
+                className="flex flex-wrap items-center gap-2"
+              >
+                <dt className="text-primary-5 font-bold text-lg mobilescreen:text-[16px]">
+                  {row.label} :
+                </dt>
+                <dd
+                  className="text-primary-5 text-lg break-all"
+                  dir={row.ltr ? "ltr" : undefined}
+                >
+                  {row.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <button
           className={`mt-4 lg:mt-0 w-auto min-w-[140px] bg-primary-5 text-white font-bold py-2 px-6 rounded shadow disabled:opacity-50 lg:absolute ${
             i18n.language === "ar" ? "lg:left-5" : "lg:right-5"

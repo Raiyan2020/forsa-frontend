@@ -46,6 +46,7 @@ import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/n
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ConfirmVolunteerRegistrationModal from "./ConfirmVolunteerRegistrationModal";
+import DeleteOpportunityModal from "./DeleteOpportunityModal";
 import OpportunityBadges, {
   OpportunityVisibilityInfo,
 } from "./OpportunityBadges";
@@ -227,6 +228,7 @@ export default function VolunteerEvent({
   const [showCloseRegistration, setShowCloseRegistration] = useState(false);
   const [showReopenRegistration, setShowReopenRegistration] = useState(false);
   const [showResubmit, setShowResubmit] = useState(false);
+  const [showDeleteOpportunity, setShowDeleteOpportunity] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -650,6 +652,10 @@ export default function VolunteerEvent({
   const canReopenRegistration =
     isCreator && opportunityData?.is_registration_closed === true;
   const isRejected = opportunityData?.approval_status === "rejected";
+  // Match the opportunity cards: deletion can only be requested by the
+  // creator before the opportunity starts or completes.
+  const canRequestDeletion =
+    isCreator && status !== "completed" && status !== "inprogress";
 
   /**
    * Six states off the API's own flags — Ended / Started / Full / Closed /
@@ -917,8 +923,8 @@ export default function VolunteerEvent({
                 </div>
               </div>
 
-              {/* License image */}
-              {/* {opportunityData?.license_image && (
+              {/*  License image */}
+             {opportunityData?.license_image && (
                 <div className="w-full flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] bottom-[50px] lg:bottom-[100px] px-[20px] pb-[30px] pt-[20px]">
                   <p className="text-primary-5 2xl:text-base lg:text-sm text-sm font-bold mb-3">
                     {t("COMMON.LICENSE")}
@@ -936,7 +942,7 @@ export default function VolunteerEvent({
                     />
                   </a>
                 </div>
-              )} */}
+              )}
 
               <div
                 className={`mobilescreen:bottom-[50px] sponseritm bg-[#DBDBDB] 2xl:bottom-[100px] lg:bottom-[100px] md:bottom-[60px] relative 2xl:p-[50px] laptopmain:px-12 laptops:px-10 lg:p-[30px] p-[30px] ${!opportunityData?.opportunity_sponsor_images?.length
@@ -1131,6 +1137,22 @@ export default function VolunteerEvent({
                       onClick={() => setShowResubmit(true)}
                     >
                       {t("COMMON.RESUBMIT_WITHOUT_EDIT")}
+                    </Button>
+                  )}
+
+                  {/* Labelled like the other manage actions rather than a bare
+                      icon, so the destructive one isn't the only unlabelled
+                      control in the column. No `xss:hidden`: its siblings have
+                      a full-width mobile counterpart further down and this one
+                      doesn't, so hiding it would drop delete on mobile. */}
+                  {canRequestDeletion && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="whitespace-nowrap"
+                      onClick={() => setShowDeleteOpportunity(true)}
+                    >
+                      {t("COMMON.DELETE_OPPORTUNITY")}
                     </Button>
                   )}
                 </div>
@@ -1696,6 +1718,22 @@ export default function VolunteerEvent({
       <div className="border-t border pt-[40px] 2xl:pt-[70px] laptopmain:pt-[50px] laptop:pt-[40px] lg:pt-[40px]">
         <SponsorsClient />
       </div>
+
+      <Modal
+        open={showDeleteOpportunity}
+        onClose={() => setShowDeleteOpportunity(false)}
+        title={t("COMMON.DELETE_OPPORTUNITY")}
+        size="small"
+      >
+        <DeleteOpportunityModal
+          opportunityId={id}
+          type="volunteer"
+          setOpenModal={() => setShowDeleteOpportunity(false)}
+          refetch={() => {
+            void refetch();
+          }}
+        />
+      </Modal>
 
       <Modal
         open={showDeleteModal}

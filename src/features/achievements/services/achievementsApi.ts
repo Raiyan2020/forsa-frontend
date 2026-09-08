@@ -62,9 +62,16 @@ export interface VolunteerDetailData {
   };
 }
 
-/** `download=true` answers with a link to the generated PDF instead. */
+/**
+ * `download=true` answers with a link to the generated PDF instead — except PDF
+ * generation isn't built yet, so today it always answers `pdf_url: null` with a
+ * prose `message`, inside a `key: "success"` envelope (BE-19 in
+ * `docs/BACKEND_ISSUES.md`). Don't branch on `message`: it is unlocalized prose,
+ * and the localized equivalent is the envelope's own `msg`.
+ */
 export interface VolunteerDetailDownload {
-  pdf_url?: string;
+  pdf_url?: string | null;
+  message?: string;
 }
 
 /**
