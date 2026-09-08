@@ -510,7 +510,7 @@ export default function LearnServeDetails({
      * Only one of the two register-list screens can mark attendance, so the
      * choice has to follow the opportunity's own attendance flags — not its
      * learning-type label. `learning_type_display` comes back `null` on live
-     * records (same empty choice relations as BE-01 in `docs/BACKEND_ISSUES.md`),
+     * records (same empty choice relations as BE-01 in `docs/BACKEND_ISSUES_ROUND_1.md`),
      * so the old label check matched nothing and even a `requires_check_in: true`
      * opportunity landed on the read-only list with no way to mark anyone
      * present. It also never listed "Class", which the API does require a

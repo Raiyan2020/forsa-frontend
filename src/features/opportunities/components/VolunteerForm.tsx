@@ -850,7 +850,7 @@ export default function VolunteerForm({
        * Sponsors are deliberately NOT part of this request. The
        * `opportunity_sponsor_images_organization_{n}` / `_position_{n}` fields
        * this used to append have never been read by the backend — confirmed
-       * 2026-09-07 (BE-08 in `docs/BACKEND_ISSUES.md`), which also confirmed
+       * 2026-09-07 (BE-08 in `docs/BACKEND_ISSUES_ROUND_1.md`), which also confirmed
        * that omitting them cannot clear existing sponsors, since neither
        * `update()` touches the sponsor relation at all.
        *

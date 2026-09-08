@@ -283,7 +283,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   /**
    * `/events/{id}/` sends both `is_creator` and (since 2026-09-07)
    * `relationship_tags`, so ownership goes through the one shared derivation
-   * every other detail screen uses — see BE-02 in `docs/BACKEND_ISSUES.md`.
+   * every other detail screen uses — see BE-02 in `docs/BACKEND_ISSUES_ROUND_1.md`.
    * That keeps this screen working if `is_creator` is ever dropped here the way
    * it already was on the two opportunity resources.
    */

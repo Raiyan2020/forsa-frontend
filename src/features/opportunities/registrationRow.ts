@@ -10,7 +10,7 @@
  * either shape renders. The flat payload gained
  * `full_name`, `user_contact_number` / `phone_number`, `profile_pic`,
  * `gender_display` and `is_public` on 2026-09-07 (BE-16 in
- * `docs/BACKEND_ISSUES.md`), so all of them are read flat-first, then nested.
+ * `docs/BACKEND_ISSUES_ROUND_1.md`), so all of them are read flat-first, then nested.
  */
 
 interface NestedRegistrationUser {

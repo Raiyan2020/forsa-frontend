@@ -25,7 +25,6 @@
   "COMMON.CHARACTERS": " characters",
   "COMMON.EVENT_TITLE_MIN_LENGTH": "Event title must be at least 2 characters",
   "COMMON.DESCRIPTION_MIN_LENGTH": "Description must be at least 10 characters",
-
   "COMMON.CREATING": "Creating",
   "COMMON.PASSWORDS.MUST.MATCH": "Passwords must match",
   "COMMON.MUST.BE.VALID.PHONE": "Please enter a valid phone number",
@@ -40,6 +39,7 @@
   "COMMON.OPPORTUNITIES": "Opportunities",
   "COMMON.OPPORTUNITIES-": "Opportunities",
   "COMMON.EVENTS_ACTIVITIES": "Events & Activities",
+  "COMMON.OPPORTUNITIES_AND_EVENTS": "Opportunities & Events",
   "COMMON.ACHIEVEMENTS": "Achievements",
   "COMMON.COMMUNITIES": "Forsa Communities",
   "COMMON.MORE": "More",

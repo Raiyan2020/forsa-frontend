@@ -26,12 +26,7 @@
   "COMMON.MUST.BE.ATMOST": "يجب ألا يتجاوز",
   "COMMON.CHARACTERS": "حرفًا",
   "COMMON.EVENT_TITLE_MIN_LENGTH": "يجب أن يحتوي عنوان الفعالية على حرفين على الأقل",
-  "COMMON.EVENT_TITLE_MIN_LENGTH": "يجب أن يحتوي عنوان الفعالية على حرفين على الأقل",
   "COMMON.DESCRIPTION_MIN_LENGTH": "يجب أن تحتوي التفاصيل على 10 أحرف على الأقل",
-
-  "COMMON.EVENT_TITLE_MIN_LENGTH": "يجب أن يحتوي عنوان الفعالية على حرفين على الأقل",
-  "COMMON.DESCRIPTION_MIN_LENGTH": "يجب أن تحتوي التفاصيل على 10 أحرف على الأقل",
-
   "COMMON.PASSWORDS.MUST.MATCH": "يجب أن تتطابق كلمات المرور",
   "COMMON.MUST.BE.VALID.PHONE": "الرجاء إدخال رقم هاتف صالح",
   "COMMON.PHONE.EXACT.8.DIGITS": "يجب أن يتكون رقم الهاتف من 8 أرقام بالضبط",
@@ -42,6 +37,7 @@
   "COMMON.OPPORTUNITIES": "فرص",
   "COMMON.OPPORTUNITIES-": "الفرص",
   "COMMON.EVENTS_ACTIVITIES": "الفعاليات والأنشطة",
+  "COMMON.OPPORTUNITIES_AND_EVENTS": "الفرص والفعاليات",
   "COMMON.ACHIEVEMENTS": "الإنجازات",
   "COMMON.COMMUNITIES": "مجتمع فرصة",
   "COMMON.MORE": "المزيد",

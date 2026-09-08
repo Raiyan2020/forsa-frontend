@@ -1,14 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import moment from "moment";
 import Loader from "@/components/ui/Loader";
 import Link from "next/link";
 import { toast } from "sonner";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 import { Button } from "@/components/ui/Button";
-import { getVolunteerDetail } from "@/features/achievements/services/achievementsApi";
+import {
+  downloadVolunteerDetail,
+  getVolunteerDetail,
+} from "@/features/achievements/services/achievementsApi";
+import {
+  getAllOpportunities,
+  getUserOpportunities,
+} from "@/features/opportunities/services/opportunities";
+import {
+  getAccountInfo,
+  getQRCode,
+  getVolunteerProfile,
+} from "@/features/profile/services/profileApi";
+import { useAuthStore } from "@/store/authStore";
 
 const fadeStyles = `
 .fade-table {
@@ -20,8 +34,72 @@ const fadeStyles = `
 }
 `;
 
+/**
+ * One line of the report's activity table. `/volunteer-detail/` supplies a
+ * ready-made `year`; the opportunity and event list endpoints only carry dates,
+ * so the year is derived from those.
+ */
+interface ActivityRow {
+  key: string;
+  title_en: string;
+  title_ar: string;
+  year?: number;
+  kind: "opportunity" | "event";
+}
+
+interface ListedActivity {
+  id?: number | string;
+  title_en?: string;
+  title_ar?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  due_date?: string | null;
+}
+
+const yearOf = (...dates: Array<string | null | undefined>) => {
+  for (const date of dates) {
+    if (!date) continue;
+    const parsed = moment(date);
+    if (parsed.isValid()) return parsed.year();
+  }
+  return undefined;
+};
+
+const toActivityRows = (
+  items: unknown,
+  kind: ActivityRow["kind"],
+  keyPrefix: string
+): ActivityRow[] =>
+  (Array.isArray(items) ? (items as ListedActivity[]) : []).map(
+    (item, index) => ({
+      key: `${keyPrefix}-${item?.id ?? index}`,
+      title_en: item?.title_en ?? "",
+      title_ar: item?.title_ar ?? "",
+      year: yearOf(item?.start_date, item?.end_date, item?.due_date),
+      kind,
+    })
+  );
+
+/**
+ * The activity table paginates client-side over the merged opportunity/event
+ * list, so every source is pulled in one page rather than page-by-page.
+ */
+const ACTIVITY_FETCH_LIMIT = 100;
+
+/**
+ * The list endpoints overlap (a registered opportunity is also an attended one
+ * once it ends) and each numbers its rows separately, so identity is the
+ * localized title plus the year rather than the id.
+ */
+const dedupeRows = (rows: ActivityRow[]): ActivityRow[] =>
+  Array.from(
+    new Map(
+      rows.map((row) => [`${row.title_en}|${row.title_ar}|${row.year}`, row])
+    ).values()
+  );
+
 const convertDecimalHoursToDisplay = (
-  decimalHours: number | null | undefined
+  decimalHours: number | string | null | undefined
 ): string => {
   if (decimalHours === null || decimalHours === undefined) {
     return "0";
@@ -31,18 +109,178 @@ const convertDecimalHoursToDisplay = (
 
 export default function AchievementReports() {
   const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+  const headCellClass = `px-4 py-2 text-left text-[#181822CC] font-semibold text-xl border-b border-[#FC955587] ${
+    isArabic ? "text-right" : ""
+  }`;
+  const bodyCellClass = `border-t border-b border-[#29246D] px-4 py-2 text-[#181822CC] ${
+    isArabic ? "text-right" : ""
+  }`;
+  const user = useAuthStore((s) => s.user);
+  const authToken = user?.auth_token;
   const [page, setPage] = useState(1);
   const [fade, setFade] = useState(false);
   const limit = 7;
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["volunteerDetail", page, limit],
-    queryFn: () => getVolunteerDetail({ page, limit }),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["volunteerDetail"],
+    queryFn: () => getVolunteerDetail({ page: 1, limit: ACTIVITY_FETCH_LIMIT }),
   });
 
-  const exportMutation = useMutation({
-    mutationFn: () => getVolunteerDetail({ download: true }),
+  // Same two sources /volunteer-profile reads, so the identity and the
+  // counters on the report match the profile screen instead of falling back to
+  // placeholders when the report payload omits a field.
+  const { data: volunteerProfileData } = useQuery({
+    queryKey: ["volunteer-profile"],
+    queryFn: getVolunteerProfile,
+    enabled: Boolean(authToken),
   });
+
+  const { data: accountInfoData } = useQuery({
+    queryKey: ["account-info"],
+    queryFn: getAccountInfo,
+    enabled: Boolean(authToken),
+  });
+
+  // `/volunteer-profile/` carries no QR; the code lives on its own endpoint —
+  // same query key as the QRCode screen so the two share one response.
+  const { data: qrCodeData } = useQuery({
+    queryKey: ["volunteer-qr-code"],
+    queryFn: getQRCode,
+    enabled: Boolean(authToken),
+  });
+
+  // `/volunteer-detail/` reports the counters but comes back with an empty
+  // `opportunities` list, so the table is built from the same four requests
+  // /volunteer-profile makes for its Opportunities and Events tabs. Each is
+  // scoped to the signed-in user server-side — no `user_id` is sent, exactly as
+  // on the profile, where that param is reserved for public profiles.
+  //
+  // `filter_type=myevents` is NOT usable here: `/list-all-opportunities/`
+  // ignores it and answers with the global event list (every event on the
+  // platform), which is why the events are requested the profile's way.
+  const activityParams = { page: 1, limit: ACTIVITY_FETCH_LIMIT };
+
+  const { data: registeredData, isLoading: isLoadingRegistered } = useQuery({
+    queryKey: ["report-activities", "registered", activityParams],
+    queryFn: () =>
+      getUserOpportunities({ ...activityParams, filter_type: "registered" }),
+    enabled: Boolean(authToken),
+  });
+
+  const { data: attendedData, isLoading: isLoadingAttended } = useQuery({
+    queryKey: ["report-activities", "attended", activityParams],
+    queryFn: () =>
+      getUserOpportunities({ ...activityParams, filter_type: "organized" }),
+    enabled: Boolean(authToken),
+  });
+
+  const { data: organizedEventsData, isLoading: isLoadingOrganizedEvents } =
+    useQuery({
+      queryKey: ["report-activities", "organized_events", activityParams],
+      queryFn: () =>
+        getAllOpportunities({
+          ...activityParams,
+          filter_type: "organized_events",
+        }),
+      enabled: Boolean(authToken),
+    });
+
+  const { data: sponsoredEventsData, isLoading: isLoadingSponsoredEvents } =
+    useQuery({
+      queryKey: ["report-activities", "sponsored_events", activityParams],
+      queryFn: () =>
+        getAllOpportunities({
+          ...activityParams,
+          filter_type: "sponsored_events",
+        }),
+      enabled: Boolean(authToken),
+    });
+
+  const exportMutation = useMutation({
+    mutationFn: downloadVolunteerDetail,
+  });
+
+  // Report fields live under the standard `data` envelope key.
+  const report = data?.data;
+  const account = accountInfoData?.data;
+  const profile = volunteerProfileData?.data;
+
+  const fullName =
+    report?.full_name ||
+    account?.full_name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ");
+
+  // `/volunteer-detail/` and `/volunteer-profile/` both answer with either a
+  // nested `statistics` block or flat counters — prefer the nested one, exactly
+  // like VolunteerBackgroundInformation does.
+  const stats = {
+    volunteerHours:
+      report?.statistics?.all_time?.total_hours ??
+      report?.total_volunteer_hours ??
+      profile?.statistics?.all_time?.total_hours ??
+      profile?.total_volunteer_hours ??
+      0,
+    volunteerOpportunities:
+      report?.statistics?.all_time?.total_opportunities ??
+      report?.total_opportunities ??
+      profile?.statistics?.all_time?.total_opportunities ??
+      profile?.total_opportunities ??
+      0,
+    certificates:
+      report?.statistics?.all_time?.total_certificates ??
+      report?.total_certificates ??
+      profile?.statistics?.all_time?.total_certificates ??
+      profile?.total_certificates ??
+      0,
+  };
+
+  // `/volunteer-detail/` dates its own rows and wins whenever it returns any.
+  const reportRows: ActivityRow[] = (report?.opportunities?.data ?? []).map(
+    (opportunity, index) => ({
+      key: `report-${index}`,
+      title_en: opportunity.title_en,
+      title_ar: opportunity.title_ar,
+      year: opportunity.year,
+      kind: "opportunity" as const,
+    })
+  );
+
+  const opportunityRows = reportRows.length
+    ? reportRows
+    : dedupeRows([
+        ...toActivityRows(registeredData?.data, "opportunity", "registered"),
+        ...toActivityRows(attendedData?.data, "opportunity", "attended"),
+      ]);
+
+  // An event can be both organized and sponsored by the same account.
+  const eventRows = dedupeRows([
+    ...toActivityRows(organizedEventsData?.data, "event", "organized-event"),
+    ...toActivityRows(sponsoredEventsData?.data, "event", "sponsored-event"),
+  ]);
+
+  // Newest first, then alphabetical so rows without a year sink to the bottom
+  // instead of shuffling between renders.
+  const activities = [...opportunityRows, ...eventRows].sort(
+    (a, b) =>
+      (b.year ?? 0) - (a.year ?? 0) || a.title_en.localeCompare(b.title_en)
+  );
+
+  const totalPages = Math.ceil(activities.length / limit);
+  // A refetch can shrink the list under the current page; clamp rather than
+  // showing an empty table on a page that no longer exists.
+  const safePage = Math.min(page, Math.max(totalPages, 1));
+  const pageRows = activities.slice((safePage - 1) * limit, safePage * limit);
+  const isLoadingActivities =
+    isLoadingRegistered ||
+    isLoadingAttended ||
+    isLoadingOrganizedEvents ||
+    isLoadingSponsoredEvents;
+  // The QR endpoint answers with the payload at the root on some revisions.
+  const qrCodeUrl =
+    report?.qr_code_url ||
+    qrCodeData?.data?.qr_code_url ||
+    qrCodeData?.qr_code_url;
 
   const handleExport = async () => {
     try {
@@ -73,19 +311,11 @@ export default function AchievementReports() {
   };
 
   const handlePageChange = (newPage: number) => {
-    if (
-      data &&
-      data.opportunities &&
-      newPage >= 1 &&
-      newPage <= data.opportunities.meta.pagination.total_pages
-    ) {
+    if (newPage >= 1 && newPage <= totalPages) {
       setFade(true);
       setTimeout(() => {
         setPage(newPage);
-        setTimeout(() => {
-          refetch();
-          setFade(false);
-        }, 50);
+        setTimeout(() => setFade(false), 50);
       }, 200);
     }
   };
@@ -146,7 +376,7 @@ export default function AchievementReports() {
             i18n.language === "ar" ? "font-arabic" : ""
           }`}
         >
-          {isLoading ? "..." : data?.full_name || "-"}
+          {fullName || "-"}
         </p>
         <button
           className={`mt-4 lg:mt-0 w-auto min-w-[140px] bg-primary-5 text-white font-bold py-2 px-6 rounded shadow disabled:opacity-50 lg:absolute ${
@@ -189,7 +419,7 @@ export default function AchievementReports() {
                 src="/assets/profile/statistics/n_Volunteerhours.svg"
               />
               <h3 className="text-[30px] font-bold text-primary-501">
-                {isLoading ? "0" : convertDecimalHoursToDisplay(data?.total_volunteer_hours)}
+                {convertDecimalHoursToDisplay(stats.volunteerHours)}
               </h3>
               <p className="text-primary-501 font-semibold 2xl:text-base lg:text-sm pt-2 text-center">
                 {t("COMMON.VOLUNTEER_HOURS")}
@@ -202,7 +432,7 @@ export default function AchievementReports() {
                 src="/assets/profile/statistics/n_VolunteerOpportunities.svg"
               />
               <h3 className="text-[30px] font-bold text-primary-502">
-                {isLoading ? 0 : data?.total_opportunities ?? 0}
+                {stats.volunteerOpportunities}
               </h3>
               <p className="text-primary-502 font-semibold 2xl:text-base lg:text-sm pt-2 text-center">
                 {t("COMMON.VOLUNTEER_OPPORTUNITIES")}
@@ -215,7 +445,7 @@ export default function AchievementReports() {
                 src="/assets/profile/statistics/n_Certificate.svg"
               />
               <h3 className="text-[30px] font-bold text-primary-503">
-                {isLoading ? 0 : data?.total_certificates ?? 0}
+                {stats.certificates}
               </h3>
               <p className="text-primary-503 font-semibold 2xl:text-base lg:text-sm pt-2 text-center">
                 {t("COMMON.CERTIFICATE")}
@@ -224,14 +454,14 @@ export default function AchievementReports() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Opportunities & events */}
         <div className="pt-5">
           <h3
             className={`font-bold lg:text-4xl md:text-3xl text-3xl text-primary-5 pb-5 ${
               i18n.language === "ar" ? "font-arabic" : ""
             }`}
           >
-            {t("COMMON.COURSES")}
+            {t("COMMON.OPPORTUNITIES_AND_EVENTS")}
           </h3>
           <div className="overflow-x-auto">
             <table
@@ -241,27 +471,10 @@ export default function AchievementReports() {
             >
               <thead>
                 <tr className="bg-[#FC955587]">
-                  <th
-                    className={`px-4 py-2 text-left text-[#181822CC] font-semibold text-xl border-b border-[#FC955587] ${
-                      i18n.language === "ar" ? "text-right" : ""
-                    }`}
-                  >
-                    {t("COMMON.NUMBER")}
-                  </th>
-                  <th
-                    className={`px-4 py-2 text-left text-[#181822CC] font-semibold text-xl border-b border-[#FC955587] ${
-                      i18n.language === "ar" ? "text-right" : ""
-                    }`}
-                  >
-                    {t("COMMON.COURSES.NAME")}
-                  </th>
-                  <th
-                    className={`px-4 py-2 text-left text-[#181822CC] font-semibold text-xl border-b border-[#FC955587] ${
-                      i18n.language === "ar" ? "text-right" : ""
-                    }`}
-                  >
-                    {t("COMMON.YEAR")}
-                  </th>
+                  <th className={headCellClass}>{t("COMMON.NUMBER")}</th>
+                  <th className={headCellClass}>{t("COMMON.NAME")}</th>
+                  <th className={headCellClass}>{t("COMMON.TYPE")}</th>
+                  <th className={headCellClass}>{t("COMMON.YEAR")}</th>
                 </tr>
               </thead>
               <tbody
@@ -269,54 +482,38 @@ export default function AchievementReports() {
                   i18n.language === "ar" ? "font-arabic" : ""
                 }`}
               >
-                {isLoading ? (
+                {error ? (
                   <tr>
-                    <td colSpan={3} className="text-center py-4">
-                      {t("COMMON.LOADING")}
-                    </td>
-                  </tr>
-                ) : error ? (
-                  <tr>
-                    <td colSpan={3} className="text-center py-4 text-red-500">
+                    <td colSpan={4} className="text-center py-4 text-red-500">
                       Failed to fetch data
                     </td>
                   </tr>
-                ) : data &&
-                  data.opportunities &&
-                  data.opportunities.data.length > 0 ? (
-                  data.opportunities.data.map(
-                    (
-                      c: { title_ar: string; title_en: string; year: number },
-                      idx: number
-                    ) => (
-                      <tr key={idx}>
-                        <td
-                          className={`border-t border-b border-[#29246D] px-4 py-2 text-[#181822CC] ${
-                            i18n.language === "ar" ? "text-right" : ""
-                          }`}
-                        >
-                          {(page - 1) * limit + idx + 1}
-                        </td>
-                        <td
-                          className={`border-t border-b border-[#29246D] px-4 py-2 text-[#181822CC] ${
-                            i18n.language === "ar" ? "text-right" : ""
-                          }`}
-                        >
-                          {i18n.language === "ar" ? c.title_ar : c.title_en}
-                        </td>
-                        <td
-                          className={`border-t border-b border-[#29246D] px-4 py-2 text-[#181822CC] ${
-                            i18n.language === "ar" ? "text-right" : ""
-                          }`}
-                        >
-                          {c.year}
-                        </td>
-                      </tr>
-                    )
-                  )
+                ) : isLoadingActivities ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-4">
+                      {t("COMMON.LOADING")}
+                    </td>
+                  </tr>
+                ) : pageRows.length > 0 ? (
+                  pageRows.map((row, idx) => (
+                    <tr key={row.key}>
+                      <td className={bodyCellClass}>
+                        {(safePage - 1) * limit + idx + 1}
+                      </td>
+                      <td className={bodyCellClass}>
+                        {i18n.language === "ar" ? row.title_ar : row.title_en}
+                      </td>
+                      <td className={bodyCellClass}>
+                        {row.kind === "event"
+                          ? t("COMMON.EVENT")
+                          : t("COMMON.OPPORTUNITY")}
+                      </td>
+                      <td className={bodyCellClass}>{row.year ?? "-"}</td>
+                    </tr>
+                  ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="text-center py-4">
+                    <td colSpan={4} className="text-center py-4">
                       {t("COMMON.NO_DATA")}
                     </td>
                   </tr>
@@ -327,9 +524,7 @@ export default function AchievementReports() {
           <style>{fadeStyles}</style>
 
           {/* Pagination Controls */}
-          {data &&
-            data.opportunities &&
-            data.opportunities.meta.pagination.total_pages > 1 && (
+          {totalPages > 1 && (
               <div>
                 <div className="flex justify-center items-center gap-4 mt-[40px]">
                   <Button
@@ -348,24 +543,14 @@ export default function AchievementReports() {
                       i18n.language === "ar" ? "font-arabic" : ""
                     }`}
                   >
-                    {t("COMMON.PAGE")} {page} {t("COMMON.OF")}{" "}
-                    {data.opportunities.meta.pagination.total_pages}
+                    {t("COMMON.PAGE")} {safePage} {t("COMMON.OF")} {totalPages}
                   </span>
                   <Button
                     className="bg-primary-5 text-white p-2 rounded-full disabled:bg-gray-400 flex items-center justify-center"
                     variant="primary"
                     style={{ width: "40px", height: "40px" }}
-                    disabled={
-                      page === data.opportunities.meta.pagination.total_pages
-                    }
-                    onClick={() =>
-                      handlePageChange(
-                        Math.min(
-                          page + 1,
-                          data.opportunities.meta.pagination.total_pages
-                        )
-                      )
-                    }
+                    disabled={page === totalPages}
+                    onClick={() => handlePageChange(Math.min(page + 1, totalPages))}
                   >
                     <FaArrowRight
                       className={i18n.language === "ar" ? "rotate-180" : ""}
@@ -396,7 +581,7 @@ export default function AchievementReports() {
               {t("COMMON.COURSE.FOOTTER.TITLE")}
             </span>
             <img
-              src={isLoading ? "/assets/auth/qr.png" : data?.qr_code_url || "/assets/auth/qr.png"}
+              src={qrCodeUrl || "/assets/auth/qr.png"}
               alt="QR code"
               className="2xl:w-[150px] md:w-[150px] w-[100px]"
             />
@@ -404,7 +589,7 @@ export default function AchievementReports() {
         ) : (
           <>
             <img
-              src={isLoading ? "/assets/auth/qr.png" : data?.qr_code_url || "/assets/auth/qr.png"}
+              src={qrCodeUrl || "/assets/auth/qr.png"}
               alt="QR code"
               className="2xl:w-[150px] md:w-[150px] w-[100px]"
             />

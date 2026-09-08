@@ -155,7 +155,7 @@ const OPPORTUNITY_TYPE_TABS: Array<{
  * `/list-all-opportunities/` and `/list-user-opportunities/` accept **both**
  * vocabularies for `opportunity_type` — the short `volunteer` / `learn` and the
  * long `volunteer_opportunity` / `learn_serve_opportunity` (backend confirmed
- * 2026-09-07, BE-02/BE-15 in `docs/BACKEND_ISSUES.md`; the short form was the
+ * 2026-09-07, BE-02/BE-15 in `docs/BACKEND_ISSUES_ROUND_1.md`; the short form was the
  * only one matched before that, which is why the long form silently returned
  * everything). The long form is used here so this screen and
  * `ProfileDescriptionTabs.tsx` send one vocabulary, and so the param matches
