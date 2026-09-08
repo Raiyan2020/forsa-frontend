@@ -387,7 +387,17 @@ export default function VolunteerRegistrationsTable({
             }
 
             if (column.type === "actions") {
-              const userId = Number(rowData.user?.id || rowData.user_id);
+              // The registrations endpoint returns `user` as a plain id number
+              // (see docs/VOLUNTEER_REGISTRATIONS_DOWNLOAD_BUG.md), not a nested
+              // object — reading `user.id` off it yields NaN, which is falsy and
+              // made the unregister modal's Confirm silently do nothing. Tolerate
+              // both shapes (and a possible `user_id` field) so the id resolves.
+              const userId = Number(
+                rowData.user_id ??
+                  (rowData.user != null && typeof rowData.user === "object"
+                    ? rowData.user.id
+                    : rowData.user)
+              );
               const participationStarted = hasVolunteerParticipationStarted(
                 rowData,
                 opportunity_start_date,

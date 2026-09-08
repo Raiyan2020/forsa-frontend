@@ -13,6 +13,13 @@
  * order ambiguity below entirely. The local heuristic remains only as a
  * fallback for payloads that predate the field (or omit it).
  *
+ * One correction is applied to `action_state`: it is not registration-aware —
+ * the backend reports "started" for every in-progress opportunity even while
+ * `is_registration_open` is still true. An open window keeps the viewer's
+ * register/unregister action (the client rule: registration open → the action
+ * button is there), so "started" only surfaces as a read-only state once the
+ * window is actually shut.
+ *
  * Fallback evaluation order (first match wins):
  *
  *   Ended → Started → Unregister → Full → Closed → Register
@@ -78,12 +85,32 @@ export function getOpportunityButtonState(
 ): OpportunityButtonState {
   if (!item) return "register";
 
-  if (item.action_state && OPPORTUNITY_BUTTON_STATES.has(item.action_state)) {
-    return item.action_state as OpportunityButtonState;
-  }
+  const state: OpportunityButtonState | null =
+    item.action_state && OPPORTUNITY_BUTTON_STATES.has(item.action_state)
+      ? (item.action_state as OpportunityButtonState)
+      : item.opportunity_status === "completed"
+        ? "ended"
+        : item.opportunity_status === "inprogress"
+          ? "started"
+          : null;
 
-  if (item.opportunity_status === "completed") return "ended";
-  if (item.opportunity_status === "inprogress") return "started";
+  if (state) {
+    // `action_state` is not registration-aware: the backend reports "started"
+    // for every in-progress opportunity even while its registration window is
+    // still open (it sends `is_registration_open: true` alongside it). An open
+    // window always keeps the viewer's action — register for new viewers,
+    // unregister for registered ones, the same "keep a way out" rule as the
+    // fallback order below. "ended" stays terminal, and "full"/"closed"
+    // already answer "can I still join?" for their states.
+    if (
+      state === "started" &&
+      item.is_registration_open === true &&
+      item.is_registration_closed !== true
+    ) {
+      return item.is_registered ? "unregister" : "register";
+    }
+    return state;
+  }
 
   // Checked ahead of full/closed so a registered volunteer keeps a way out —
   // see the note above.

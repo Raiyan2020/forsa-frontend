@@ -40,6 +40,7 @@ import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
+  isOpportunityButtonActionable,
   isViewerOrganizer,
 } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
@@ -456,6 +457,13 @@ export default function VolunteerEvent({
       return;
     }
 
+    // Read-only states (Started/Ended/Full/Closed) never open a flow — only
+    // register/unregister do. The button is disabled for them; this also
+    // guards any programmatic invocation.
+    if (!isOpportunityButtonActionable(getOpportunityButtonState(opportunityData))) {
+      return;
+    }
+
     if (authToken) {
       if (user?.is_banned === true && !opportunityData?.is_registered) {
         toast.error(t("COMMON.BANNED_USER_CANNOT_REGISTER"));
@@ -630,9 +638,13 @@ export default function VolunteerEvent({
   const closedByCreator =
     opportunityData?.is_registration_closed === true ||
     opportunityData?.is_registration_open === false;
+  // When the backend explicitly reports the window as open, it is authoritative
+  // — the local due-date heuristic must not veto it (it fires a day early on
+  // UTC boundaries and would hide even a registered viewer's unregister).
   const isRegistrationClosed =
     closedByCreator ||
-    Boolean(registrationDeadline && nowUtc.isAfter(registrationDeadline, "day"));
+    (opportunityData?.is_registration_open !== true &&
+      Boolean(registrationDeadline && nowUtc.isAfter(registrationDeadline, "day")));
   const participantsNeeded = toNumber(opportunityData?.participants_needed);
   const registeredVolunteers = toNumber(
     opportunityData?.registered_volunteers_count
@@ -702,6 +714,17 @@ export default function VolunteerEvent({
         : viewerButtonState === "register" && !authToken
           ? t("COMMON.REGISTER_NOW")
           : t(getOpportunityButtonLabelKey(viewerButtonState));
+
+  /**
+   * Started/Ended/Full/Closed are read-only states, not actions — the button
+   * renders disabled instead of opening the register/unregister flow. The
+   * creator's Edit/Repost and the rejected resubmit action stay clickable.
+   */
+  const isViewerActionDisabled =
+    !isRejected &&
+    !isRepostState &&
+    !isCreator &&
+    !isOpportunityButtonActionable(viewerButtonState);
 
   const organizerPath = !opportunityData?.created_by?.is_public
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
@@ -1121,7 +1144,8 @@ export default function VolunteerEvent({
                     <Button
                       variant="primary"
                       size="medium"
-                      className="whitespace-nowrap block xss:hidden"
+                      className="whitespace-nowrap block xss:hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isViewerActionDisabled}
                       onClick={
                         isRepostState ? handleRepublishClick : handleRegisterClick
                       }
@@ -1589,7 +1613,8 @@ export default function VolunteerEvent({
                     <Button
                       variant="primary"
                       size="medium"
-                      className="whitespace-nowrap mb-9 w-full !h-14 mt-6"
+                      className="whitespace-nowrap mb-9 w-full !h-14 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isViewerActionDisabled}
                       onClick={
                         isRepostState ? handleRepublishClick : handleRegisterClick
                       }
