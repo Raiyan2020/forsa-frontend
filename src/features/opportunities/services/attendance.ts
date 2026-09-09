@@ -118,6 +118,3 @@ export const reopenOpportunityCheckIn = ({
       reopen_until ? { reopen_until } : { extra_hours }
     )
     .then((r) => r.data);
-
-export const scanQRCode = (data: any) =>
-  apiClient.post("/scan-qr/", data).then((r) => r.data);

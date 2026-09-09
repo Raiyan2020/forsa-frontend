@@ -630,14 +630,23 @@ function CertificatesGrid({ certificates }: { certificates: CertificateItem[] })
             rel="noopener noreferrer"
             className="group relative flex h-[260px] items-center justify-center overflow-hidden rounded-lg bg-[#29246D]/[0.03] shadow-md"
           >
-            <Image
-              src={certificate.certificate_image}
-              alt={title}
-              width={600}
-              height={420}
-              className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]"
-              unoptimized
-            />
+            {/\.html?(?:$|[?#])/i.test(certificate.certificate_image) ? (
+              <iframe
+                src={certificate.certificate_image}
+                title={title}
+                tabIndex={-1}
+                className="pointer-events-none h-full w-full border-0 bg-white transition-transform group-hover:scale-[1.02]"
+              />
+            ) : (
+              <Image
+                src={certificate.certificate_image}
+                alt={title}
+                width={600}
+                height={420}
+                className="h-full w-full object-contain transition-transform group-hover:scale-[1.02]"
+                unoptimized
+              />
+            )}
             <span className="absolute end-3 top-3 rounded-full bg-white p-2 text-primary-5 shadow">
               <ExternalLink className="h-4 w-4" />
             </span>

@@ -29,6 +29,62 @@ export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any
 export const updateVolunteerOpportunityImages = ({ id, formData }: { id: string; formData: FormData }) =>
   apiClient.post(`/volunteer-opportunities/${id}/update_images/`, formData).then((r) => r.data);
 
+type OpportunitySponsorType = "volunteer" | "learn-serve";
+
+interface OpportunitySponsorRelation {
+  id: string | number;
+  organization?: { id?: string | number } | string | number | null;
+}
+
+const sponsorEndpoint = (type: OpportunitySponsorType, opportunityId: string) =>
+  type === "volunteer"
+    ? `/volunteer-opportunities/${opportunityId}/sponsors/`
+    : `/learn-serve-opportunities/${opportunityId}/sponsors/`;
+
+/**
+ * Synchronize the sponsor picker through the dedicated relationship endpoints.
+ * Sponsor row ids and organization ids are different, so removals must use the
+ * relation id returned in `opportunity_sponsor_images[].id`.
+ */
+export const syncOpportunitySponsors = async ({
+  type,
+  opportunityId,
+  organizationIds,
+  currentSponsors = [],
+}: {
+  type: OpportunitySponsorType;
+  opportunityId: string;
+  organizationIds: string[];
+  currentSponsors?: OpportunitySponsorRelation[];
+}) => {
+  const desiredIds = new Set(organizationIds.filter(Boolean).map(String));
+  const currentByOrganization = new Map(
+    currentSponsors.flatMap((sponsor) => {
+      const organizationId =
+        typeof sponsor.organization === "object" && sponsor.organization !== null
+          ? sponsor.organization.id
+          : sponsor.organization;
+      return organizationId == null
+        ? []
+        : [[String(organizationId), String(sponsor.id)] as const];
+    })
+  );
+  const endpoint = sponsorEndpoint(type, opportunityId);
+
+  await Promise.all([
+    ...Array.from(currentByOrganization.entries())
+      .filter(([organizationId]) => !desiredIds.has(organizationId))
+      .map(([, sponsorRelationId]) =>
+        apiClient.delete(`${endpoint}${sponsorRelationId}/`)
+      ),
+    ...Array.from(desiredIds)
+      .filter((organizationId) => !currentByOrganization.has(organizationId))
+      .map((organizationId) =>
+        apiClient.post(endpoint, { organization_id: Number(organizationId) })
+      ),
+  ]);
+};
+
 /**
  * Organizer-only: issue and email certificates for a completed volunteer
  * opportunity's attended registrations.

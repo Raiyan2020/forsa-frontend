@@ -36,7 +36,7 @@ import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
 import EventCreateTimingModal from "@/features/events/components/EventCreateTimingModal";
 import EventTimeSlotModal from "@/features/events/components/EventTimeSlotModal";
 import type { TimeSlot } from "@/features/shared";
-import { checkLicenseRequirement } from "@/features/opportunities/services/opportunities";
+import { checkLicenseRequirement, deleteOpportunityImage, syncOpportunitySponsors } from "@/features/opportunities/services/opportunities";
 import { createLearnServeOpportunity, getLearnServeOpportunityById, updateLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { deleteAllTimeSlots, getTimeSlots } from "@/features/opportunities/services/registrations";
 import { getAllOrganizations } from "@/features/shared/services/directory";
@@ -342,6 +342,7 @@ export default function LearnServeForm({
     Array<{ id: number; image: string }>
   >([]);
   const [existingImageIds, setExistingImageIds] = useState<number[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
 
   const [formKey, setFormKey] = useState(0);
 
@@ -994,7 +995,7 @@ export default function LearnServeForm({
       formData.append("description_en", values.description_en);
       formData.append("start_date", formattedStartDate);
       formData.append("end_date", formattedEndDate);
-      formData.append("format", values.learnServeFormat);
+      formData.append("format_id", values.learnServeFormat);
       formData.append("participants_needed", values.participantsNeeded);
       formData.append(
         "from_age",
@@ -1011,14 +1012,14 @@ export default function LearnServeForm({
       // not the literal strings "true"/"false".
       formData.append("is_kuwaitis", values.is_kuwaitis ? "1" : "0");
       formData.append("is_paid", values.is_paid ? "1" : "0");
-      formData.append("gender", values.gender);
+      formData.append("gender_id", values.gender);
 
       if (values.dueDate) {
         formData.append("due_date", formatDateToYYYYMMDD(values.dueDate));
       }
 
       values._interests.forEach((interest) => {
-        formData.append("_interests", interest);
+        formData.append("interest_ids[]", interest);
       });
 
       // License image: send a new file, or signal removal, or leave untouched
@@ -1049,19 +1050,9 @@ export default function LearnServeForm({
         formData.append(`${prefix}_is_after_completed_${index}`, "0");
       });
 
-      /**
-       * Sponsors are deliberately NOT part of this request. The
-       * `opportunity_sponsor_images_organization_{n}` / `_position_{n}` fields
-       * this used to append have never been read by the backend — confirmed
-       * 2026-09-07 (BE-08 in `docs/BACKEND_ISSUES_ROUND_1.md`), which also confirmed
-       * that omitting them cannot clear existing sponsors, since neither
-       * `update()` touches the sponsor relation at all.
-       *
-       * The only mechanism that writes them is the dedicated
-       * `POST` / `DELETE /…-opportunities/{id}/sponsors/` pair. The picker below
-       * is therefore still read-only in effect: it shows and pre-selects
-       * sponsors but cannot save a change until it is wired to those endpoints.
-       */
+      const sponsorIds = values.sponsors
+        .map((sponsor) => sponsor.sponsorId)
+        .filter(Boolean);
 
       if (values.learnServeFormat === onlineFormatId) {
         formData.append("link", values.meetingLink || "");
@@ -1073,21 +1064,39 @@ export default function LearnServeForm({
       }
 
       if (values.certificateType) {
-        formData.append("certificate_type", values.certificateType);
+        formData.append("certificate_type_id", values.certificateType);
       }
       if (values.learningType) {
-        formData.append("learning_type", values.learningType);
+        formData.append("learning_type_id", values.learningType);
       }
 
       if (isUpdate && id && !isRepublish) {
         await updateOpportunityMutation.mutateAsync({ id, data: formData });
+        if (removedImageIds.length > 0) {
+          await deleteOpportunityImage({
+            image_ids: removedImageIds,
+            type: "learnserve",
+          });
+        }
+        await syncOpportunitySponsors({
+          type: "learn-serve",
+          opportunityId: id,
+          organizationIds: sponsorIds,
+          currentSponsors: opportunityData?.opportunity_sponsor_images ?? [],
+        });
         toast.success(t("COMMON.TOAST.UPDATE_OPPORTUNITY_SUCCESS"));
+        setRemovedImageIds([]);
         router.push(`/learn-share-event-detail/${id}`);
         return;
       }
 
       const response = await createOpportunityMutation.mutateAsync(formData);
       if (response?.data?.id) {
+        await syncOpportunitySponsors({
+          type: "learn-serve",
+          opportunityId: String(response.data.id),
+          organizationIds: sponsorIds,
+        });
         setOpportunityId(response.data.id);
         toast.success(t("COMMON.TOAST.CREATE_OPPURTUNITY_SUCCESS"));
 
@@ -1176,6 +1185,11 @@ export default function LearnServeForm({
     if (isExistingFile) {
       if (fieldName === "opportunity_images") {
         const removedImageId = modifiedOpportunityImages[index]?.id;
+        if (removedImageId != null) {
+          setRemovedImageIds((prev) =>
+            prev.includes(removedImageId) ? prev : [...prev, removedImageId]
+          );
+        }
         setModifiedOpportunityImages((prev) =>
           prev.filter((_, i) => i !== index)
         );

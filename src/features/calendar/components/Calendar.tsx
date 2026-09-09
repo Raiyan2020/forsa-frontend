@@ -29,6 +29,7 @@ interface EventResource {
   color: string;
   desc: string;
   type: string;
+  detailPath: string;
   status?: string;
   id: string;
 }
@@ -88,6 +89,19 @@ const EVENT_TYPES = [
   "Hub",
   "Sports Activities",
 ];
+
+const GENERIC_TYPE_LABELS: Record<string, { en: string; ar: string }> = {
+  Volunteer: { en: "Volunteer opportunity", ar: "فرصة تطوعية" },
+  Learn: { en: "Learn and serve", ar: "تعلّم وخدمة" },
+  Event: { en: "Event", ar: "فعالية" },
+};
+
+const detailPathForType = (type: string) => {
+  if (type === "Volunteer") return "/volunteer-event-detail";
+  if (type === "Learn") return "/learn-share-event-detail";
+  if (type === "Event") return "/event-details";
+  return DETAIL_PATH_BY_TYPE[type];
+};
 
 export default function Calendar() {
   const selectedLanguage = useLanguageStore((s) => s.language);
@@ -211,19 +225,42 @@ export default function Calendar() {
 
     const mapped: CalendarEvent[] = [];
 
+    const uniqueItems = new Map<string, any>();
     data.data.forEach((event: any) => {
+      const apiType = event.type_en || event.type || "";
+      const dedupeKey = `${apiType}:${event.id}`;
+      if (!uniqueItems.has(dedupeKey)) uniqueItems.set(dedupeKey, event);
+    });
+
+    uniqueItems.forEach((event: any) => {
+      const apiType = event.type_en || event.type || "";
       let color = "#E0E0E0";
-      if (event.type_en === "Opportunity") color = "#4DB6AC";
-      if (LEARN_SERVE_TYPES.includes(event.type_en)) color = "#CDDC39";
-      if (EVENT_TYPES.includes(event.type_en)) color = "#5271FF";
+      if (apiType === "Volunteer" || apiType === "Opportunity")
+        color = "#4DB6AC";
+      if (apiType === "Learn" || LEARN_SERVE_TYPES.includes(apiType))
+        color = "#CDDC39";
+      if (apiType === "Event" || EVENT_TYPES.includes(apiType))
+        color = "#5271FF";
       if (event.opportunity_status?.toLowerCase() === "completed")
         color = "#BDBDBD";
 
-      const title = isRTL ? event.title_ar : event.title_en;
+      const title =
+        (isRTL ? event.title_ar : event.title_en) ||
+        event.title_en ||
+        event.title_ar ||
+        "";
+      const genericLabels = GENERIC_TYPE_LABELS[apiType];
+      const displayType = isRTL
+        ? event.type_ar || genericLabels?.ar || apiType
+        : event.type_en || genericLabels?.en || apiType;
+      const detailPath = detailPathForType(apiType);
+      if (!detailPath) return;
+
       const resource: EventResource = {
         color,
-        desc: `${t("COMMON.TYPE")}: ${isRTL ? event.type_ar : event.type_en}`,
-        type: isRTL ? event.type_ar : event.type_en,
+        desc: `${t("COMMON.TYPE")}: ${displayType}`,
+        type: displayType,
+        detailPath,
         status: event.opportunity_status,
         id: event.id,
       };
@@ -231,19 +268,25 @@ export default function Calendar() {
       const startDate = moment(event.start_date, "YYYY-MM-DD");
       const endDate = moment(event.end_date, "YYYY-MM-DD");
 
+      const hasTimes = Boolean(event.start_time && event.end_time);
+
       // For day/week view, create an event for each day in the range with the same time
       if (view === "day" || view === "week") {
         const current = startDate.clone();
         while (current.isSameOrBefore(endDate, "day")) {
           mapped.push({
             title,
-            start: moment(
-              `${current.format("YYYY-MM-DD")}T${event.start_time}`
-            ).toDate(),
-            end: moment(
-              `${current.format("YYYY-MM-DD")}T${event.end_time}`
-            ).toDate(),
-            allDay: false,
+            start: hasTimes
+              ? moment(
+                  `${current.format("YYYY-MM-DD")}T${event.start_time}`
+                ).toDate()
+              : current.clone().startOf("day").toDate(),
+            end: hasTimes
+              ? moment(
+                  `${current.format("YYYY-MM-DD")}T${event.end_time}`
+                ).toDate()
+              : current.clone().add(1, "day").startOf("day").toDate(),
+            allDay: !hasTimes,
             resource,
           });
           current.add(1, "day");
@@ -252,9 +295,13 @@ export default function Calendar() {
         // For month/year view, do not split
         mapped.push({
           title,
-          start: moment(`${event.start_date}T${event.start_time}`).toDate(),
-          end: moment(`${event.end_date}T${event.end_time}`).toDate(),
-          allDay: false,
+          start: hasTimes
+            ? moment(`${event.start_date}T${event.start_time}`).toDate()
+            : startDate.clone().startOf("day").toDate(),
+          end: hasTimes
+            ? moment(`${event.end_date}T${event.end_time}`).toDate()
+            : endDate.clone().add(1, "day").startOf("day").toDate(),
+          allDay: !hasTimes,
           resource,
         });
       }
@@ -265,19 +312,14 @@ export default function Calendar() {
 
   // Handle event click for redirection
   const handleSelectEvent = (event: CalendarEvent) => {
-    const { type, id } = event.resource;
+    const { detailPath, id } = event.resource;
 
     if (!id) {
       console.error("Event ID is missing:", event);
       return;
     }
 
-    const basePath = DETAIL_PATH_BY_TYPE[type];
-    if (!basePath) {
-      console.error("Unknown event type:", type);
-      return;
-    }
-    router.push(`${basePath}/${id}`);
+    router.push(`${detailPath}/${id}`);
   };
 
   // Days with events for the mini-calendar dots

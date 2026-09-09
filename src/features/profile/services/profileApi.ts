@@ -24,8 +24,14 @@ export const getOrganizerProfile = () =>
 export const updateOrganizerProfile = (data: any) =>
   apiClient.patch("/organization-profile/", data).then((r) => r.data);
 
-export const updateOrganizerDocuments = (formData: FormData) =>
-  apiClient.post("/organization-profile/documents/", formData).then((r) => r.data);
+export const updateOrganizerDocuments = (formData: FormData) => {
+  // Method spoofing keeps the HTTP contract as PUT while letting PHP receive
+  // multipart files through a POST body.
+  formData.append("_method", "PUT");
+  return apiClient
+    .post("/organization-profile/documents/", formData)
+    .then((r) => r.data);
+};
 
 export const getQRCode = () =>
   apiClient.get("/volunteer-profile/qr-code/").then((r) => r.data);
@@ -97,6 +103,6 @@ export const downloadUserCertificate = ({
       const match = disposition?.match(/filename="(.+)"/);
       return {
         blob: response.data as Blob,
-        filename: match?.[1] || `${fallbackName}_${Date.now()}.jpg`,
+        filename: match?.[1] || `${fallbackName}_${Date.now()}.html`,
       };
     });

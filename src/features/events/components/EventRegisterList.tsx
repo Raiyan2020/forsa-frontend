@@ -12,8 +12,11 @@ import Searchbar from "@/components/ui/Searchbar";
 import Table, { TableColumn } from "@/components/ui/Table";
 import Loader from "@/components/ui/Loader";
 import { SponsorsClient } from "@/features/home";
-import { downloadEventRegistrations, getEventRegistrations } from "@/features/events/services/eventsApi";
-import { markVolunteerAttendance } from "@/features/opportunities/services/attendance";
+import {
+  downloadEventRegistrations,
+  getEventRegistrations,
+  updateEventRegistration,
+} from "@/features/events/services/eventsApi";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { NAV_STATE_KEYS, getNavState } from "@/lib/navigationState";
 import { useLanguageStore } from "@/store/languageStore";
@@ -27,8 +30,6 @@ export interface EventRegisterListState {
 }
 
 export default function EventRegisterList() {
-  // State for selected attendance date
-  const [selectedDate] = useState<string>("");
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,15 +45,21 @@ export default function EventRegisterList() {
     );
   }, []);
   const eventId = navState.id;
-  const event_status = navState.event_status;
   const manual_tracking = navState.manual_tracking;
 
   const downloadMutation = useMutation({
     mutationFn: downloadEventRegistrations,
   });
-  // Using the volunteer attendance mutation for event attendance as well
   const markAttendanceMutation = useMutation({
-    mutationFn: markVolunteerAttendance,
+    mutationFn: (registrationIds: string[]) =>
+      Promise.all(
+        registrationIds.map((registrationId) =>
+          updateEventRegistration({
+            registrationId,
+            data: { is_attended: true },
+          })
+        )
+      ),
   });
 
   // Attendance tracking state variables
@@ -68,7 +75,7 @@ export default function EventRegisterList() {
     queryKey: ["event-registrations", eventId, page, limit, debouncedSearch],
     queryFn: () =>
       getEventRegistrations({
-        event_id: eventId,
+        event_id: eventId as string,
         page,
         limit,
         search: debouncedSearch,
@@ -96,37 +103,36 @@ export default function EventRegisterList() {
     }
   }, [page, registrations?.data, manual_tracking]);
 
-  const selectableUuids = (): string[] =>
+  const selectableRegistrationIds = (): string[] =>
     registrations?.data
-      ?.filter((registration: any) => !registration.is_user_attended)
-      ?.map((registration: any) => registration.volunteer_uuid)
-      .filter((uuid: string | null | undefined) => uuid != null) || [];
+      ?.filter((registration: any) => !registration.is_attended)
+      ?.map((registration: any) => String(registration.id))
+      .filter((registrationId: string) => registrationId !== "") || [];
 
   // Handle select all attendance checkbox change
   const handleSelectAllAttendanceChange = () => {
-    if (!manual_tracking || event_status === "completed") return;
+    if (!manual_tracking) return;
 
     const newSelectAll = !selectAllAttendance;
     setSelectAllAttendance(newSelectAll);
-    setSelectedAttendance(newSelectAll ? selectableUuids() : []);
+    setSelectedAttendance(newSelectAll ? selectableRegistrationIds() : []);
   };
 
   // Handle individual attendance checkbox change
-  const handleAttendanceCheckboxChange = (volunteerUuid: string) => {
-    if (!manual_tracking || event_status === "completed" || !volunteerUuid)
-      return;
+  const handleAttendanceCheckboxChange = (registrationId: string) => {
+    if (!manual_tracking || !registrationId) return;
 
-    const newSelectedAttendance = selectedAttendance.includes(volunteerUuid)
-      ? selectedAttendance.filter((id) => id !== volunteerUuid)
-      : [...selectedAttendance, volunteerUuid];
+    const newSelectedAttendance = selectedAttendance.includes(registrationId)
+      ? selectedAttendance.filter((id) => id !== registrationId)
+      : [...selectedAttendance, registrationId];
 
     setSelectedAttendance(newSelectedAttendance);
 
     // Check if all selectable registrations are in the new selection
-    const selectable = selectableUuids();
+    const selectable = selectableRegistrationIds();
     const allSelected =
       selectable.length > 0 &&
-      selectable.every((uuid) => newSelectedAttendance.includes(uuid));
+      selectable.every((id) => newSelectedAttendance.includes(id));
 
     setSelectAllAttendance(allSelected);
   };
@@ -140,42 +146,23 @@ export default function EventRegisterList() {
 
     setMarkingAttendance(true);
     try {
-      // Filter out any null or undefined values and ensure we have a valid array
-      const validVolunteerIds = selectedAttendance.filter((id) => id != null);
+      const validRegistrationIds = selectedAttendance.filter(Boolean);
 
-      if (validVolunteerIds.length === 0) {
-        throw new Error("No valid volunteer IDs found");
+      if (validRegistrationIds.length === 0) {
+        throw new Error("No valid registration IDs found");
       }
 
-      // Format selectedDate as YYYY-MM-DD
-      let attendanceDate = "";
-      if (selectedDate) {
-        const date = new Date(selectedDate);
-        attendanceDate = `${date.getFullYear()}-${String(
-          date.getMonth() + 1
-        ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      await markAttendanceMutation.mutateAsync(validRegistrationIds);
+      toast.success(t("COMMON.USERS_MARKED_AS_ATTENDED"));
+
+      try {
+        await refetchRegistrations();
+      } catch (refetchError) {
+        console.error("Refetch error (non-critical):", refetchError);
       }
 
-      const response = await markAttendanceMutation.mutateAsync({
-        event_id: eventId,
-        volunteer_ids: validVolunteerIds,
-        attendance_date: attendanceDate,
-      });
-
-      // Check if the response status is success
-      if (response?.status === "success" || response?.key === "success") {
-        toast.success(t("COMMON.USERS_MARKED_AS_ATTENDED"));
-
-        // Handle refetch separately to avoid propagating refetch errors
-        try {
-          await refetchRegistrations();
-        } catch (refetchError) {
-          console.error("Refetch error (non-critical):", refetchError);
-        }
-
-        setSelectedAttendance([]);
-        setSelectAllAttendance(false);
-      }
+      setSelectedAttendance([]);
+      setSelectAllAttendance(false);
     } catch (error: any) {
       console.error("Failed to mark registrations as attended:", error);
       const payload = error?.response?.data;
@@ -190,7 +177,7 @@ export default function EventRegisterList() {
   };
 
   const columns: TableColumn[] = [
-    ...(manual_tracking && event_status !== "completed"
+    ...(manual_tracking
       ? [
           {
             label: (
@@ -257,6 +244,8 @@ export default function EventRegisterList() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+      } else {
+        throw new Error("The API did not return a download URL");
       }
       toast.success(t("COMMON.DOWNLOAD_SUCCESS"));
     } catch {
@@ -297,28 +286,28 @@ export default function EventRegisterList() {
                                   asset("profile/org_profile.svg")
                                 )
                               }
-                              alt={rowData[column.key]}
+                              alt={`${rowData.user?.first_name ?? ""} ${
+                                rowData.user?.last_name ?? ""
+                              }`.trim()}
                               width={40}
                               height={40}
                               unoptimized
                               className="w-10 h-10 rounded-full object-cover"
                             />
                             <span className="font-medium">
-                              {rowData[column.key]}
+                              {`${rowData.user?.first_name ?? ""} ${
+                                rowData.user?.last_name ?? ""
+                              }`.trim() || "-"}
                             </span>
                           </div>
                         );
                       }
 
-                      if (
-                        column.type === "attendance" &&
-                        manual_tracking &&
-                        event_status !== "completed"
-                      ) {
-                        const volunteerUuid = rowData.volunteer_uuid;
-                        const isAttended = rowData.is_user_attended;
+                      if (column.type === "attendance" && manual_tracking) {
+                        const registrationId = String(rowData.id ?? "");
+                        const isAttended = rowData.is_attended;
 
-                        if (!volunteerUuid) {
+                        if (!registrationId) {
                           return <div className="flex justify-center">-</div>;
                         }
 
@@ -328,7 +317,7 @@ export default function EventRegisterList() {
                               <div
                                 className={`h-4 w-4 ${
                                   isAttended ||
-                                  selectedAttendance.includes(volunteerUuid)
+                                  selectedAttendance.includes(registrationId)
                                     ? "bg-[#373737BF]/75"
                                     : "bg-white"
                                 }`}
@@ -337,17 +326,19 @@ export default function EventRegisterList() {
                                   type="checkbox"
                                   checked={
                                     isAttended ||
-                                    selectedAttendance.includes(volunteerUuid)
+                                    selectedAttendance.includes(registrationId)
                                   }
                                   onChange={() =>
                                     !isAttended &&
                                     handleAttendanceCheckboxChange(
-                                      volunteerUuid
+                                      registrationId
                                     )
                                   }
                                   className="opacity-0 absolute"
                                   disabled={isAttended}
-                                  aria-label={`Mark ${rowData.user_name} as attended`}
+                                  aria-label={`Mark ${rowData.user?.first_name ?? ""} ${
+                                    rowData.user?.last_name ?? ""
+                                  } as attended`}
                                 />
                               </div>
                             </div>
@@ -355,7 +346,13 @@ export default function EventRegisterList() {
                         );
                       }
 
-                      return <div className="py-2">{rowData[column.key]}</div>;
+                      const value =
+                        column.key === "user_contact_number"
+                          ? rowData.user?.phone_number
+                          : column.key === "user_email"
+                            ? rowData.user?.email
+                            : rowData[column.key];
+                      return <div className="py-2">{value || "-"}</div>;
                     }}
                   />
                 </div>
@@ -405,11 +402,7 @@ export default function EventRegisterList() {
               <Button
                 className="transition focus:outline-none text-center flex justify-center items-center gap-2 opacity-100 focus:ring-2 font-bold text-base 2xl:h-[60px] 2xl:w-[190px] rounded-[30px] 2xl:text-[20px] lg:text-[14px] laptop:w-[180px] lg:w-[150px] lg:h-[40px] laptop:rounded-[30px] laptop:h-[50px] laptopmain:h-[50px] xss:rounded-[20px] bg-white !text-primary-5 !w-[255px] !h-[60px] border border-primary-5"
                 onClick={handleMarkAttendanceClick}
-                disabled={
-                  markingAttendance ||
-                  selectedAttendance.length === 0 ||
-                  event_status === "completed"
-                }
+                disabled={markingAttendance || selectedAttendance.length === 0}
               >
                 {t("COMMON.ATTENDED")}
               </Button>

@@ -39,7 +39,7 @@ const LanguageSelection = () => {
       try {
         const formData = new FormData();
         formData.append("preferred_language", languageCode);
-        await apiClient.patch("/v1/users/account-info/", formData);
+        await apiClient.post("/account/", formData);
       } catch {
         // Silently ignore — language still switches locally
       }

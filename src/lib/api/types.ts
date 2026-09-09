@@ -23,21 +23,17 @@ export interface ApiResponse<T> {
 }
 
 /**
- * The registration download endpoints (`volunteer-opportunity-registrations`,
- * `learn-serve-opportunities/.../registrations`, `event-registrations`) answer
- * `download=true` with JSON containing a pre-signed `downloadUrl` rather than
- * the file itself.
+ * Registration download endpoints answer `download=true` with the standard
+ * API envelope whose `data` contains a pre-signed `downloadUrl`. Services
+ * unwrap that envelope before returning this shape to components.
  */
 export interface RegistrationsDownload {
   downloadUrl: string;
 }
 
 /**
- * `volunteer-opportunity-registrations` nests its download payload under the
- * standard `data` envelope field (unlike the sibling download endpoints,
- * confirmed with backend — see docs/VOLUNTEER_REGISTRATIONS_DOWNLOAD_BUG.md)
- * and additionally reports the outcome of the optional `mark_attendance` side
- * effect requested in the same call.
+ * Volunteer downloads additionally report the outcome of the optional
+ * `mark_attendance` side effect requested in the same call.
  */
 export interface VolunteerRegistrationsDownload extends RegistrationsDownload {
   file_format?: string;

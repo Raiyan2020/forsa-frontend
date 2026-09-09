@@ -512,7 +512,7 @@ export default function OrganizerAccountInformation() {
         nickname: values.nickname,
         sector: values.sector,
         organizer_type: values.organizer_type,
-        _interests: values._interests,
+        interest_ids: values._interests,
         license_number: values.license_number,
         ...socialMediaFields,
       };

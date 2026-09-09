@@ -167,6 +167,8 @@ interface ProfileCertificate {
 
 const EMPTY_PROFILE_CERTIFICATES: ProfileCertificate[] = [];
 
+const isHtmlCertificate = (url: string) => /\.html?(?:$|[?#])/i.test(url);
+
 /** Mirrors the certificate gallery from the React volunteer profile. */
 function CertificateTabs({ user_id }: { user_id?: string }) {
   const { t } = useTranslation();
@@ -299,14 +301,23 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
                   rel="noopener noreferrer"
                   aria-label={title}
                 >
-                  <Image
-                    src={certificate.certificate_image}
-                    alt={title}
-                    width={800}
-                    height={566}
-                    unoptimized
-                    className="h-auto w-full cursor-pointer rounded-lg shadow-md transition-shadow hover:shadow-xl"
-                  />
+                  {isHtmlCertificate(certificate.certificate_image) ? (
+                    <iframe
+                      src={certificate.certificate_image}
+                      title={title}
+                      tabIndex={-1}
+                      className="pointer-events-none aspect-[1.414/1] w-full rounded-lg border-0 bg-white shadow-md transition-shadow hover:shadow-xl"
+                    />
+                  ) : (
+                    <Image
+                      src={certificate.certificate_image}
+                      alt={title}
+                      width={800}
+                      height={566}
+                      unoptimized
+                      className="h-auto w-full cursor-pointer rounded-lg shadow-md transition-shadow hover:shadow-xl"
+                    />
+                  )}
                 </a>
 
                 {user && (

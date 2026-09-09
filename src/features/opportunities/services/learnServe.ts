@@ -61,14 +61,8 @@ export const downloadLearnServeRegistrations = ({
     .get(`/learn-serve-opportunities/${opportunity_id}/registrations/`, {
       params,
     })
-    .then((r) => r.data);
+    .then((r) => r.data.data);
 };
-
-export const updateLearnServeRegistration = ({ registration_id, data }: { registration_id: string; data: any }) =>
-  apiClient.patch(`/learn-serve-opportunity-registrations/${registration_id}/`, data).then((r) => r.data);
-
-export const deleteLearnServeRegistration = (registration_id: string) =>
-  apiClient.delete(`/learn-serve-opportunity-registrations/${registration_id}/`).then((r) => r.data);
 
 export const updateLearnServeAttendance = ({ opportunity_id, data }: { opportunity_id: string; data: any }) =>
   apiClient.patch(`/learn-serve-opportunities/${opportunity_id}/update-attendance/`, data).then((r) => r.data);

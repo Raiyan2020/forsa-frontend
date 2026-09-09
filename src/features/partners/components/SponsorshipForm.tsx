@@ -147,13 +147,13 @@ export default function SponsorshipForm() {
     try {
       const formData = new FormData();
       formData.append("org_name", values.org_name);
-      formData.append("_org_type_id", values.org_type);
+      formData.append("org_type_id", values.org_type);
       formData.append("person_name", values.person_name);
       formData.append("email", values.email);
       formData.append("phone_number", values.phone_number);
       formData.append("country_code", values.country_code);
-      formData.append("_sponsor_type_id", values.sponsor_type);
-      formData.append("_type_of_support_id", values.type_of_support);
+      formData.append("sponsor_type_id", values.sponsor_type);
+      formData.append("type_of_support_id", values.type_of_support);
       formData.append("sponsorship_details", values.sponsorship_details);
       formData.append("preferred_language", selectedLanguage);
 
@@ -461,4 +461,3 @@ function SponsorshipFormInner({
     </Form>
   );
 }
-

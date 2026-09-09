@@ -403,6 +403,17 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     }
   };
 
+  const goToRegisteredList = () => {
+    setNavState(NAV_STATE_KEYS.registerList, {
+      id: String(event.id),
+      event_status: event.event_status,
+      // Event attendance is updated through the organizer-owned registration
+      // endpoint; it is independent of the volunteer-opportunity QR flow.
+      manual_tracking: true,
+    });
+    router.push("/event-register-list");
+  };
+
   const actionButton = (mobile = false) => {
     if (isCreator) {
       // Unlike the register/unregister action below, managing your own event
@@ -640,7 +651,19 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                   className="text-start 2xl:leading-[50px] lg:leading-[40px]"
                 />
               </div>
-              <div className="block xss:hidden">{actionButton()}</div>
+              <div className="flex shrink-0 flex-col gap-3 xss:hidden">
+                {actionButton()}
+                {isCreator && (
+                  <Button
+                    variant="secondary"
+                    size="medium"
+                    className="whitespace-nowrap"
+                    onClick={goToRegisteredList}
+                  >
+                    {t("COMMON.REGISTERED_LIST")}
+                  </Button>
+                )}
+              </div>
             </div>
 
             <DetailRow icon={asset("homepage/learn_type.svg")} label={t("COMMON.TYPE")}>
@@ -695,7 +718,19 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                     </DetailRow>
                   ) : null}
                 </div>
-                <div className="hidden xss:block">{actionButton(true)}</div>
+                <div className="hidden xss:flex xss:flex-col xss:gap-3">
+                  {actionButton(true)}
+                  {isCreator && (
+                    <Button
+                      variant="secondary"
+                      size="medium"
+                      className="!h-14 !w-full"
+                      onClick={goToRegisteredList}
+                    >
+                      {t("COMMON.REGISTERED_LIST")}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 

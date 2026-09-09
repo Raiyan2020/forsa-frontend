@@ -435,6 +435,8 @@ export default function RegisterListForLearnandServe() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+      } else {
+        throw new Error("The API did not return a download URL");
       }
       toast.success(t("COMMON.DOWNLOAD_SUCCESS"));
     } catch (error) {

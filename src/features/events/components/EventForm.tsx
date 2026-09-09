@@ -646,8 +646,10 @@ export default function EventForm({
       formData.append("latitude", values.latitude);
       formData.append("longitude", values.longitude);
       formData.append("primary_language", selectedLanguage);
-      formData.append("event_type", values.event_type);
-      formData.append("participation_type", values.participation_type);
+      // The form keeps concise UI field names, but the API accepts relation
+      // ids under their explicit `*_id` contract.
+      formData.append("event_type_id", values.event_type);
+      formData.append("participation_type_id", values.participation_type);
 
       // Only append registration_link if it's not "Free Event"
       if (
@@ -667,9 +669,9 @@ export default function EventForm({
       );
       formData.append("map_desc", values.location);
       formData.append("location_url", values.location_url);
-      if (values.gender) formData.append("gender", values.gender);
+      if (values.gender) formData.append("gender_id", values.gender);
       values._interests.forEach((interest) => {
-        formData.append("_interests", interest);
+        formData.append("interest_ids[]", interest);
       });
       // On update, tell the backend which existing images to keep. Sending no
       // existing_image_ids at all means "drop them".

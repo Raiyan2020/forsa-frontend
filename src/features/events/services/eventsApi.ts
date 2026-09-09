@@ -36,8 +36,30 @@ export const requestEventDeletion = (eventId: string) =>
   apiClient.post(`/events/${eventId}/request-deletion/`).then((r) => r.data);
 
 
-export const getEventRegistrations = (params?: any) =>
-  apiClient.get("/event-registrations/", { params }).then((r) => r.data);
+export const getEventRegistrations = ({
+  event_id,
+  ...params
+}: {
+  event_id: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+}) =>
+  apiClient
+    .get(`/event-registrations/by-event/${event_id}/`, { params })
+    .then((r) => r.data);
+
+/** Organizer-only update used by the event attendance table. */
+export const updateEventRegistration = ({
+  registrationId,
+  data,
+}: {
+  registrationId: string;
+  data: { is_attended?: boolean };
+}) =>
+  apiClient
+    .patch(`/event-registrations/${registrationId}/`, data)
+    .then((r) => r.data);
 
 export const downloadEventRegistrations = ({
   event_id,
@@ -56,7 +78,7 @@ export const downloadEventRegistrations = ({
 
   return apiClient
     .get("/event-registrations/", { params })
-    .then((r) => r.data);
+    .then((r) => r.data.data);
 };
 
 // ─── Event Feedbacks ─────────────────────────────────────────────────────────

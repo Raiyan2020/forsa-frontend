@@ -13,7 +13,7 @@ and the answers we've already received. It replaces the per-issue `*_BUG.md` /
 > event catalogue). Archiving did not resolve them — if any still matters, copy it back here
 > under its **existing** id.
 >
-> **Ids are never reused or renumbered** across the reset — the next new item is BE-21. Read
+> **Ids are never reused or renumbered** across the reset — the next new item is BE-23. Read
 > the archive's header before picking one.
 
 ## How to use this file
@@ -98,6 +98,8 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 | id | Title | Endpoint | Status |
 |---|---|---|---|
+| [BE-22](#be-22--state-the-write-contract-per-endpoint-relation-field-names-and-array-encoding) | Write contract: relation field names + array encoding | create/update endpoints across events, opportunities, profile | **Open — blocking** |
+| [BE-21](#be-21--user-certificates-gives-no-way-to-tell-the-two-registration-types-apart) | `/user-certificates/` rows carry no registration type | `GET /user-certificates/`, `GET /download-certificate/` | **Open** |
 | [BE-14](#be-14--volunteer-attendance-is-counted-but-attended-list-and-certificate-are-missing) | Attendance is counted, but Attended list and certificate are missing | attendance, profile activity, and certificate endpoints | Resolved 2026-09-08 |
 | [BE-19](#be-19--achievement-report-pdf-export-is-not-implemented-but-answers-key-success) | Report PDF export not implemented, returns `success` | `GET /volunteer-detail/?download=true` | Resolved 2026-09-08 |
 | [BE-20](#be-20--event-details-returns-event_type_display-null) | Event details returns `event_type_display: null` | `GET /events/{id}/` | Answered 2026-09-08 |
@@ -105,6 +107,152 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 ---
 
 # Open
+
+### BE-22 — State the write contract per endpoint: relation field names and array encoding
+
+| | |
+|---|---|
+| **Status** | Open — blocking a change we have already made, please read first |
+| **Endpoint** | `POST/PATCH /events/`, `/volunteer-opportunities/`, `/learn-serve-opportunities/`, `/volunteer-profile/`, `/organization-profile/`, `/account/`, `/register/` |
+| **Frontend** | `features/events/components/EventForm.tsx`, `features/opportunities/components/{VolunteerForm,LearnServeForm}.tsx`, `features/profile/components/{Volunteer,Organizer}AccountInformation.tsx`, `features/auth/components/{EntitiesRegistrationForm,CompleteDetails}.tsx` |
+| **Raised** | 2026-09-09 |
+
+Two separate questions, both about **write** payloads. Every `_display` field you send on read
+is unambiguous; what we have never had in writing is the name to send it back under, and we
+have been guessing per field.
+
+**1. Relation ids: bare name or `*_id`?**
+
+We have just changed the three create/update forms to send `*_id` for every MasterChoice
+relation, because **BE-20 looks like a symptom of getting this wrong**: the event form was
+sending `event_type`, you validate and store `event_type_id`, so the value was dropped on
+every save and event 19's `NULL` is what that produces. If that reading is right, the same was
+true of `participation_type`, `gender`, `format`, `learning_type` and `certificate_type` on
+their respective forms — all silently discarded on every create and update.
+
+Now sending (was → is):
+
+| Endpoint | Was | Now |
+|---|---|---|
+| `/events/` | `event_type`, `participation_type`, `gender`, `_interests` | `event_type_id`, `participation_type_id`, `gender_id`, `interest_ids[]` |
+| `/volunteer-opportunities/` | `gender`, `_interests` | `gender_id`, `interest_ids[]` |
+| `/learn-serve-opportunities/` | `format`, `gender`, `_interests`, `certificate_type`, `learning_type` | `format_id`, `gender_id`, `interest_ids[]`, `certificate_type_id`, `learning_type_id` |
+
+**Please confirm this is right before we ship it** — if these endpoints actually accepted the
+bare names, we have just broken all three forms.
+
+Deliberately **not** changed, and we would like each confirmed rather than assumed:
+
+- `volunteer_category` on `/volunteer-opportunities/` stays bare. Its `_display` is `{en, ar}`
+  with no `id`, unlike every relation above, so we read it as a fixed enum. Correct?
+- The profile and registration endpoints still send **bare** `gender`, `_interests`, `sector`,
+  `organizer_type` and `emergency_contact_relationship`, even though all five read back as
+  id-bearing `*_display` objects. We left them alone because there is positive evidence they
+  work: BE-13 established that `PATCH /volunteer-profile/` with `_interests` does write (to
+  `masterInterests`), and organizations plainly do end up with a populated
+  `organizer_type_display`. So these endpoints appear to accept a different vocabulary from the
+  three above. Is that deliberate, and is it stable?
+
+**2. Array encoding — `field` repeated, or `field[]`?**
+
+This one we have *not* touched, because guessing wrong makes it worse rather than better. The
+same request currently mixes both conventions:
+
+```
+formData.append("interest_ids[]", id)          // repeated, bracketed
+formData.append("existing_image_ids", id)      // repeated, bare
+```
+
+PHP does not build an array from a repeated **bare** key — `a=1&a=2` leaves `$_POST['a']` as
+`"2"`. So if `existing_image_ids` is meant to be a list, you have only ever received the last
+id, and editing an opportunity that had three images would keep one and drop two. Three fields
+are in that shape: `existing_image_ids` (all three forms plus the three community forms),
+`existing_ids` (organizer documents), and `images` (`ReplyOfReplyForm`).
+
+We are not switching them to `[]` on our own, because the failure mode flips: if you read a
+scalar, `existing_image_ids[]` arrives as nothing and we would drop *every* image instead of
+keeping one.
+
+**Ask.**
+
+1. Confirm or correct the rename table above, per endpoint. If any of those endpoints accepts
+   both vocabularies, say which one is canonical so we stop shipping the other.
+2. For each of the three list fields — `existing_image_ids`, `existing_ids`, `images` — state
+   whether you read a repeated bare key or a bracketed one, and we will match it exactly.
+3. Confirm `volunteer_category` is an enum and not a relation.
+4. **A `422` for an unknown write key would have caught all of this.** Every one of these
+   fields was accepted with a `200` and silently ignored — the same complaint as BE-15's
+   unknown `opportunity_type` and BE-18's unknown `filter_type`. That is three rounds of the
+   same root cause. Please consider rejecting unrecognised keys on write endpoints, or at
+   minimum on these.
+5. To verify: create one event through the API with `event_type_id` set, and give us back the
+   stored `event_type_id`. And one opportunity update sending three `existing_image_ids`,
+   with the resulting image count.
+
+**Frontend status.** The rename is applied and the tree typechecks and builds, but it is
+**unverified against the live API** — no ask here can be closed by reading our own code. The
+array-encoding inconsistency is untouched and waiting on ask 2.
+
+---
+
+### BE-21 — `/user-certificates/` gives no way to tell the two registration types apart
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `GET /user-certificates/?user_id=`, `GET /download-certificate/` |
+| **Frontend** | `features/profile/components/ProfileDescriptionTabs.tsx` (`CertificateTabs`), `features/profile/services/profileApi.ts` |
+| **Raised** | 2026-09-08 |
+
+**What we get.** Per BE-14, `/user-certificates/` now unions both registration types and each
+row is:
+
+```json
+{
+  "registration_id": 996,
+  "certificate_image": "https://…",
+  "opportunity__title_en": "…",
+  "opportunity__title_ar": "…",
+  "organizer_name": "…"
+}
+```
+
+**Why it's wrong.** In the same reply you told us two things that don't fit together:
+
+1. Pass `registration_type` to `/download-certificate/` "when you already know which type a
+   given id is", because the two registration tables have independent id sequences and *"they
+   can, in principle, collide"*.
+2. The rows this list returns carry no field saying which table they came from.
+
+So the one screen that lists certificates is exactly the screen that cannot supply the
+disambiguator. Every download from the certificates tab has to fall through to the
+learn-serve-first search order — the path you warned us about. On a collision the volunteer
+downloads someone else's certificate, and nothing in either response would reveal it.
+
+**Ask.**
+
+1. Add `registration_type` (`volunteer` | `learn_serve`) to each `/user-certificates/` row.
+   We already read the field opportunistically and pass it straight through, so this needs no
+   further frontend change once it appears.
+2. Alternatively, if you would rather not change that shape: confirm whether ids actually can
+   collide in practice. If the two sequences are in fact disjoint, say so plainly and we will
+   drop the param and stop worrying about it.
+3. To verify: one `/user-certificates/` response for a user holding certificates of both types
+   showing the new field, plus a `/download-certificate/` call for each using it.
+
+**Frontend status.** `downloadUserCertificate` already accepts the optional param and the
+certificate row type already declares `registration_type` — both no-ops until the field
+exists. Nothing to change on our side when it lands.
+
+---
+
+
+---
+
+# Answered / Resolved
+
+_Answered this round, kept for the record. Reopen one by moving it back up with a dated note.
+Round 1's items are in [`BACKEND_ISSUES_ROUND_1.md`](./BACKEND_ISSUES_ROUND_1.md)._
 
 ### BE-14 — Volunteer attendance is counted, but Attended list and certificate are missing
 
@@ -635,64 +783,13 @@ value.
 > **Declined for now:** adding `choice_type` to the other three `_display` fields. Nothing
 > reads it, so leaving them alone keeps the payload smaller.
 
----
-
-### BE-21 — `/user-certificates/` gives no way to tell the two registration types apart
-
-| | |
-|---|---|
-| **Status** | Open |
-| **Endpoint** | `GET /user-certificates/?user_id=`, `GET /download-certificate/` |
-| **Frontend** | `features/profile/components/ProfileDescriptionTabs.tsx` (`CertificateTabs`), `features/profile/services/profileApi.ts` |
-| **Raised** | 2026-09-08 |
-
-**What we get.** Per BE-14, `/user-certificates/` now unions both registration types and each
-row is:
-
-```json
-{
-  "registration_id": 996,
-  "certificate_image": "https://…",
-  "opportunity__title_en": "…",
-  "opportunity__title_ar": "…",
-  "organizer_name": "…"
-}
-```
-
-**Why it's wrong.** In the same reply you told us two things that don't fit together:
-
-1. Pass `registration_type` to `/download-certificate/` "when you already know which type a
-   given id is", because the two registration tables have independent id sequences and *"they
-   can, in principle, collide"*.
-2. The rows this list returns carry no field saying which table they came from.
-
-So the one screen that lists certificates is exactly the screen that cannot supply the
-disambiguator. Every download from the certificates tab has to fall through to the
-learn-serve-first search order — the path you warned us about. On a collision the volunteer
-downloads someone else's certificate, and nothing in either response would reveal it.
-
-**Ask.**
-
-1. Add `registration_type` (`volunteer` | `learn_serve`) to each `/user-certificates/` row.
-   We already read the field opportunistically and pass it straight through, so this needs no
-   further frontend change once it appears.
-2. Alternatively, if you would rather not change that shape: confirm whether ids actually can
-   collide in practice. If the two sequences are in fact disjoint, say so plainly and we will
-   drop the param and stop worrying about it.
-3. To verify: one `/user-certificates/` response for a user holding certificates of both types
-   showing the new field, plus a `/download-certificate/` call for each using it.
-
-**Frontend status.** `downloadUserCertificate` already accepts the optional param and the
-certificate row type already declares `registration_type` — both no-ops until the field
-exists. Nothing to change on our side when it lands.
+> **Reopened as a cause, 2026-09-09 — see [BE-22](#be-22--state-the-write-contract-per-endpoint-relation-field-names-and-array-encoding).**
+> "`event_type_id` was optional, so event 19 saved `NULL`" explains how the column could be
+> empty, but not why it was: the event form was sending **`event_type`**, not `event_type_id`,
+> so the value never reached the column on *any* save. Making the field required stops a save
+> with no value — it does not make our payload's value arrive. Expect this to affect far more
+> than event 19: please run `SELECT id, event_type_id FROM events ORDER BY id DESC LIMIT 20;`
+> rather than only checking 19. If they are all `NULL`, BE-22's rename is confirmed and this
+> item's fix is incomplete on its own.
 
 ---
-
-
----
-
-# Answered / Resolved
-
-_Nothing answered yet this round. Items move here from **Open** as they are answered; reopen
-one by moving it back up with a dated note. Round 1's answered items are in
-[`BACKEND_ISSUES_ROUND_1.md`](./BACKEND_ISSUES_ROUND_1.md)._

@@ -694,7 +694,7 @@ export default function VolunteerAccountInformation() {
         occupation: values.occupation,
         experience: values.experience_field,
         health_concerns: values.health_concerns || "no",
-        _interests: values._interests,
+        interest_ids: values._interests,
         is_public: values.is_public,
         gender: values.gender,
         nationality: values.nationality,

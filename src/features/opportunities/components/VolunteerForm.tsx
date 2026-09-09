@@ -32,7 +32,7 @@ import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
 import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
-import { checkLicenseRequirement, createVolunteerOpportunity, getOpportunityById, updateVolunteerOpportunity } from "@/features/opportunities/services/opportunities";
+import { checkLicenseRequirement, createVolunteerOpportunity, deleteOpportunityImage, getOpportunityById, syncOpportunitySponsors, updateVolunteerOpportunity } from "@/features/opportunities/services/opportunities";
 import { getAllOrganizations } from "@/features/shared/services/directory";
 import { resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import {
@@ -87,7 +87,6 @@ interface VolunteerFormValues {
   latitude: string;
   longitude: string;
   sponsors: { sponsorId: string; position: number }[];
-  nationality: string;
   volunteerCategory: string;
   beneficiariesCount: string;
 }
@@ -257,6 +256,7 @@ export default function VolunteerForm({
   const [showMismatchModal, setShowMismatchModal] = useState(false);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
+  const [pendingSponsorIds, setPendingSponsorIds] = useState<string[]>([]);
   const [roleModalRef, setRoleModalRef] = useState<{
     checkParticipantsMismatch: () => boolean;
   } | null>(null);
@@ -312,6 +312,7 @@ export default function VolunteerForm({
     Array<{ id: number; image: string }>
   >([]);
   const [existingImageIds, setExistingImageIds] = useState<number[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
 
   const createOpportunityMutation = useMutation({
     mutationFn: createVolunteerOpportunity,
@@ -351,7 +352,7 @@ export default function VolunteerForm({
 
     setSelectedCheckBoxes([
       ...(opportunityData.is_relief ? ["relief"] : []),
-      ...(opportunityData.is_kuwaitis ? ["interview"] : []),
+      ...(opportunityData.is_kuwaitis ? ["kuwaitis"] : []),
       ...(opportunityData.is_urgent ? ["urgent"] : []),
       ...(opportunityData.is_emergency ? ["emergency"] : []),
       ...(opportunityData.is_supports_disabled ? ["disabled"] : []),
@@ -569,10 +570,6 @@ export default function VolunteerForm({
         )
       : [{ sponsorId: "", position: 1 }],
     license_image_removed: false,
-    nationality:
-      opportunityData?.opportunity_nationality === "kuwaitis"
-        ? "kuwaitis"
-        : "all",
     volunteerCategory: opportunityData?.volunteer_category || "",
     beneficiariesCount:
       opportunityData?.beneficiaries_count != null
@@ -747,7 +744,7 @@ export default function VolunteerForm({
     try {
       const checkboxValues = {
         is_relief: selectedCheckBoxes.includes("relief"),
-        is_kuwaitis: selectedCheckBoxes.includes("interview"),
+        is_kuwaitis: selectedCheckBoxes.includes("kuwaitis"),
         is_urgent: selectedCheckBoxes.includes("urgent"),
         // Emergency priority is independent of the "Outside Kuwait"
         // (`is_relief`) classification — it only drives the badge and the
@@ -781,7 +778,7 @@ export default function VolunteerForm({
       formData.append("link", values.link);
       formData.append("primary_language", selectedLanguage);
       formData.append("volunteer_hours_per_day", values.volunteerHoursPerDay);
-      formData.append("gender", values.gender);
+      formData.append("gender_id", values.gender);
       formData.append(
         "is_public",
         showOpportunitySection
@@ -789,10 +786,6 @@ export default function VolunteerForm({
             ? "1"
             : "0"
           : "1"
-      );
-      formData.append(
-        "opportunity_nationality",
-        values.nationality === "all" ? "all" : "kuwaitis"
       );
       formData.append("map_desc", values.location);
       // No longer collected from the user — the map picker's lat/lng replaced
@@ -815,7 +808,7 @@ export default function VolunteerForm({
       });
 
       values._interests.forEach((interest) => {
-        formData.append("_interests", interest);
+        formData.append("interest_ids[]", interest);
       });
 
       if (isRepublish && id && !(values.license_image instanceof File)) {
@@ -846,29 +839,25 @@ export default function VolunteerForm({
         formData.append("license_image_removed", "1");
       }
 
-      /**
-       * Sponsors are deliberately NOT part of this request. The
-       * `opportunity_sponsor_images_organization_{n}` / `_position_{n}` fields
-       * this used to append have never been read by the backend — confirmed
-       * 2026-09-07 (BE-08 in `docs/BACKEND_ISSUES_ROUND_1.md`), which also confirmed
-       * that omitting them cannot clear existing sponsors, since neither
-       * `update()` touches the sponsor relation at all.
-       *
-       * The only mechanism that writes them is the dedicated
-       * `POST` / `DELETE /…-opportunities/{id}/sponsors/` pair. The picker below
-       * is therefore still read-only in effect: it shows and pre-selects
-       * sponsors but cannot save a change until it is wired to those endpoints.
-       */
+      const sponsorIds = values.sponsors
+        .map((sponsor) => sponsor.sponsorId)
+        .filter(Boolean);
 
       if (id && !isRepublish) {
         // Show confirmation modal for update
         setPendingFormData(formData);
+        setPendingSponsorIds(sponsorIds);
         setShowUpdateConfirmModal(true);
       } else {
         // Create new opportunity, then open the role editor for it
         const response = await createOpportunityMutation.mutateAsync(formData);
         const responseOpportunityId = response?.data?.id;
         if (responseOpportunityId != null) {
+          await syncOpportunitySponsors({
+            type: "volunteer",
+            opportunityId: String(responseOpportunityId),
+            organizationIds: sponsorIds,
+          });
           setVolunteerOpportunityId(String(responseOpportunityId));
           toast.success(t("COMMON.TOAST.CREATE_OPPORTUNITY_SUCCESS"));
           openRoleModal();
@@ -895,6 +884,18 @@ export default function VolunteerForm({
         id,
         data: pendingFormData,
       });
+      if (removedImageIds.length > 0) {
+        await deleteOpportunityImage({
+          image_ids: removedImageIds,
+          type: "volunteer",
+        });
+      }
+      await syncOpportunitySponsors({
+        type: "volunteer",
+        opportunityId: id,
+        organizationIds: pendingSponsorIds,
+        currentSponsors: opportunityData?.opportunity_sponsor_images ?? [],
+      });
 
       // A rejected opportunity stays rejected until explicitly resubmitted —
       // editing it alone doesn't move it back into the review queue.
@@ -911,6 +912,8 @@ export default function VolunteerForm({
 
       router.push(`/volunteer-event-detail/${id}`);
       setPendingFormData(null);
+      setPendingSponsorIds([]);
+      setRemovedImageIds([]);
     } catch (err) {
       const messages = getApiErrorMessages(err, selectedLanguage);
       if (messages.length > 0) {
@@ -932,6 +935,11 @@ export default function VolunteerForm({
     if (isExistingFile) {
       if (fieldName === "opportunity_images") {
         const removedImageId = modifiedOpportunityImages[index]?.id;
+        if (removedImageId != null) {
+          setRemovedImageIds((prev) =>
+            prev.includes(removedImageId) ? prev : [...prev, removedImageId]
+          );
+        }
         setModifiedOpportunityImages((prev) =>
           prev.filter((_, i) => i !== index)
         );
@@ -1280,11 +1288,11 @@ export default function VolunteerForm({
 
                   <div className="flex 2xl:gap-[143px] laptopitm:gap-[100px] lg:gap-[100px] miniscreen:gap-[85px] miniscreen7:gap-[95px] miniscreen6:gap-[120px] msscreen1:gap-[140px] justify-center mobilescreen:gap-1 mobilescreen:flex-col mb-4 mobilescreen:mb-4 checkbox-container">
                     <CheckBox
-                      id="interview"
+                      id="kuwaitis"
                       label={t("COMMON.KUWAITIS.ONLY")}
-                      checked={selectedCheckBoxes.includes("interview")}
+                      checked={selectedCheckBoxes.includes("kuwaitis")}
                       onChange={(checked) =>
-                        handleCheckboxChange("interview", checked)
+                        handleCheckboxChange("kuwaitis", checked)
                       }
                     />
                     <CheckBox
