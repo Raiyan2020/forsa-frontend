@@ -39,6 +39,7 @@ import {
 } from "@/features/events/services/eventsApi";
 import { getAllOrganizations } from "@/features/shared/services/directory";
 import { getApiErrorMessages } from "@/lib/api/errors";
+import { submitToleratingInterestIds } from "@/features/shared/interestIdsFallback";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
@@ -677,7 +678,7 @@ export default function EventForm({
       // existing_image_ids at all means "drop them".
       if (id && eventData?.event_images?.length > 0) {
         existingImageIds.forEach((imageId) => {
-          formData.append("existing_image_ids", imageId.toString());
+          formData.append("existing_image_ids[]", imageId.toString());
         });
       }
 
@@ -707,13 +708,26 @@ export default function EventForm({
         setPendingFormData(formData);
         setShowUpdateConfirmModal(true);
       } else if (id && isRepublish) {
-        await republishEventMutation.mutateAsync({ id, formData });
+        const { interestsDropped } = await submitToleratingInterestIds(
+          formData,
+          (payload) =>
+            republishEventMutation.mutateAsync({ id, formData: payload })
+        );
         toast.success(t("COMMON.TOAST.CREATE_EVENT_SUCCESS"));
+        if (interestsDropped) {
+          toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+        }
         router.push("/event-post-thankyou");
       } else {
         // Create a brand-new event
-        await createEventMutation.mutateAsync(formData);
+        const { interestsDropped } = await submitToleratingInterestIds(
+          formData,
+          (payload) => createEventMutation.mutateAsync(payload)
+        );
         toast.success(t("COMMON.TOAST.CREATE_EVENT_SUCCESS"));
+        if (interestsDropped) {
+          toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+        }
         router.push("/event-post-thankyou");
       }
       resetForm();
@@ -734,8 +748,14 @@ export default function EventForm({
   const handleUpdateConfirm = async () => {
     if (!pendingFormData || !id) return;
     try {
-      await updateEventMutation.mutateAsync({ id, formData: pendingFormData });
+      const { interestsDropped } = await submitToleratingInterestIds(
+        pendingFormData,
+        (payload) => updateEventMutation.mutateAsync({ id, formData: payload })
+      );
       toast.success(t("COMMON.TOAST.UPDATE_EVENT_SUCCESS"));
+      if (interestsDropped) {
+        toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+      }
       router.push(`/event-details/${id}`);
       setPendingFormData(null);
     } catch (err) {

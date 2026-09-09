@@ -34,6 +34,7 @@ import Title from "@/components/shared/Title";
 import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
 import { checkLicenseRequirement, createVolunteerOpportunity, deleteOpportunityImage, getOpportunityById, syncOpportunitySponsors, updateVolunteerOpportunity } from "@/features/opportunities/services/opportunities";
 import { getAllOrganizations } from "@/features/shared/services/directory";
+import { submitToleratingInterestIds } from "@/features/shared/interestIdsFallback";
 import { resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import {
   VOLUNTEER_CATEGORY_WITH_BENEFICIARIES,
@@ -818,7 +819,7 @@ export default function VolunteerForm({
       // Only send existing_image_ids for images with is_after_completed === false
       if (id && existingImageIds.length > 0) {
         existingImageIds.forEach((imageId) => {
-          formData.append("existing_image_ids", imageId.toString());
+          formData.append("existing_image_ids[]", imageId.toString());
         });
       }
 
@@ -850,7 +851,13 @@ export default function VolunteerForm({
         setShowUpdateConfirmModal(true);
       } else {
         // Create new opportunity, then open the role editor for it
-        const response = await createOpportunityMutation.mutateAsync(formData);
+        const { result: response, interestsDropped } =
+          await submitToleratingInterestIds(formData, (payload) =>
+            createOpportunityMutation.mutateAsync(payload)
+          );
+        if (interestsDropped) {
+          toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+        }
         const responseOpportunityId = response?.data?.id;
         if (responseOpportunityId != null) {
           await syncOpportunitySponsors({
@@ -880,10 +887,13 @@ export default function VolunteerForm({
     if (!pendingFormData || !id) return;
 
     try {
-      await updateOpportunityMutation.mutateAsync({
-        id,
-        data: pendingFormData,
-      });
+      const { interestsDropped } = await submitToleratingInterestIds(
+        pendingFormData,
+        (payload) => updateOpportunityMutation.mutateAsync({ id, data: payload })
+      );
+      if (interestsDropped) {
+        toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+      }
       if (removedImageIds.length > 0) {
         await deleteOpportunityImage({
           image_ids: removedImageIds,

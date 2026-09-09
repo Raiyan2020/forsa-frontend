@@ -40,6 +40,7 @@ import { checkLicenseRequirement, deleteOpportunityImage, syncOpportunitySponsor
 import { createLearnServeOpportunity, getLearnServeOpportunityById, updateLearnServeOpportunity } from "@/features/opportunities/services/learnServe";
 import { deleteAllTimeSlots, getTimeSlots } from "@/features/opportunities/services/registrations";
 import { getAllOrganizations } from "@/features/shared/services/directory";
+import { submitToleratingInterestIds } from "@/features/shared/interestIdsFallback";
 import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
@@ -803,6 +804,18 @@ export default function LearnServeForm({
             .trim();
           return textContent.length > 0;
         }
+      )
+      .test(
+        "description-min-length",
+        i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
+        function (value) {
+          if (!value) return true;
+          const textContent = value
+            .replace(/<[^>]*>/g, "")
+            .replace(/&nbsp;/g, " ")
+            .trim();
+          return textContent.length >= 10;
+        }
       );
 
     return Yup.object({
@@ -1036,7 +1049,7 @@ export default function LearnServeForm({
 
       if (id && existingImageIds.length > 0) {
         existingImageIds.forEach((imageId) => {
-          formData.append("existing_image_ids", imageId.toString());
+          formData.append("existing_image_ids[]", imageId.toString());
         });
       }
 
@@ -1071,7 +1084,14 @@ export default function LearnServeForm({
       }
 
       if (isUpdate && id && !isRepublish) {
-        await updateOpportunityMutation.mutateAsync({ id, data: formData });
+        const { interestsDropped } = await submitToleratingInterestIds(
+          formData,
+          (payload) =>
+            updateOpportunityMutation.mutateAsync({ id, data: payload })
+        );
+        if (interestsDropped) {
+          toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+        }
         if (removedImageIds.length > 0) {
           await deleteOpportunityImage({
             image_ids: removedImageIds,
@@ -1090,7 +1110,13 @@ export default function LearnServeForm({
         return;
       }
 
-      const response = await createOpportunityMutation.mutateAsync(formData);
+      const { result: response, interestsDropped } =
+        await submitToleratingInterestIds(formData, (payload) =>
+          createOpportunityMutation.mutateAsync(payload)
+        );
+      if (interestsDropped) {
+        toast.info(t("COMMON.TOAST.INTEREST_TAGS_NOT_SAVED"));
+      }
       if (response?.data?.id) {
         await syncOpportunitySponsors({
           type: "learn-serve",

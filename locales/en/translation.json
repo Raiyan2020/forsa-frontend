@@ -888,6 +888,7 @@
   "COMMON.TOAST.CERTIFICATES_SENT": "{{count}} certificate(s) sent",
   "COMMON.TOAST.NO_CERTIFICATES_TO_SEND": "No new certificates to send",
   "COMMON.TOAST.CERTIFICATES_SEND_FAILED": "Failed to send certificates",
+  "COMMON.TOAST.INTEREST_TAGS_NOT_SAVED": "Saved, but the interest tags could not be applied",
   "COMMON.PASS.UPPERCASE": "Password must contain at least one uppercase letter",
   "COMMON.PASS.NUMBER": "Password must contain at least one number",
   "COMMON.PASS.SPECIAL": "Password must contain at least one special character",

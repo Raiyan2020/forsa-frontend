@@ -110,7 +110,7 @@ export default function ReplyOfReplyForm({
       // Handle existing images for update
       if (replyOfReplyId && existingImageIds.length > 0) {
         existingImageIds.forEach((id) => {
-          formData.append("existing_image_ids", id.toString());
+          formData.append("existing_image_ids[]", id.toString());
         });
       }
 
@@ -118,7 +118,7 @@ export default function ReplyOfReplyForm({
       values.images
         .filter((file) => file instanceof File)
         .forEach((file) => {
-          formData.append("images", file);
+          formData.append("images[]", file);
         });
 
       if (replyOfReplyId) {

@@ -10,10 +10,10 @@ and the answers we've already received. It replaces the per-issue `*_BUG.md` /
 > whole in [`BACKEND_ISSUES_ROUND_1.md`](./BACKEND_ISSUES_ROUND_1.md), including **three items
 > that were still open** when it was archived: BE-01 (interest tags empty platform-wide),
 > BE-17 (learn-serve choice fields `null`) and BE-18 (`filter_type=myevents` returns the whole
-> event catalogue). Archiving did not resolve them — if any still matters, copy it back here
-> under its **existing** id.
+> event catalogue). Archiving did not resolve them; all three are copied back into the Open
+> section below under their **existing** ids, with the archive retaining the full history.
 >
-> **Ids are never reused or renumbered** across the reset — the next new item is BE-23. Read
+> **Ids are never reused or renumbered** across the reset — the next new item is BE-33. Read
 > the archive's header before picking one.
 
 ## How to use this file
@@ -98,8 +98,21 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 | id | Title | Endpoint | Status |
 |---|---|---|---|
-| [BE-22](#be-22--state-the-write-contract-per-endpoint-relation-field-names-and-array-encoding) | Write contract: relation field names + array encoding | create/update endpoints across events, opportunities, profile | **Open — blocking** |
+| [BE-01](#be-01--legacy-interest-tags-still-need-the-production-backfill) | Legacy interest tags still need the production backfill | opportunity/event detail and list resources | **Open — production** |
+| [BE-23](#be-23--interest_ids-is-validated-against-a-table-no-endpoint-exposes-blocking-all-creation) | `interest_ids` rejects every id we can obtain | create/update on opportunities and events | **Open — blocker** |
+| [BE-24](#be-24--calendar-controller-exists-but-none-of-its-routes-are-registered) | Calendar controller has no API routes | `/my-calendar/`, `/upload-ics/` | **Open** |
+| [BE-25](#be-25--republishing-does-not-have-a-complete-backend-contract) | Republish route/copy semantics are incomplete | event and opportunity create/republish | **Open — blocker** |
+| [BE-26](#be-26--three-downloadtrue-flows-ignore-the-export-request) | Three exports return lists instead of files | event, learn-serve, scan permissions | **Open** |
+| [BE-27](#be-27--registrations-accept-unapproved-or-private-items-by-id) | Registration ignores approval/visibility | all registration create endpoints | **Open — security** |
+| [BE-28](#be-28--event-registration-and-scan-permission-authorization-gaps) | Event registration/permission ownership gaps | event registrations and scan permissions | **Open — security** |
+| [BE-29](#be-29--contact-messages-and-sponsor-mutations-are-public) | Sensitive contact/sponsor routes are public | `/contact-us/`, `/sponsors/` | **Open — critical security** |
+| [BE-30](#be-30--removing-existing-media-in-the-ui-is-ignored-by-several-update-endpoints) | Existing media removal is ignored | events, posts, replies | **Open** |
+| [BE-31](#be-31--sponsor-relations-cannot-be-restored-and-events-have-no-relation-write-api) | Sponsor relation lifecycle is incomplete | opportunity/event sponsors | **Open** |
+| [BE-32](#be-32--event-participation-type-is-not-connected-to-registration-behaviour) | Event participation and behavior flags drift | `POST/PATCH /events/` | **Open — contract decision** |
+| [BE-17](#be-17--legacy-learn-serve-choice-columns-are-null) | Legacy learn-serve type/format/certificate choices are null | `GET /learn-serve-opportunities/{id}/` | **Open — data/product** |
+| [BE-18](#be-18--filter_typemyevents-falls-through-to-the-whole-catalogue) | `filter_type=myevents` returns the whole catalogue | `GET /list-all-opportunities/` | **Open** |
 | [BE-21](#be-21--user-certificates-gives-no-way-to-tell-the-two-registration-types-apart) | `/user-certificates/` rows carry no registration type | `GET /user-certificates/`, `GET /download-certificate/` | **Open** |
+| [BE-22](#be-22--write-field-names-and-formdata-array-encoding-resolved-in-frontend) | Write names and multipart arrays | frontend forms | Resolved in frontend 2026-09-09 |
 | [BE-14](#be-14--volunteer-attendance-is-counted-but-attended-list-and-certificate-are-missing) | Attendance is counted, but Attended list and certificate are missing | attendance, profile activity, and certificate endpoints | Resolved 2026-09-08 |
 | [BE-19](#be-19--achievement-report-pdf-export-is-not-implemented-but-answers-key-success) | Report PDF export not implemented, returns `success` | `GET /volunteer-detail/?download=true` | Resolved 2026-09-08 |
 | [BE-20](#be-20--event-details-returns-event_type_display-null) | Event details returns `event_type_display: null` | `GET /events/{id}/` | Answered 2026-09-08 |
@@ -108,14 +121,145 @@ field renamed, a param adjusted, or a response re-read on our end, use Shape 1 i
 
 # Open
 
-### BE-22 — State the write contract per endpoint: relation field names and array encoding
+### BE-01 — Legacy interest tags still need the production backfill
 
 | | |
 |---|---|
-| **Status** | Open — blocking a change we have already made, please read first |
-| **Endpoint** | `POST/PATCH /events/`, `/volunteer-opportunities/`, `/learn-serve-opportunities/`, `/volunteer-profile/`, `/organization-profile/`, `/account/`, `/register/` |
-| **Frontend** | `features/events/components/EventForm.tsx`, `features/opportunities/components/{VolunteerForm,LearnServeForm}.tsx`, `features/profile/components/{Volunteer,Organizer}AccountInformation.tsx`, `features/auth/components/{EntitiesRegistrationForm,CompleteDetails}.tsx` |
+| **Status** | Open — backend code exists; production operation is still pending |
+| **Endpoint** | Opportunity/event detail and list resources |
+| **Frontend** | `lib/interests.ts` and all opportunity/event cards and details |
+| **Raised** | Reopened from Round 1 on 2026-09-09 |
+
+Round 1 proved that migrated assignments live in legacy MasterChoice pivots while current
+resources read the newer `Interest` pivots. Backend added the idempotent command
+`php artisan fursa:backfill-legacy-opportunity-interest-tags`, but it has not been run against
+the live database. Live responses therefore still return empty `interests` /
+`interest_display` arrays.
+
+**Ask.** Run the command in production, report its inserted/skipped counts, then return
+`GET /opportunities/97/details/` showing its three historical tags (legacy ids 71, 74 and 80,
+translated to canonical Interest rows). This is independent of the new-write defect in BE-23.
+
+**Frontend status.** `normalizeInterests()` already accepts either response field; no change
+is needed after the backfill.
+
+---
+
+### BE-23 — `interest_ids` is validated against a table no endpoint exposes, blocking all creation
+
+| | |
+|---|---|
+| **Status** | Open — **blocker**, all three create forms |
+| **Endpoint** | `POST/PATCH /volunteer-opportunities/`, `/learn-serve-opportunities/`, `/events/` |
+| **Frontend** | `features/opportunities/components/{VolunteerForm,LearnServeForm}.tsx`, `features/events/components/EventForm.tsx`, `features/shared/interestIdsFallback.ts` |
 | **Raised** | 2026-09-09 |
+
+**What we send / What we get.** Creating a volunteer opportunity, 2026-09-09:
+
+```
+POST /volunteer-opportunities/
+  gender_id=59  volunteer_category=charity
+  interest_ids[]=71  interest_ids[]=84  interest_ids[]=85  interest_ids[]=72
+  interest_ids[]=73  interest_ids[]=86  interest_ids[]=87  interest_ids[]=74
+
+422 {"key":"fail","code":422,"response_status":{"validation_errors":{
+      "interest_ids.0":["القيمة المحددة interest_ids.0 غير موجودة."],
+      … .1 … .7 — one per id, all eight
+    }}}
+```
+
+**First, the good news — this response confirms BE-22.** `interest_ids[]` was parsed into
+`interest_ids.0 … .7`, so the bracketed array encoding and the `interest_ids` name are both
+right. `gender_id=59` and `volunteer_category=charity` passed validation, confirming the
+`*_id` rename *and* that `volunteer_category` is correctly a bare enum. BE-22's asks 1 and 3
+are answered by this one response; only the `existing_image_ids` half is still open.
+
+**Why it's wrong.** Those eight ids are not invented — they are exactly what your own choices
+endpoint serves:
+
+```
+GET /choices/volunteer_opportunity_interest/
+  → 18 rows, ids 71–88:  71 Community Service, 72 Arts & Creativity, 73 Local Emergencies,
+                         74 Event Management & Organization, … 88 Religious
+```
+
+Every interest picker in the app is fed from `/choices/{context}_interest/` — so they are all
+**MasterChoice** ids: volunteer 71–88, event 110–132 (`event_interest`), profile 133–142
+(`user_interest`). But `interest_ids` is validated with an `exists` rule against the
+**`Interest`** table, and **no endpoint exposes that table's ids** — `/interests/`,
+`/master-interests/`, `/choices/interest/` and `/choices/opportunity_interest/` all 404.
+
+So the frontend cannot construct a payload this rule can accept. There is no id we could send.
+
+**This is BE-01's root cause, and it means BE-01's fix is incomplete.** Every live record still
+reads `interest_display: []`:
+
+```
+GET /list-volunteer-opportunities/?limit=5
+  → ids 130, 98, 97, 12, 13 — interest_display: [] on all five
+```
+
+Before we renamed the field it was posted as `_interests`, which your reply confirmed no
+controller reads ("no write path, admin or API, has ever touched the MasterChoice pivots").
+So the write side has **never** worked: the tags are empty because nothing was ever stored,
+not because the stored values need bridging. A backfill that translates legacy MasterChoice
+pivots to `Interest` rows will therefore find nothing for any record created through this UI —
+and the next record created will be just as empty.
+
+**Blast radius.** All three forms require at least one interest (`Yup.array().min(1)`), and all
+three now send `interest_ids[]`. Without the temporary retry documented below, **no volunteer
+opportunity, learn & serve opportunity or event can be created or updated at all** while this
+stands.
+
+**Ask.**
+
+1. **Accept MasterChoice ids on `interest_ids` and bridge them to `Interest` by name** — the
+   same translation you have already written twice: once for BE-13's `match_my_interest` filter
+   fix, once for BE-01's backfill command. This is our preference: no frontend change, and it
+   preserves the three curated per-context vocabularies (18 volunteer, 24 event, 10 profile)
+   that `/choices/` already serves and that the pickers are designed around.
+2. If you would rather we send `Interest` ids instead, expose that table — `/choices/interest/`
+   or similar — and say whether it is one shared list or per-context. Be aware this changes
+   *which tags a user can pick*, so it needs a product call, not just a repoint.
+3. Either way, please confirm what `interest_ids` should contain for **all three** resource
+   types, since the pickers currently use three different choice types.
+4. To verify: one successful `POST /volunteer-opportunities/` with interests set, and the
+   `interest_display` from reading that record back — non-empty. That closes this write-path
+   item; BE-01 closes separately after the production legacy-data backfill is verified.
+
+**Frontend status — interim workaround in place, and it self-heals.**
+`features/shared/interestIdsFallback.ts` sends the correct payload first; if the response is a
+422 whose validation errors are *only* `interest_ids.*`, it retries once without the tags and
+warns the user that the tags were not applied. Creation is unblocked, nothing is written
+silently incomplete, and the moment you accept the ids the first attempt succeeds and the
+warning stops appearing — there is no flag for us to remember to switch off. The retry is safe
+because Laravel validates before it writes, so the 422 leaves nothing created.
+
+Delete-on-close: that module exists only for this item.
+
+---
+
+### BE-22 — Write field names and `FormData` array encoding (resolved in frontend)
+
+| | |
+|---|---|
+| **Status** | **Resolved in frontend 2026-09-09 — no backend action requested** |
+| **Endpoint** | `POST/PATCH /events/`, `/volunteer-opportunities/`, `/learn-serve-opportunities/`, `/volunteer-profile/`, `/organization-profile/`, `/account/`, `/register/` |
+| **Frontend** | event/opportunity/profile/community multipart forms |
+| **Raised** | 2026-09-09 |
+
+The backend source in this workspace and a live 422 settle the contract: event/opportunity
+relations use canonical `*_id` names, `volunteer_category` is an enum, profile controllers
+accept canonical `interest_ids`, and Laravel arrays must use bracketed multipart keys. Frontend
+now sends `interest_ids[]`, `existing_image_ids[]`, `existing_ids[]`, `new_documents[]`, and
+`images[]` where the backend validates arrays. The unused volunteer
+`opportunity_nationality` field was removed; the supported `is_kuwaitis` boolean remains.
+
+The remaining interest-id value mismatch is not part of this item; it is BE-23. Media endpoints
+that ignore correctly encoded `existing_image_ids[]` are BE-30.
+
+<details>
+<summary>Original investigation (retained for audit history)</summary>
 
 Two separate questions, both about **write** payloads. Every `_display` field you send on read
 is unambiguous; what we have never had in writing is the name to send it back under, and we
@@ -189,9 +333,280 @@ keeping one.
    stored `event_type_id`. And one opportunity update sending three `existing_image_ids`,
    with the resulting image count.
 
-**Frontend status.** The rename is applied and the tree typechecks and builds, but it is
-**unverified against the live API** — no ask here can be closed by reading our own code. The
-array-encoding inconsistency is untouched and waiting on ask 2.
+**Frontend status.** The rename is applied and the tree typechecks and builds.
+
+> **Partly answered 2026-09-09 by a live 422 — see [BE-23](#be-23--interest_ids-is-validated-against-a-table-no-endpoint-exposes-blocking-all-creation).**
+> A real `POST /volunteer-opportunities/` came back rejecting only the interest *values*, which
+> means the names and encoding were accepted: `interest_ids[]` parsed into `interest_ids.0…7`,
+> and `gender_id` plus a bare `volunteer_category` both passed. **Asks 1 and 3 are settled for
+> that endpoint** — the `*_id` rename is correct and `volunteer_category` is an enum. Ask 2
+> (`existing_image_ids` array encoding) is still open and untouched, and asks 1/3 are still
+> unconfirmed for `/events/` and `/learn-serve-opportunities/` specifically, though the same
+> contract almost certainly applies.
+
+</details>
+
+---
+
+### BE-24 — Calendar controller exists but none of its routes are registered
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `GET /my-calendar/`, `POST /my-calendar/save/`, `PATCH/DELETE /my-calendar/{id}/`, `POST /upload-ics/` |
+| **Frontend** | `features/calendar/` |
+| **Raised** | 2026-09-09 |
+
+`CalendarController` implements `index`, `store`, `update`, `destroy` and `uploadIcs`, but the
+authenticated `// Calendar` block in `routes/api.php` is empty. The calendar page and iPad ICS
+flow therefore call routes Laravel never registers.
+
+**Ask.** Import the controller and register all five authenticated routes above (or return the
+canonical paths if different). Add route tests proving user scoping for update/delete and a
+successful ICS upload. The frontend already supports the controller's actual generic `type`
+values (`Volunteer`, `Learn`, `Event`), null times and duplicate sources.
+
+---
+
+### BE-25 — Republishing does not have a complete backend contract
+
+| | |
+|---|---|
+| **Status** | Open — blocks reliable republishing |
+| **Endpoint** | `POST /event/republish/{id}` and opportunity create/update endpoints |
+| **Frontend** | `EventForm.tsx`, `VolunteerForm.tsx`, `LearnServeForm.tsx` |
+| **Raised** | 2026-09-09 |
+
+There are three connected gaps:
+
+1. The event form correctly calls the requested `POST /event/republish/{id}`, but no such route
+   or controller action exists.
+2. Volunteer and learn-serve reposting creates a new record and sends `opportunity_id`,
+   `existing_image_ids[]`, and either `license_image` or `license_image_removed`. Their API
+   validators/controllers accept none of the licence/copy fields, even though both models have
+   `license_image`.
+3. Existing gallery URLs shown in repost mode are not files and the create actions do not clone
+   the referenced image rows, so a repost can lose both the licence and gallery unless every
+   file is selected again.
+
+**Ask.** Implement one explicit, ownership-protected republish contract for each type. A repost
+must create a new pending record, copy selected gallery images and the existing licence when no
+replacement is uploaded, never mutate the source, and return the new id. For events, keep the
+path already agreed with frontend: `POST /event/republish/{id}`. Document the accepted multipart
+fields and add tests for copy, replace, remove, unauthorized source, and source immutability.
+
+---
+
+### BE-26 — Three `download=true` flows ignore the export request
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `GET /event-registrations/`, `GET /learn-serve-opportunities/{id}/registrations/`, `GET /scan-permissions/list/` |
+| **Frontend** | the three organizer registration/permission tables |
+| **Raised** | 2026-09-09 |
+
+All three screens request `download=true`; the controllers ignore it and return normal JSON
+lists. Only `VolunteerOpportunityRegistrationController::downloadRegistrations()` currently
+implements the expected XLSX flow. This used to produce a false success toast; the frontend now
+fails visibly when `downloadUrl` is absent.
+
+**Ask.** Add creator-owned XLSX export branches to the three endpoints, using the established
+standard envelope:
+
+```json
+{ "key": "success", "data": { "downloadUrl": "https://…xlsx" } }
+```
+
+Apply the same search/status filters as the visible table. If `mark_attendance` is retained,
+make its side effect explicit and idempotent; otherwise reject that parameter. Return one proof
+request/response for each endpoint plus authorization tests.
+
+---
+
+### BE-27 — Registrations accept unapproved or private items by id
+
+| | |
+|---|---|
+| **Status** | Open — security/data-integrity |
+| **Endpoint** | `POST /volunteer-opportunity-registrations/`, `POST /learn-serve-opportunity-registrations/`, `POST /event-registrations/` |
+| **Frontend** | all volunteer registration dialogs |
+| **Raised** | 2026-09-09 |
+
+Each create action loads any `notDeleted()` record by id and then calls
+`isRegistrationOpen()`. That helper only checks manual closure and due/end dates; it does not
+require `approval_status=approved`, and the volunteer path does not require `is_public=true`.
+Someone who guesses an id can therefore register for a pending/rejected/private item that the
+public catalog correctly hides.
+
+**Ask.** Centralize registration eligibility and enforce it server-side for all three types:
+approved, visible to that user, not deleted, registration open, not full, and a valid lifecycle
+state. Return 403/404 without revealing private records. Add negative feature tests for pending,
+rejected and private records; frontend checks are not a security boundary.
+
+---
+
+### BE-28 — Event registration and scan-permission authorization gaps
+
+| | |
+|---|---|
+| **Status** | Open — security/data-integrity |
+| **Endpoint** | `GET/PATCH /event-registrations/{id}/`, event registration create, `GET /scan-permissions/list/?event_id=` |
+| **Frontend** | `EventRegisterList.tsx`, `ScanPermission.tsx` |
+| **Raised** | 2026-09-09 |
+
+Confirmed in source:
+
+- `EventRegistrationController::show()` returns any registration id to any authenticated user;
+  unlike update/delete it has no owner-or-organizer authorization check.
+- create and update validate only `exists:event_time_slots,id`; they never require that the
+  time slot belongs to the registration's event.
+- `ScanPermissionController::list()` verifies ownership for `opportunity_id` but has no
+  equivalent event-owner check for `event_id`, exposing an event's permitted-user list.
+
+**Ask.** Apply owner/organizer policies consistently, validate event/time-slot ownership on
+both create and update, and add cross-account/cross-event tests that return 403/422. Do not rely
+on ids being hard to guess.
+
+---
+
+### BE-29 — Contact messages and sponsor mutations are public
+
+| | |
+|---|---|
+| **Status** | Open — **critical security** |
+| **Endpoint** | `GET/PUT/PATCH/DELETE /contact-us[/id]/`; `PUT/PATCH/DELETE /sponsors/{id}/` |
+| **Frontend** | public contact and sponsor pages |
+| **Raised** | 2026-09-09 |
+
+These routes sit outside `auth:api`, and neither controller performs authorization. An
+unauthenticated caller can list contact submissions (names, emails and messages), read one,
+modify it or delete it. The same caller can modify/delete sponsors. Public `POST /contact-us/`
+and sponsor application creation may be intentional; public administration is not.
+
+**Ask.** Move sensitive routes behind authenticated staff/admin authorization. Keep only the
+intentionally public create/list/detail operations public, and rate-limit/abuse-protect public
+submission routes. Add unauthenticated and non-staff 401/403 tests for every protected method.
+
+---
+
+### BE-30 — Removing existing media in the UI is ignored by several update endpoints
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `PATCH /events/{id}/`, `PATCH /posts/{id}/`, `PATCH /replies/{id}/` |
+| **Frontend** | event and community edit forms |
+| **Raised** | 2026-09-09 |
+
+The forms send `existing_image_ids[]` as the keep-set and send new files, but these controllers
+only add files. They never validate/use the keep-set and never soft-delete rows removed in the
+UI. The saved record therefore restores the supposedly deleted media on the next fetch.
+
+Volunteer and learn-serve forms now use their existing owner-protected
+`DELETE /delete-opportunity-image/` endpoint as a frontend workaround; events/posts/replies have
+no equivalent contract.
+
+**Ask.** Either implement keep-set semantics transactionally on update, or expose explicit
+owner-protected delete endpoints. Define omission versus an empty array clearly, prevent ids
+from another parent being deleted, clean storage safely, and prove removal of one among three
+images for each resource.
+
+---
+
+### BE-31 — Sponsor relations cannot be restored, and events have no relation write API
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | opportunity sponsor POST/DELETE; event create/update/detail |
+| **Frontend** | the sponsor pickers in all three forms |
+| **Raised** | 2026-09-09 |
+
+For volunteer/learn-serve, delete soft-deletes the relation, but add checks `exists()` without a
+`notDeleted()` constraint. Removing an organization and choosing it again is therefore rejected
+forever as “already a sponsor.” The add action also ignores the UI's `position` field.
+
+Events already have `event_sponsor_images.organization_id` and `position` columns, but no API
+for syncing organization relations. The form's
+`event_sponsor_images_organization_N`/`event_sponsor_images_position_N` fields are ignored, and
+the website detail resource omits `organization`, so edit mode cannot even restore selections.
+
+**Ask.** Restore/upsert a soft-deleted opportunity relation (or exclude it from duplicate
+checks), accept/persist position, and return ordered active relations. Add equivalent
+owner-protected add/remove/sync behavior for events and include
+`organization: {id, full_name, profile_pic}` plus `position` in event details. Test remove then
+re-add for all types.
+
+---
+
+### BE-32 — Event participation type is not connected to registration behaviour
+
+| | |
+|---|---|
+| **Status** | Open — contract/product decision required |
+| **Endpoint** | `POST/PATCH /events/`, `GET /events/{id}/` |
+| **Frontend** | `EventForm.tsx`, `EventDetails.tsx` |
+| **Raised** | 2026-09-09 |
+
+The form chooses `participation_type_id` from values such as `Paid Event`, `Free Event`, and
+`Free Event (Registration Required)`, but does not collect/send the separate backend fields
+`registration_required`, `paid_registration`, `registration_fee`, `participants_needed`, or
+`attendance_type_id`. The backend stores no derivation from the selected choice. Detail buttons,
+capacity, payment and registration endpoints rely on those separate flags, so two parts of the
+same record can disagree.
+
+**Ask.** Define one canonical contract: either derive/validate the behavior flags server-side
+from `participation_type_id`, or expose all required controls and consistency rules for the
+frontend. State the exact mapping for every participation choice, including whether registration
+is internal or through `registration_link`, capacity rules, paid fee, and time-slot attendance.
+Reject inconsistent combinations and return a test matrix. Frontend will implement the chosen
+contract once it is explicit; guessing would create incorrect payment/registration behavior.
+
+---
+
+### BE-17 — Legacy learn-serve choice columns are null
+
+| | |
+|---|---|
+| **Status** | Open — existing-data/product decision |
+| **Endpoint** | `GET /learn-serve-opportunities/{id}/` |
+| **Frontend** | `LearnServeDetails.tsx`, `LearnServeForm.tsx` |
+| **Raised** | Reopened from Round 1 on 2026-09-09 |
+
+Backend previously confirmed that `learning_type_id`, `format_id` and `certificate_type_id`
+are genuinely null on affected migrated rows (for example opportunity 30), not merely omitted
+by the resource. This blanks the type/certificate and can falsely render format as Online. New
+frontend writes now use the correct `learning_type_id`, `format_id` and `certificate_type_id`,
+so this is an existing-data and requiredness problem.
+
+**Ask.** Make `learning_type_id` and `format_id` required on create (and certificate type when
+the selected learning type requires it), return the raw ids alongside display objects, and agree
+a one-time repair policy for null legacy rows rather than guessing their values. Keep
+`requires_check_in` authoritative until repaired. Full prior evidence remains under BE-17 in
+`BACKEND_ISSUES_ROUND_1.md`.
+
+---
+
+### BE-18 — `filter_type=myevents` falls through to the whole catalogue
+
+| | |
+|---|---|
+| **Status** | Open |
+| **Endpoint** | `GET /list-all-opportunities/?filter_type=myevents` |
+| **Frontend** | achievement/profile event lists |
+| **Raised** | Reopened from Round 1 on 2026-09-09 |
+
+The unsupported/unhandled value returns the unfiltered platform event catalogue with HTTP 200.
+The frontend removed it from the achievement query to prevent attributing strangers' events to
+the current volunteer, but that leaves volunteers with no endpoint for events they registered
+for or attended.
+
+**Ask.** Either implement `myevents` as the volunteer's registered/attended events and document
+the rule, or reject it with 422 and expose a correctly named equivalent. Unknown `filter_type`
+values must never fall through to an unscoped list. Prove with a user whose expected registered
+and attended event ids are known. Full reproduction is archived under BE-18 in
+`BACKEND_ISSUES_ROUND_1.md`.
 
 ---
 
@@ -243,9 +658,6 @@ downloads someone else's certificate, and nothing in either response would revea
 **Frontend status.** `downloadUserCertificate` already accepts the optional param and the
 certificate row type already declares `registration_type` — both no-ops until the field
 exists. Nothing to change on our side when it lands.
-
----
-
 
 ---
 
@@ -783,7 +1195,7 @@ value.
 > **Declined for now:** adding `choice_type` to the other three `_display` fields. Nothing
 > reads it, so leaving them alone keeps the payload smaller.
 
-> **Reopened as a cause, 2026-09-09 — see [BE-22](#be-22--state-the-write-contract-per-endpoint-relation-field-names-and-array-encoding).**
+> **Reopened as a cause, 2026-09-09 — see [BE-22](#be-22--write-field-names-and-formdata-array-encoding-resolved-in-frontend).**
 > "`event_type_id` was optional, so event 19 saved `NULL`" explains how the column could be
 > empty, but not why it was: the event form was sending **`event_type`**, not `event_type_id`,
 > so the value never reached the column on *any* save. Making the field required stops a save

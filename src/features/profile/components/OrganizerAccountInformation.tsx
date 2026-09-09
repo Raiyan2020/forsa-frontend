@@ -549,10 +549,10 @@ export default function OrganizerAccountInformation() {
       if (hasNewDocuments || hasExistingDocRemoved) {
         const docsFormData = new FormData();
         keptDocIds.forEach((id) =>
-          docsFormData.append("existing_ids", String(id))
+          docsFormData.append("existing_ids[]", String(id))
         );
         for (const doc of values.documents) {
-          docsFormData.append("new_documents", doc);
+          docsFormData.append("new_documents[]", doc);
         }
         await updateDocumentsMutation.mutateAsync(docsFormData);
       }

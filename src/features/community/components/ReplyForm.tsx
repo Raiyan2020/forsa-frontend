@@ -119,14 +119,14 @@ function ReplyForm({
       if (replyId) {
         if (existingImageIds.length > 0) {
           existingImageIds.forEach((imgId) => {
-            formData.append("existing_image_ids", imgId.toString());
+            formData.append("existing_image_ids[]", imgId.toString());
           });
         }
       }
 
       values.images.forEach((file) => {
         if (file instanceof File) {
-          formData.append(`images`, file);
+          formData.append("images[]", file);
         }
       });
 
