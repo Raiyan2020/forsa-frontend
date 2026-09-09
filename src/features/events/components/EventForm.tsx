@@ -688,20 +688,15 @@ export default function EventForm({
         }
       });
 
-      // Handle sponsors (organizations and positions only)
-      values.sponsors.forEach((sponsor, index) => {
-        const idKey = index + 1;
-        if (sponsor.sponsorId) {
-          formData.append(
-            `event_sponsor_images_organization_${idKey}`,
-            sponsor.sponsorId
-          );
-        }
-        formData.append(
-          `event_sponsor_images_position_${idKey}`,
-          String(sponsor.position)
-        );
-      });
+      // Sponsors: NOT sent inline. The events API has no inline sponsor
+      // contract — `POST /events/` only accepts `sponsor_images[]` files, and
+      // its RejectsUnknownWriteKeys guard (see
+      // fursa_backend/app/Http/Controllers/Api/Concerns/RejectsUnknownWriteKeys.php)
+      // 422s any other key with "هذه النقطة لا تقبل هذا الحقل". The old
+      // `event_sponsor_images_organization_{n}` / `event_sponsor_images_position_{n}`
+      // fields blocked every create/update. The picker's picked sponsors need
+      // dedicated endpoints (mirroring /volunteer-opportunities/{id}/sponsors/)
+      // — requested in docs/EVENT_FORM_SPONSORS_422_AND_MISSING_WRITE_PATH.md.
 
       if (id && !isRepublish) {
         // Update existing event — ask for confirmation first

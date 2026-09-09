@@ -812,7 +812,13 @@ export default function VolunteerForm({
         formData.append("interest_ids[]", interest);
       });
 
-      if (isRepublish && id && !(values.license_image instanceof File)) {
+      // Republish media contract (backend RepublishMedia service): the source
+      // id is sent when the keep-set is non-empty — `existing_image_ids[]`
+      // without it 422s with "A source is required to copy images", and
+      // `opportunity_id` without a keep-set clones the source's ENTIRE gallery.
+      // A keep-everything repost is expressed by sending both; removing every
+      // image falls back to a plain create with no media copy.
+      if (isRepublish && id && existingImageIds.length > 0) {
         formData.append("opportunity_id", id);
       }
 
@@ -833,10 +839,13 @@ export default function VolunteerForm({
         }
       });
 
-      // License image: send a new file, or signal removal, or leave untouched
+      // License image: send a new file, or signal removal, or leave untouched.
+      // Republish honours an explicit removal too — the backend's
+      // RepublishMedia::apply() nulls the licence before it would clone the
+      // source's, so the repost doesn't resurrect a removed document.
       if (values.license_image instanceof File && values.license_image.size > 0) {
         formData.append("license_image", values.license_image);
-      } else if (id && !isRepublish && values.license_image_removed) {
+      } else if (id && values.license_image_removed) {
         formData.append("license_image_removed", "1");
       }
 
