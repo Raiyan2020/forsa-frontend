@@ -40,6 +40,11 @@ export interface LoginFormProps {
   onShowForgotPassword?: () => void;
 }
 
+/** Email remembered for the login prefill. */
+const REMEMBERED_EMAIL_KEY = "rememberedEmail";
+/** Pre-fix key that held `{ email, password }` in clear text; cleared on mount. */
+const LEGACY_CREDENTIALS_KEY = "rememberedCredentials";
+
 export default function LoginForm({
   userType = null,
   returnTo = "/",
@@ -67,16 +72,32 @@ export default function LoginForm({
     password: YupRequiredString,
   });
 
-  // Load remembered credentials on mount
+  /**
+   * Prefill the remembered email. The password is deliberately NOT stored:
+   * "remember me" is a server-side concept here — it makes `/login/` issue a
+   * 30-day token instead of a 1-day one — so the session survives on the token
+   * alone and a stored password would buy nothing but risk. Any password left
+   * by an earlier build is dropped on sight.
+   */
   useEffect(() => {
-    const rememberedCredentials = localStorage.getItem("rememberedCredentials");
-    if (rememberedCredentials) {
-      const { email, password } = JSON.parse(rememberedCredentials);
-      setInitialFormValues({
-        email,
-        password,
-        rememberMe: true,
-      });
+    const remembered = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (remembered) {
+      setInitialFormValues({ email: remembered, password: "", rememberMe: true });
+    }
+
+    // Migration: older builds persisted `{ email, password }` in clear text.
+    const legacy = localStorage.getItem(LEGACY_CREDENTIALS_KEY);
+    if (legacy) {
+      localStorage.removeItem(LEGACY_CREDENTIALS_KEY);
+      try {
+        const { email } = JSON.parse(legacy);
+        if (typeof email === "string" && email && !remembered) {
+          localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+          setInitialFormValues({ email, password: "", rememberMe: true });
+        }
+      } catch {
+        // Unparseable leftover — removing it was the point.
+      }
     }
   }, []);
 
@@ -100,17 +121,11 @@ export default function LoginForm({
       const response = await loginMutation.mutateAsync(values);
       const userData = response.data.data;
 
-      // Store or remove credentials based on checkbox state
+      // Remember the email only — never the password (see the mount effect).
       if (values.rememberMe) {
-        localStorage.setItem(
-          "rememberedCredentials",
-          JSON.stringify({
-            email: values.email,
-            password: values.password,
-          })
-        );
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, values.email);
       } else {
-        localStorage.removeItem("rememberedCredentials");
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
 
       setUser(userData);

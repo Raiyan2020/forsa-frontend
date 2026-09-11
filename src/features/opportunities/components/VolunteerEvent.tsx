@@ -44,6 +44,7 @@ import {
   isViewerOrganizer,
 } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, clearNavState, getNavState, setNavState } from "@/lib/navigationState";
+import { sanitizeRichText } from "@/lib/sanitizeRichText";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ConfirmVolunteerRegistrationModal from "./ConfirmVolunteerRegistrationModal";
@@ -731,10 +732,13 @@ export default function VolunteerEvent({
     : `/public-profile/${opportunityData?.created_by?.id}`;
 
   // The description is always shown in full — the View More toggle was removed.
-  const description =
-    (opportunityData?.primary_language === "ar"
+  // Rendered as HTML, so it is sanitized first: the backend stores the editor's
+  // markup verbatim and any organization account can author it.
+  const description = sanitizeRichText(
+    opportunityData?.primary_language === "ar"
       ? opportunityData?.description_ar
-      : opportunityData?.description_en) || "";
+      : opportunityData?.description_en
+  );
 
   /**
    * The attendance window, its deadline and whether it is still open all come

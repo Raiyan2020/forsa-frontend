@@ -18,10 +18,11 @@ export const getOpportunityById = (id: string, passToken?: boolean) =>
 export const createVolunteerOpportunity = (data: any) =>
   apiClient.post("/volunteer-opportunities/", data).then((r) => r.data);
 
-// Plain POST — the backend removed the PATCH/PUT routes entirely for this
-// endpoint (PHP never populated $_FILES on a literal PATCH body, so a
-// multipart image update silently dropped the file server-side; same fix as
-// `updateAccountInfo`). A PATCH/PUT request here now gets a 405.
+// Plain POST, not PATCH: PHP never populates $_FILES on a literal PATCH body,
+// so a multipart image update silently dropped the file server-side (same fix
+// as `updateAccountInfo`). The route still accepts PUT/PATCH for JSON callers —
+// `Route::match(['post','put','patch'], 'volunteer-opportunities/{id}/')` — but
+// every call from here carries multipart, so POST is the only safe verb.
 export const updateVolunteerOpportunity = ({ id, data }: { id: string; data: any }) =>
   apiClient.post(`/volunteer-opportunities/${id}/`, data).then((r) => r.data);
 

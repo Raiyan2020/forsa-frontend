@@ -74,12 +74,35 @@ export const getVolunteerDetail = (params?: { page?: number; limit?: number }) =
     .get<ApiResponse<VolunteerDetailData>>("/volunteer-detail/", { params })
     .then((r) => r.data);
 
+/**
+ * `responseType: "blob"` applies to error bodies too, so a rejected request
+ * carries an unreadable `Blob` where every other endpoint has a parsed
+ * envelope — `getApiErrorMessage` finds nothing and `console.error` prints
+ * `Blob {}` instead of the reason. Parsing it back in place restores both: a
+ * standard envelope yields its `msg`, and a Laravel error page (500) yields a
+ * `message`/`exception` object that shows up in the console while the caller
+ * still shows its own generic toast.
+ */
+async function reviveBlobErrorBody(error: unknown): Promise<never> {
+  const response = (error as { response?: { data?: unknown } })?.response;
+  if (response?.data instanceof Blob) {
+    const text = await response.data.text();
+    try {
+      response.data = JSON.parse(text);
+    } catch {
+      response.data = { msg: text.slice(0, 500) };
+    }
+  }
+  throw error;
+}
+
 export const downloadVolunteerDetail = (): Promise<VolunteerDetailPdf> =>
   apiClient
     .get("/volunteer-detail/", {
       params: { download: true },
       responseType: "blob",
     })
+    .catch(reviveBlobErrorBody)
     .then(async (response) => {
       const blob = response.data as Blob;
 
@@ -92,7 +115,9 @@ export const downloadVolunteerDetail = (): Promise<VolunteerDetailPdf> =>
         let message = "";
         try {
           const payload = JSON.parse(text);
-          message = payload?.msg || payload?.data?.message || "";
+          // `message` is what a Laravel error page carries; `msg`, the envelope.
+          message =
+            payload?.msg || payload?.data?.message || payload?.message || "";
         } catch {
           // Not JSON either — fall through to the caller's generic message.
         }

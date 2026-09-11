@@ -21,6 +21,7 @@ import { getEventById, getEventTimeSlots, registerForEvent, unregisterFromEvent 
 import { formatSingleDate, openLocation } from "@/lib/helpers";
 import { isViewerOrganizer } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
+import { sanitizeRichText } from "@/lib/sanitizeRichText";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import EventFeedback from "./EventFeedback";
@@ -372,8 +373,11 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     ? `/public-profile/${event.created_by.id}`
     : `/volunteer-private-profile/${event.created_by?.id}`;
   // The description is always shown in full — the View More toggle was removed.
-  const description =
-    (event.primary_language === "ar" ? event.description_ar : event.description_en) || "";
+  // Rendered as HTML, so it is sanitized first: the backend stores the editor's
+  // markup verbatim and any organization account can author it.
+  const description = sanitizeRichText(
+    event.primary_language === "ar" ? event.description_ar : event.description_en
+  );
   const displayValue = (value?: ChoiceDisplay) =>
     value?.[language === "ar" ? "value_ar" : "value_en"] || "";
   const isActive = event.event_status === "upcoming" || event.event_status === "inprogress";

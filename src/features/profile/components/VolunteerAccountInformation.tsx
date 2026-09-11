@@ -40,6 +40,10 @@ import {
 import { YupCivilId, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import {
+  assertAccountUpdateSucceeded,
+  reportAccountUpdateError,
+} from "@/features/profile/accountFormErrors";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";
 
 const CountryCodeSelect = dynamic(
@@ -611,6 +615,12 @@ export default function VolunteerAccountInformation() {
     values: CombinedFormValues,
     { resetForm, setFieldError }: FormikHelpers<CombinedFormValues>
   ) => {
+    const errorReport = {
+      language: selectedLanguage,
+      setFieldError,
+      fallback: t("COMMON.TOAST.PROFILE_UPDATE_FAILED"),
+    };
+
     try {
       let hasAccountChanges = false;
       const accountFormData = new FormData();
@@ -713,6 +723,7 @@ export default function VolunteerAccountInformation() {
       if (hasAccountChanges) {
         const accountResponse =
           await updateAccountMutation.mutateAsync(accountFormData);
+        if (!assertAccountUpdateSucceeded(accountResponse, errorReport)) return;
         if (
           accountResponse?.data?.profile_pic &&
           accountResponse.data.profile_pic !== user?.profile_pic
@@ -737,25 +748,12 @@ export default function VolunteerAccountInformation() {
         try {
           profileResponse =
             await updateProfileMutation.mutateAsync(profileData);
-        } catch (profileErr: any) {
-          const apiErrors = profileErr?.response?.data?.errors;
-          if (apiErrors && typeof apiErrors === "object") {
-            Object.entries(apiErrors).forEach(
-              ([field, messages]: [string, any]) => {
-                const errorMessage =
-                  selectedLanguage === "ar"
-                    ? messages?.ar ||
-                      messages?.en ||
-                      t("COMMON.TOAST.PROFILE_UPDATE_FAILED")
-                    : messages?.en || t("COMMON.TOAST.PROFILE_UPDATE_FAILED");
-                setFieldError(field, errorMessage);
-              }
-            );
-          } else {
-            toast.error(t("COMMON.TOAST.PROFILE_UPDATE_FAILED"));
-          }
+        } catch (profileErr) {
+          reportAccountUpdateError({ ...errorReport, error: profileErr });
           return;
         }
+
+        if (!assertAccountUpdateSucceeded(profileResponse, errorReport)) return;
 
         // Mirror a gender change into the cached user
         if (
@@ -790,7 +788,7 @@ export default function VolunteerAccountInformation() {
       }
     } catch (err) {
       console.error("Update failed:", err);
-      toast.error(t("COMMON.TOAST.PROFILE_UPDATE_FAILED"));
+      reportAccountUpdateError({ ...errorReport, error: err });
     }
   };
 

@@ -25,12 +25,32 @@ const ALLOWED_ATTR = [
   "colspan", "rowspan", "class", "id",
 ];
 
+/**
+ * Attributes that are NOT URLs. Setting `ALLOWED_URI_REGEXP` makes DOMPurify
+ * run *every* attribute value through it unless the attribute is known to be
+ * URI-safe, so without this list `dir`, `lang`, `target`, `rel`, `colspan`,
+ * `rowspan`, `width` and `height` were silently dropped from otherwise valid
+ * content — losing `dir` flips Arabic pages back to LTR and losing
+ * `colspan`/`rowspan` collapses admin-authored tables. `href` and `src` stay
+ * out of this list so they keep being validated as URLs.
+ */
+const URI_SAFE_ATTR = [
+  "target", "rel", "dir", "lang",
+  "width", "height", "loading",
+  "colspan", "rowspan",
+];
+
 export function sanitizeCmsHtml(html: string | null | undefined): string {
   if (!html) return "";
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
-    // No `javascript:` / `data:` URLs — only web-safe schemes and relative links.
+    ADD_URI_SAFE_ATTR: URI_SAFE_ATTR,
+    // Only web-safe schemes and relative links, so no `javascript:` href.
+    // DOMPurify still permits `data:` on `img`/`video`/`audio` src and offers
+    // no way to opt out (`ADD_DATA_URI_TAGS` only adds to its default set) —
+    // harmless here, since browsers execute neither `data:text/html` nor a
+    // scripted SVG when either is loaded through `<img>`.
     ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:|#|\/|\.{1,2}\/)/i,
   });
 }

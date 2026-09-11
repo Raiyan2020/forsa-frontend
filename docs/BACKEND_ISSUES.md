@@ -24,6 +24,7 @@ kept in the resolved summary below.
 | [BE-14](#be-14--production-certificate-backfill-and-registration-996) | Run the missing-certificate backfill and verify registration 996 | Backend / deployment |
 | [BE-17](#be-17--repair-legacy-learn--serve-choice-values) | Repair existing Learn & Serve rows whose required choice IDs are still null | Backend / data owner |
 | [BE-20](#be-20--audit-and-repair-legacy-event-type-values) | Audit and repair historical events with `event_type_id = NULL`, including event 19 | Backend / data owner |
+| [BE-34](#be-34--achievement-report-pdf-500s-in-production-mpdf-not-installed) | Install the `mpdf/mpdf` dependency on production so the achievement report export stops returning `500` | Backend / deployment |
 
 ### Resolved in backend code
 
@@ -31,7 +32,7 @@ kept in the resolved summary below.
 |---|---|
 | **BE-14 (code)** | Updating attendance hours regenerates an issued volunteer certificate without sending a second notification. |
 | **BE-18** | `filter_type=myevents` is implemented, and unknown `filter_type` values return `422`. |
-| **BE-19** | Achievement report export returns a real PDF. |
+| **BE-19** | Achievement report export returns a real PDF **in code**; it still fails in production — see BE-34. |
 | **BE-20 (future writes)** | `event_type_id` is required for new events and returned display data includes the choice type. |
 | **BE-21** | `/user-certificates/` returns `registration_type: volunteer\|learn_serve`. |
 | **BE-22** | Canonical `*_id` fields and bracketed multipart arrays are accepted; unknown write keys are rejected. |
@@ -259,13 +260,124 @@ BE-20 remains open until production event 19 and the wider null-row audit are ve
 
 ---
 
+## BE-34 — Achievement report PDF 500s in production (mPDF not installed)
+
+| | |
+|---|---|
+| **Status** | Open — code is correct, the production deployment is missing the dependency |
+| **Endpoint** | `GET /api/volunteer-detail/?download=true` |
+| **Screen** | `/achievement-reports` → "Export report" button |
+| **Reported** | 2026-09-10 |
+| **Relates to** | BE-19 (the feature itself, verified in code) |
+
+### Observed response
+
+HTTP 500, an unhandled `Error` instead of the standard envelope:
+
+```json
+{
+  "message": "Class \"Mpdf\\Mpdf\" not found",
+  "exception": "Error",
+  "file": "/home/fursa/portal/app/Services/Report/AchievementReportRenderer.php",
+  "line": 34,
+  "trace": ["... 44 frames ..."]
+}
+```
+
+### Root cause
+
+This is a deployment problem, not an application-code problem. The dependency is declared and
+locked, but the class is not autoloadable on the server:
+
+- `composer.json` requires `"mpdf/mpdf": "^8.3"`;
+- `composer.lock` pins `mpdf/mpdf` at `v8.3.1`;
+- `app/Services/Report/AchievementReportRenderer.php:12` imports `Mpdf\Mpdf` and line 34
+  instantiates it — exactly the line in the trace;
+- `tests/Feature/AchievementReportPdfTest.php` asserts a real `%PDF-` body, so the code path is
+  covered and passes wherever `vendor/` is complete.
+
+A `Class ... not found` at that line therefore means the production `vendor/` predates the
+`mpdf/mpdf` requirement: `composer install` was not run (or ran against a stale lock, or the
+release reused a cached `vendor/`) after BE-19 was merged. The composer autoloader also has to
+be regenerated; a copied `vendor/` with an old `autoload_static.php` fails the same way.
+
+### Required backend action and proof
+
+1. On the production host, from the application root:
+
+   ```bash
+   composer install --no-dev --optimize-autoloader
+   composer dump-autoload --optimize
+   php artisan optimize:clear
+   ```
+
+2. Return the output of:
+
+   ```bash
+   composer show mpdf/mpdf | head -3
+   php -r 'require "vendor/autoload.php"; var_dump(class_exists("Mpdf\\Mpdf"));'
+   ```
+
+3. Confirm mPDF's temporary directory is writable by the PHP-FPM user. mPDF writes font cache
+   and temp files on every render, and the renderer passes no `tempDir`, so it uses the default.
+   A read-only path fails on the *next* line with `\Mpdf\MpdfException: Temporary files
+   directory is not writable`, which would look like a new bug rather than the same deploy.
+
+4. Return the production request with headers, showing `Content-Type: application/pdf` and a
+   body starting `%PDF-`:
+
+   ```bash
+   curl -sS -D - -o /tmp/report.pdf \
+     -H 'Authorization: Token <volunteer token>' \
+     -H 'x-lang: ar' \
+     'https://portal.fursa.raiyan.cc/api/volunteer-detail/?download=true'
+   head -c 5 /tmp/report.pdf
+   ```
+
+   Please do this once with `x-lang: ar` and once with `x-lang: en` — the renderer switches
+   `directionality` from the request locale, and RTL output is the case most likely to regress.
+
+### Two follow-ups on the same endpoint
+
+Both are backend-side and independent of the install above.
+
+1. **The failure did not use the standard envelope.** `VolunteerStatisticsController::volunteerDetail()`
+   calls the renderer with no `try`/`catch`, so any render failure escapes as a raw framework
+   error. Every client on this endpoint expects `{ key, msg, code, response_status, data }`.
+   Please wrap the render and return, on failure:
+
+   ```json
+   {
+     "key": "fail",
+     "msg": "<localized message>",
+     "code": 500,
+     "response_status": { "error": true, "validation_errors": [] },
+     "data": null
+   }
+   ```
+
+   with the underlying exception logged server-side. The frontend already distinguishes a
+   non-PDF body from a PDF one and shows the envelope `msg` when there is one, so this alone
+   turns a silent generic error into a real message for the user.
+
+2. **`APP_DEBUG` appears to be enabled in production.** The response above contains
+   `file`, `line`, and a 44-frame `trace` with absolute server paths (`/home/fursa/portal/...`)
+   and the full middleware stack. `config/app.php` reads `env('APP_DEBUG', false)`, so this is
+   environment configuration. Please set `APP_DEBUG=false` in the production `.env` and run
+   `php artisan config:cache`. Leaking paths and the dependency tree to any authenticated
+   caller is a disclosure issue independent of this bug.
+
+BE-34 remains open until the production `curl` above returns a `%PDF-` body in both languages.
+
+---
+
 ## Reply format
 
 Return one Markdown file named `BACKEND_REPLY_<YYYY-MM-DD>.md` containing:
 
 - the full test-suite result;
 - deployment commit/hash;
-- one section for each remaining ID: `BE-01`, `BE-14`, `BE-17`, and `BE-20`;
+- one section for each remaining ID: `BE-01`, `BE-14`, `BE-17`, `BE-20`, and `BE-34`;
 - command/SQL output and the requested production API evidence;
 - a clear `Done`, `Not done`, or `Blocked` status for each ID.
 

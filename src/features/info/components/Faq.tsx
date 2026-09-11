@@ -10,6 +10,7 @@ import { useLanguageStore } from "@/store/languageStore";
 import Image from "next/image";
 import type { FaqItem } from "@/lib/api/types";
 import { getFaqs } from "@/features/info/services/infoApi";
+import { sanitizeRichText } from "@/lib/sanitizeRichText";
 
 const containsHTML = (str: string): boolean => {
   return /<[a-z][\s\S]*>/i.test(str);
@@ -161,11 +162,11 @@ export default function Faq({ initialFaqs = [] }: { initialFaqs?: FaqItem[] }) {
                   className={`py-[30px] mobilescreen:py-5 px-[37px] mobilescreen:px-4 text-secondary-100 text-lg mobilescreen:text-sm font-normal answer-content ${
                     selectedLanguage === "ar" ? "text-right rtl" : ""
                   }`}
+                  // Dashboard-authored HTML, stored verbatim by the API.
                   dangerouslySetInnerHTML={{
-                    __html:
-                      selectedLanguage === "ar"
-                        ? item.answer_ar || ""
-                        : item.answer_en || "",
+                    __html: sanitizeRichText(
+                      selectedLanguage === "ar" ? item.answer_ar : item.answer_en
+                    ),
                   }}
                 />
               ) : (

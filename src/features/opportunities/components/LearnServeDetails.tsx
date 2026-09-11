@@ -33,6 +33,7 @@ import {
   toNumber,
 } from "@/lib/helpers";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
+import { sanitizeRichText } from "@/lib/sanitizeRichText";
 import {
   isCreatorRepostState,
   isViewerOrganizer,
@@ -605,10 +606,13 @@ export default function LearnServeDetails({
     : `/public-profile/${opportunityData?.created_by?.id}`;
 
   // The description is always shown in full — the View More toggle was removed.
-  const description =
-    (opportunityData?.primary_language === "ar"
+  // Rendered as HTML, so it is sanitized first: the backend stores the editor's
+  // markup verbatim and any organization account can author it.
+  const description = sanitizeRichText(
+    opportunityData?.primary_language === "ar"
       ? opportunityData?.description_ar
-      : opportunityData?.description_en) || "";
+      : opportunityData?.description_en
+  );
 
   const format = opportunityData?.format_display?.value_en;
   const isInPerson = format === "IN PERSON";

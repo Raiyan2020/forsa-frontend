@@ -30,6 +30,10 @@ import { withCacheBust } from "@/lib/helpers";
 import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
+import {
+  assertAccountUpdateSucceeded,
+  reportAccountUpdateError,
+} from "@/features/profile/accountFormErrors";
 import ProfilePictureCropModal from "./ProfilePictureCropModal";
 
 const CountryCodeSelect = dynamic(
@@ -458,8 +462,14 @@ export default function OrganizerAccountInformation() {
 
   const handleSubmit = async (
     values: CombinedOrganizerFormValues,
-    { resetForm }: FormikHelpers<CombinedOrganizerFormValues>
+    { resetForm, setFieldError }: FormikHelpers<CombinedOrganizerFormValues>
   ) => {
+    const errorReport = {
+      language: selectedLanguage,
+      setFieldError,
+      fallback: t("COMMON.TOAST.PROFILE_UPDATE_FAILED"),
+    };
+
     try {
       let hasAccountChanges = false;
       const accountFormData = new FormData();
@@ -539,11 +549,15 @@ export default function OrganizerAccountInformation() {
 
       // Submit changes
       if (hasAccountChanges) {
-        await updateAccountMutation.mutateAsync(accountFormData);
+        const accountResponse =
+          await updateAccountMutation.mutateAsync(accountFormData);
+        if (!assertAccountUpdateSucceeded(accountResponse, errorReport)) return;
       }
 
       if (hasProfileChanges) {
-        await updateProfileMutation.mutateAsync(profileData);
+        const profileResponse =
+          await updateProfileMutation.mutateAsync(profileData);
+        if (!assertAccountUpdateSucceeded(profileResponse, errorReport)) return;
       }
 
       if (hasNewDocuments || hasExistingDocRemoved) {
@@ -554,7 +568,10 @@ export default function OrganizerAccountInformation() {
         for (const doc of values.documents) {
           docsFormData.append("new_documents[]", doc);
         }
-        await updateDocumentsMutation.mutateAsync(docsFormData);
+        const documentsResponse =
+          await updateDocumentsMutation.mutateAsync(docsFormData);
+        if (!assertAccountUpdateSucceeded(documentsResponse, errorReport))
+          return;
       }
 
       if (
@@ -573,7 +590,7 @@ export default function OrganizerAccountInformation() {
       }
     } catch (err) {
       console.error("Update failed:", err);
-      toast.error(t("COMMON.TOAST.PROFILE_UPDATE_FAILED"));
+      reportAccountUpdateError({ ...errorReport, error: err });
     }
   };
 

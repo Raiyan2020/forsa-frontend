@@ -22,6 +22,7 @@ import {
   getQRCode,
   getVolunteerProfile,
 } from "@/features/profile/services/profileApi";
+import { getApiErrorMessage } from "@/lib/api/errors";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { useAuthStore } from "@/store/authStore";
 
@@ -351,7 +352,12 @@ export default function AchievementReports() {
       toast.success(t("COMMON.DOWNLOAD_SUCCESS"));
     } catch (e) {
       console.error("Export error:", e);
-      toast.error(t("COMMON.EXPORT_ERROR"));
+      // A refusal the API states itself ("only volunteers can access this
+      // endpoint") is worth showing; a 500 carries a PHP exception instead of a
+      // `msg`, so that falls back to the generic copy.
+      toast.error(
+        getApiErrorMessage(e, i18n.language, t("COMMON.EXPORT_ERROR"))
+      );
     }
   };
 
