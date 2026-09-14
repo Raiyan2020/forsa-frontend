@@ -1,5 +1,4 @@
 import apiClient from "@/lib/api/client";
-import type { RegistrationsDownload } from "@/lib/api/types";
 
 // ─── Events ──────────────────────────────────────────────────────────────────
 
@@ -21,65 +20,20 @@ export const updateEvent = ({ id, formData }: { id: string; formData: FormData }
   return apiClient.post(`/events/${id}/`, formData).then((r) => r.data);
 };
 
-export const registerForEvent = (data: any) =>
-  apiClient.post("/event-registrations/", data).then((r) => r.data);
-
-export const unregisterFromEvent = (id: string) =>
-  apiClient.post(`/events/${id}/unregister/`).then((r) => r.data);
-
-export const getEventTimeSlots = (eventId: string | number) =>
-  apiClient
-    .get("/event-time-slots/", { params: { event_id: eventId } })
-    .then((r) => r.data);
-
 export const requestEventDeletion = (eventId: string) =>
   apiClient.post(`/events/${eventId}/request-deletion/`).then((r) => r.data);
 
-
-export const getEventRegistrations = ({
-  event_id,
-  ...params
-}: {
-  event_id: string;
-  page?: number;
-  limit?: number;
-  search?: string;
-}) =>
-  apiClient
-    .get(`/event-registrations/by-event/${event_id}/`, { params })
-    .then((r) => r.data);
-
-/** Organizer-only update used by the event attendance table. */
-export const updateEventRegistration = ({
-  registrationId,
-  data,
-}: {
-  registrationId: string;
-  data: { is_attended?: boolean };
-}) =>
-  apiClient
-    .patch(`/event-registrations/${registrationId}/`, data)
-    .then((r) => r.data);
-
-export const downloadEventRegistrations = ({
-  event_id,
-  search,
-  mark_attendance,
-}: {
-  event_id: string;
-  search?: string;
-  mark_attendance?: boolean;
-}): Promise<RegistrationsDownload> => {
-  const params = new URLSearchParams();
-  params.append("event_id", event_id);
-  params.append("download", "true");
-  if (search) params.append("search", search);
-  if (mark_attendance) params.append("mark_attendance", "true");
-
-  return apiClient
-    .get("/event-registrations/", { params })
-    .then((r) => r.data.data);
-};
+/*
+ * Events are an announcement surface only: the organizer runs sign-ups on their
+ * own channel through the event's `registration_link`, so Fursa never holds a
+ * participation or attendance record for one.
+ *
+ * The backend still exposes `/event-registrations/` (list, create, update with
+ * `is_attended`, XLSX export), `/events/{id}/unregister/` and
+ * `/event-time-slots/`, and those wrappers used to live here. They are gone on
+ * purpose — do not add them back. See BE-41 in `FURSA_BACKEND_ISSUES.md` for the
+ * matching backend removal.
+ */
 
 // ─── Event Feedbacks ─────────────────────────────────────────────────────────
 

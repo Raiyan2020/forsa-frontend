@@ -895,9 +895,18 @@ export default function LearnServeForm({
           ),
         learningType: YupRequiredString,
         learnServeFormat: YupRequiredString,
-        // Only internships must declare a certificate type
+        /*
+         * Courses and internships are the two types that grant a certificate,
+         * so both must declare which one. The API enforces exactly that
+         * ("Certificate type is required for courses and internships"), and
+         * this used to check internships only — a course submitted without a
+         * certificate type passed here and came back a 422 with no field
+         * highlighted.
+         */
         certificateType: Yup.string().when("learningType", {
-          is: (value: string) => !!internshipTypeId && value === internshipTypeId,
+          is: (value: string) =>
+            (!!internshipTypeId && value === internshipTypeId) ||
+            (!!courseTypeId && value === courseTypeId),
           then: () => YupRequiredString,
           otherwise: () => Yup.string(),
         }),
@@ -970,6 +979,7 @@ export default function LearnServeForm({
     inPersonFormatId,
     onlineFormatId,
     internshipTypeId,
+    courseTypeId,
     isLicenseRequired,
     id,
     modifiedLicenseImage,
@@ -1035,15 +1045,25 @@ export default function LearnServeForm({
         formData.append("interest_ids[]", interest);
       });
 
-      // License image: send a new file, or signal removal, or leave untouched
+      // License image: send a new file, or signal removal, or leave untouched.
+      // Republish honours an explicit removal too — the backend's
+      // RepublishMedia::apply() nulls the licence before it would clone the
+      // source's, so the repost doesn't resurrect a removed document.
       if (values.license_image instanceof File && values.license_image.size > 0) {
         formData.append("license_image", values.license_image);
-      } else if (id && !isRepublish && values.license_image_removed) {
+      } else if (id && values.license_image_removed) {
         formData.append("license_image_removed", "1");
       }
 
-      // Reposting without a fresh licence reuses the original's copy
-      if (isRepublish && id && !(values.license_image instanceof File)) {
+      // Republish media contract (backend RepublishMedia service): the source
+      // id is sent when the keep-set is non-empty — `existing_image_ids[]`
+      // without it 422s with "A source is required to copy images", and
+      // `opportunity_id` without a keep-set clones the source's ENTIRE gallery.
+      // A keep-everything repost is expressed by sending both; removing every
+      // image falls back to a plain create with no media copy. Gating this on
+      // the licence instead used to 422 every repost that uploaded a fresh
+      // licence while keeping images. Mirrors VolunteerForm.
+      if (isRepublish && id && existingImageIds.length > 0) {
         formData.append("opportunity_id", id);
       }
 
@@ -1076,9 +1096,23 @@ export default function LearnServeForm({
         if (values.longitude) formData.append("longitude", values.longitude);
       }
 
-      if (values.certificateType) {
-        formData.append("certificate_type_id", values.certificateType);
-      }
+      /*
+       * Only courses and internships grant a certificate — a class/workshop or
+       * a consultation must never carry a certificate type. The field is
+       * already hidden for those types, but Formik keeps whatever was picked
+       * before the type was switched, and an edited opportunity starts from
+       * whatever the record already had. Sending an empty value clears the
+       * column (Laravel's ConvertEmptyStringsToNull turns it into `null`,
+       * which the API accepts), so switching a course to a workshop actually
+       * removes its certificate instead of leaving it behind.
+       */
+      const grantsCertificate =
+        (!!internshipTypeId && values.learningType === internshipTypeId) ||
+        (!!courseTypeId && values.learningType === courseTypeId);
+      formData.append(
+        "certificate_type_id",
+        grantsCertificate ? values.certificateType || "" : ""
+      );
       if (values.learningType) {
         formData.append("learning_type_id", values.learningType);
       }
@@ -1421,7 +1455,7 @@ export default function LearnServeForm({
       </Modal>
 
       <div className="border-t border-[#000] filterpage">
-        <div className="2xl:w-[1025px] lg:w-[1000px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
+        <div className="2xl:w-[1225px] lg:w-[1100px] md:w-[96%] w-[90%] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] py-[40px] mx-auto">
           <h2>
             <Title text={t("COMMON.LEARN.SERVE.FORM")} variant="default" />
           </h2>
@@ -1919,11 +1953,11 @@ export default function LearnServeForm({
                           )
                         }
                         enableCropping
-                        cropAspectRatio={1} // Square, matching the 1:1 cards
+                        cropAspectRatio={4 / 5}
                         cropShape="rect"
                         cropDisplayMode="opportunity"
                         cropWidth={600}
-                        cropHeight={600} // 1:1
+                        cropHeight={750} // 4:5, Instagram portrait — matches the cards
                       />
                     </div>
 

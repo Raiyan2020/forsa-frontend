@@ -192,7 +192,9 @@ export default function Achievements() {
       ? [
           {
             key: "beneficiaries",
-            value: Number(beneficiariesCount || 0).toLocaleString(),
+            // Pinned to en-US: a bare toLocaleString() follows the browser's
+            // locale, which renders Arabic-Indic digits on an Arabic system.
+            value: Number(beneficiariesCount || 0).toLocaleString("en-US"),
             label: t("ACHIEVEMENTS.BENEFICIARIES"),
             tooltip: beneficiariesTooltip,
             className: "bg-[#70B4C24D]/30 text-[#1F6675]",
@@ -204,7 +206,7 @@ export default function Achievements() {
       ? [
           {
             key: "economic-impact",
-            value: `${economicImpact.toLocaleString()} ${t("COMMON.KWD")}`,
+            value: `${economicImpact.toLocaleString("en-US")} ${t("COMMON.KWD")}`,
             label: t("ACHIEVEMENTS.ECONOMIC_IMPACT"),
             className: "bg-[#FC95554D]/30 text-[#B4531C]",
             valueClassName: "text-[#B4531C]",
@@ -639,7 +641,7 @@ const LeaderboardPodium: React.FC<LeaderboardPodiumProps> = ({
                   <span
                     className={`${slot.valueColor} font-bold leading-none text-xl xsl:text-4xl md:text-5xl lg:text-[56px] 2xl:text-[64px] tabular-nums`}
                   >
-                    {getDisplayValue(item).toLocaleString()}
+                    {getDisplayValue(item).toLocaleString("en-US")}
                   </span>
                   <span
                     className={`${slot.labelColor} font-medium leading-snug text-[10px] xsl:text-sm md:text-base lg:text-lg`}

@@ -174,7 +174,7 @@ export default function Barchart({
             >
               {hoverIndex === index && (
                 <div style={chartStyles.tooltip}>
-                  {item.total_hours.toLocaleString()} hours
+                  {item.total_hours.toLocaleString("en-US")} hours
                 </div>
               )}
 

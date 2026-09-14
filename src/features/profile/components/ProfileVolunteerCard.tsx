@@ -2,20 +2,16 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import moment from "moment";
 import InfiniteScroll from "react-infinite-scroll-component";
 
-import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { Modal } from "@/components/ui/Modal";
 import DeleteOpportunityModal from "@/features/opportunities/components/DeleteOpportunityModal";
-import OpportunityBadges, {
-  OpportunityVisibilityInfo,
-} from "@/features/opportunities/components/OpportunityBadges";
+import OpportunityCard from "@/features/opportunities/components/OpportunityCard";
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
@@ -26,9 +22,7 @@ import {
   learnServeEditPath,
 } from "@/features/opportunities/routes";
 import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
-import { formatDateRange } from "@/lib/helpers";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
-import { useLanguageStore } from "@/store/languageStore";
 import { FiltersData } from "./ProfileFilterForm";
 
 const asset = (path: string) => `/assets/${path}`;
@@ -106,7 +100,8 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
   type,
   useNewApi = false, // Default to false (use old API)
 }) => {
-  const selectedLanguage = useLanguageStore((s) => s.language);
+  // Language is read inside OpportunityCard now — this component no longer
+  // renders any localized field itself.
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -314,15 +309,8 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
       : asset("homepage/person_icon_organized.svg");
   };
 
-  const isOnlineFormat = (item: OpportunityData) => {
-    const learnServe = item as LearnServeOpportunityData;
-    return (
-      learnServe.format === "ONLINE" ||
-      (!!learnServe.format_display &&
-        (learnServe.format_display.value_en.toLowerCase() === "online" ||
-          learnServe.format_display.value_ar.toLowerCase() === "عن بعد"))
-    );
-  };
+  // `isOnlineFormat` lived here too — OpportunityCard owns that decision now,
+  // along with the online/location icon it drives.
 
   // Function to determine button text based on conditions
   const getButtonText = (item: OpportunityData) => {
@@ -454,10 +442,6 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
         >
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-[25px] mobilescreen:gap-0">
             {opportunities.map((item) => {
-              const title =
-                item[selectedLanguage === "ar" ? "title_ar" : "title_en"] ?? "";
-              const online = isOnlineFormat(item);
-
               return (
                 // Volunteer and learn-serve opportunities are separate
                 // backend models with their own id sequences, so a plain
@@ -467,288 +451,67 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
                   key={`${item.opportunity_type}-${item.id}`}
                   className="mobilescreen:pb-6"
                 >
-                  <div className="relative">
-                    <Link href={detailHref(item)}>
-                      {currentUser &&
-                        item.created_by?.id === currentUser.id &&
-                        item.opportunity_status !== "completed" &&
-                        item.opportunity_status !== "inprogress" && (
-                          <div className="absolute -left-3 -top-3 z-10">
-                            <Image
-                              src={getDeleteIconByType(item.opportunity_type)}
-                              alt="Delete"
-                              width={27}
-                              height={27}
-                              className="w-[27px] h-[27px] cursor-pointer"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDeleteModalInfo({
-                                  isOpen: true,
-                                  opportunityId: String(item.id),
-                                  opportunityTitle: {
-                                    title_en: item.title_en,
-                                    title_ar: item.title_ar,
-                                  },
-                                });
-                              }}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            />
-                          </div>
-                        )}
-                      <Image
-                        src={
-                          item.opportunity_images?.[0]?.image ||
-                          asset("homepage/treeplanting.png")
-                        }
-                        alt={title}
-                        width={400}
-                        height={300}
-                        unoptimized
-                        /* Square (1:1) crop — matches the ratio the upload form
-                           crops to, so the card never letterboxes or stretches. */
-                        className="w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
-                      />
-
-                      {/* Status Icons */}
-                      <OpportunityBadges item={item} />
-
-                      <div className="grid grid-cols-2 text-sm text-gray-600 bg-[#000000B2]/70 absolute w-full bottom-0 h-[39px] items-center">
-                        <span className="flex miniscreen3:text-[12px] xs3:text-[10px] laptopitms:text-xs text-white justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs2:text-[11px]">
-                          <Image
-                            src={asset("homepage/dateicn.svg")}
-                            alt="Date Icon"
-                            width={20}
-                            height={20}
-                            className="smallscreen:w-3 2xl:w-5 2xl:h-5 w-4 h-4"
-                          />
-                          {formatDateRange(
-                            item.start_date,
-                            item.end_date,
-                            selectedLanguage,
-                            t
-                          )}
+                  <OpportunityCard
+                    item={item}
+                    isLearnServe={!isVolunteerOpportunity(item.opportunity_type)}
+                    detailHref={detailHref(item)}
+                    borderClass={getBorderClassByType(item.opportunity_type)}
+                    buttonClass={getBgClassByType(item.opportunity_type)}
+                    peopleIconSrc={getPersonIconByType(item.opportunity_type)}
+                    actionLabel={getButtonText(item)}
+                    onAction={() => handleActionClick(item)}
+                    statusPill={
+                      // The "organized" tab already groups by status, so the
+                      // pill would just repeat the tab label there.
+                      !(useNewApi && filter_type === "organized") &&
+                      item.opportunity_status ? (
+                        <span
+                          className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1 text-sm font-medium ${getStatusStyles(
+                            item.opportunity_status,
+                            item.opportunity_type
+                          )}`}
+                        >
+                          {item.opportunity_status === "inprogress"
+                            ? t("COMMON.IN_PROGRESS")
+                            : item.opportunity_status === "completed"
+                              ? t("COMMON.FINISHED")
+                              : t("COMMON.UPCOMING")}
                         </span>
-
-                        <div className="h-[60%] w-[1px] bg-white absolute left-1/2 top-[8px]" />
-
-                        <span className="text-white miniscreen3:text-[12px] xs3:text-[10px] laptopitms:text-xs flex justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs2:text-[11px]">
+                      ) : null
+                    }
+                    headerOverlay={
+                      currentUser &&
+                      item.created_by?.id === currentUser.id &&
+                      item.opportunity_status !== "completed" &&
+                      item.opportunity_status !== "inprogress" ? (
+                        <div className="absolute -left-3 -top-3 z-10">
                           <Image
-                            src={asset("homepage/timeicn.svg")}
-                            alt="Time Icon"
-                            width={20}
-                            height={20}
-                            className="smallscreen:w-3 2xl:w-5 2xl:h-5 w-4 h-4"
+                            src={getDeleteIconByType(item.opportunity_type)}
+                            alt={t("COMMON.DELETE")}
+                            width={27}
+                            height={27}
+                            className="w-[27px] h-[27px] cursor-pointer"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteModalInfo({
+                                isOpen: true,
+                                opportunityId: String(item.id),
+                                opportunityTitle: {
+                                  title_en: item.title_en,
+                                  title_ar: item.title_ar,
+                                },
+                              });
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
                           />
-                          {moment(item.start_time, "HH:mm:ss").format("hh:mm")}{" "}
-                          {moment(item.start_time, "HH:mm:ss").format("a") ===
-                          "am"
-                            ? t("COMMON.AM")
-                            : t("COMMON.PM")}{" "}
-                          - {moment(item.end_time, "HH:mm:ss").format("hh:mm")}{" "}
-                          {moment(item.end_time, "HH:mm:ss").format("a") === "am"
-                            ? t("COMMON.AM")
-                            : t("COMMON.PM")}
-                        </span>
-                      </div>
-                    </Link>
-                  </div>
-
-                  <div
-                    className={`boxshadows 2xl:px-5 px-3 xss:px-3 rounded-b-[20px] border ${getBorderClassByType(
-                      item.opportunity_type
-                    )} pb-10 relative bg-[#F7F7F7]`}
-                  >
-                    <Link href={detailHref(item)}>
-                      <div className="flex justify-between items-center">
-                        <h3 className="2xl:text-[25px] text-lg text-secondary-100 2xl:pb-7 pb-3 font-bold pt-[19px] truncate whitespace-nowrap overflow-hidden">
-                          {title.length > 10
-                            ? `${title.substring(0, 10)}...`
-                            : title}
-                          <OpportunityVisibilityInfo
-                            isPublic={item.is_public}
-                            className="ms-2"
-                          />
-                        </h3>
-                        {/* Hide status when using new API for the "organized" tab in volunteer profile */}
-                        {!(useNewApi && filter_type === "organized") &&
-                          item.opportunity_status && (
-                            <span
-                              className={`px-4 py-1 rounded-full text-sm font-medium ${getStatusStyles(
-                                item.opportunity_status,
-                                item.opportunity_type
-                              )}`}
-                            >
-                              {item.opportunity_status === "inprogress"
-                                ? t("COMMON.IN_PROGRESS")
-                                : item.opportunity_status === "completed"
-                                  ? t("COMMON.FINISHED")
-                                  : t("COMMON.UPCOMING")}
-                            </span>
-                          )}
-                      </div>
-
-                      <div>
-                        <div className="grid grid-cols-2 extrasmall:flex-col justify-between pb-[22px]">
-                          <p className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            {item.opportunity_type ===
-                            "learn_serve_opportunity" ? (
-                              <>
-                                <Image
-                                  src={asset("homepage/learn_type.svg")}
-                                  className="w-5 h-5 object-contain"
-                                  alt="Learning Type"
-                                  width={20}
-                                  height={20}
-                                />
-                                <span className="line-clamp-1">
-                                  {(() => {
-                                    const val =
-                                      (item as LearnServeOpportunityData)
-                                        .learning_type_display?.[
-                                        selectedLanguage === "ar"
-                                          ? "value_ar"
-                                          : "value_en"
-                                      ] ?? "";
-                                    return val.length > 12
-                                      ? `${val.slice(0, 12)}..`
-                                      : val;
-                                  })()}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <Image
-                                  src={asset("voluneteerevent/age.svg")}
-                                  className="w-5 h-5 object-contain"
-                                  alt="Age"
-                                  width={20}
-                                  height={20}
-                                />
-                                {(item as VolunteerOpportunityData).from_age}
-                                {(item as VolunteerOpportunityData).to_age ? (
-                                  <>
-                                    <span className="text-secondary-102"> - </span>
-                                    {(item as VolunteerOpportunityData).to_age}
-                                  </>
-                                ) : (
-                                  <span className="text-secondary-102"> + </span>
-                                )}
-                              </>
-                            )}
-                          </p>
-                          <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={
-                                online
-                                  ? asset("voluneteerevent/online.svg")
-                                  : asset("homepage/locations.svg")
-                              }
-                              className="w-5 h-5 object-contain"
-                              alt="Location"
-                              width={20}
-                              height={20}
-                            />
-                            <div className="flex-1 overflow-hidden">
-                              <p className="line-clamp-1 text-ellipsis overflow-hidden">
-                                {(() => {
-                                  if (online) return t("COMMON.ONLINE");
-
-                                  // For learn and serve in-person opportunities
-                                  if (
-                                    item.opportunity_type ===
-                                    "learn_serve_opportunity"
-                                  ) {
-                                    return t("COMMON.IN_PERSON");
-                                  }
-
-                                  // For volunteer opportunities, show location
-                                  const locationText =
-                                    item[
-                                      selectedLanguage === "ar"
-                                        ? "location_ar"
-                                        : "location_en"
-                                    ] || t("COMMON.LOADING_LOCATION");
-
-                                  // Truncate to a fixed length
-                                  return typeof locationText === "string" &&
-                                    locationText.length > 12
-                                    ? locationText.slice(0, 12).concat("...")
-                                    : locationText;
-                                })()}
-                              </p>
-                            </div>
-                          </div>
                         </div>
-
-                        <div className="grid grid-cols-2 extrasmall:flex-col justify-between text-secondary-102 text-lg">
-                          <p className="flex items-center text-secondary-102 2xl:text-lg laptopmain:text-base lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={getPersonIconByType(item.opportunity_type)}
-                              className="w-5 h-5 object-contain"
-                              alt="Spots"
-                              width={20}
-                              height={20}
-                            />
-                            {`${item.registered_volunteers_count}/${item.participants_needed}`}
-                          </p>
-                          <div className="flex items-center text-secondary-102 2xl:text-lg laptopmain:text-base lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={asset("homepage/health.svg")}
-                              className="w-5 h-5 object-contain"
-                              alt="Category"
-                              width={20}
-                              height={20}
-                            />
-                            <p
-                              className="line-clamp-1 text-ellipsis overflow-hidden cursor-pointer hover:text-primary-5 hover:underline transition-colors"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const interestValue =
-                                  item.interest_display?.[0]?.[
-                                    selectedLanguage === "ar"
-                                      ? "value_ar"
-                                      : "value_en"
-                                  ];
-                                if (!interestValue) return;
-                                const listPath =
-                                  item.opportunity_type ===
-                                  "learn_serve_opportunity"
-                                    ? "/learn-and-share-list"
-                                    : "/volunteer-opportunities-list";
-                                router.push(
-                                  `${listPath}?tags=${encodeURIComponent(
-                                    interestValue
-                                  )}`
-                                );
-                              }}
-                            >
-                              {item.interest_display?.[0]?.[
-                                selectedLanguage === "ar"
-                                  ? "value_ar"
-                                  : "value_en"
-                              ] ?? ""}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-
-                  <Button
-                    className={`${getBgClassByType(
-                      item.opportunity_type
-                    )} relative mx-auto flex justify-center bottom-[25px]`}
-                    variant="primary"
-                    size="xss"
-                    onClick={() => handleActionClick(item)}
-                  >
-                    {getButtonText(item)}
-                  </Button>
+                      ) : null
+                    }
+                  />
                 </div>
               );
             })}

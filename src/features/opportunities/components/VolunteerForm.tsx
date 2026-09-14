@@ -615,6 +615,20 @@ export default function VolunteerForm({
     );
 
   const validationSchema = Yup.object({
+    /*
+     * Required, and deliberately so. The submit handler maps anything that is
+     * not the literal "public" to `is_public: 0`, so leaving this untouched
+     * used to create a PRIVATE opportunity silently — it never appeared in any
+     * listing, and the backend additionally refuses registrations for private
+     * opportunities, so it was both invisible and unjoinable with no signal to
+     * the organizer. Defaulting the other way would be just as wrong (an
+     * opportunity meant to be private would go public), so the choice is
+     * forced instead. Only organizations see the field; volunteers always send
+     * `is_public: 1`, which is why this is conditional.
+     */
+    isPrivate: showOpportunitySection
+      ? Yup.string().concat(YupRequiredString)
+      : Yup.string().notRequired(),
     title_ar: YupStringMaxLength(400)
       .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
       .concat(YupRequiredString),
@@ -1338,14 +1352,14 @@ export default function VolunteerForm({
                         handleCheckboxChange("urgent", checked)
                       }
                     />
-                    <CheckBox
+                    {/* <CheckBox
                       id="emergency"
                       label={t("COMMON.EMERGENCY_PRIORITY")}
                       checked={selectedCheckBoxes.includes("emergency")}
                       onChange={(checked) =>
                         handleCheckboxChange("emergency", checked)
                       }
-                    />
+                    /> */}
                   </div>
 
                   <div className="descritpionitm descritpionitm-ar">
@@ -1465,11 +1479,11 @@ export default function VolunteerForm({
                         )
                       }
                       enableCropping
-                      cropAspectRatio={1} // Square, matching the 1:1 cards
+                      cropAspectRatio={4 / 5}
                       cropShape="rect"
                       cropDisplayMode="opportunity"
                       cropWidth={600}
-                      cropHeight={600} // 1:1
+                      cropHeight={750} // 4:5, Instagram portrait — matches the cards
                     />
                   </div>
 

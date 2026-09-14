@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { useLanguageStore } from "@/store/languageStore";
 import { pickLocalized, type HeroBanner, type HomeStatistics } from "@/features/shared";
+import CountUp from "@/components/ui/CountUp";
+import { parseLocalizedNumber } from "@/lib/digits";
 
 interface BannerCarouselProps {
   /** Hero slides from the CMS (`GET /home/` → `hero.banners`). */
@@ -41,24 +43,31 @@ export default function BannerCarousel({
     };
   }, [banners.length]);
 
+  /**
+   * `parseLocalizedNumber` rather than the raw field: the public homepage is
+   * server-rendered through `lib/api/server.ts`, which pins the language header
+   * to English and so receives real numbers, while the authenticated homepage
+   * reads the same payload over axios in the user's language and receives
+   * Arabic-Indic digit *strings*. Both shapes have to reach CountUp as a number.
+   */
   const cards = [
     {
       img: "/assets/homepage/volunteer_register.svg",
-      number: `${statistics.volunteer_count ?? 0}`,
+      number: parseLocalizedNumber(statistics.volunteer_count),
       text: t("COMMON.VOLUNTEER--"),
       borderColor: "border-primary-200",
       textColor: "text-primary-200",
     },
     {
       img: "/assets/homepage/team.svg",
-      number: `${statistics.volunteer_team_count ?? 0}`,
+      number: parseLocalizedNumber(statistics.volunteer_team_count),
       text: t("COMMON.VOLUNTEER.TEAM"),
       borderColor: "border-primary-300",
       textColor: "text-primary-300",
     },
     {
       img: "/assets/homepage/organizations.svg",
-      number: `${statistics.organization_count ?? 0}`,
+      number: parseLocalizedNumber(statistics.organization_count),
       text: t("COMMON.ORGANIZATIONS"),
       borderColor: "border-primary-100",
       textColor: "text-primary-100",
@@ -196,9 +205,8 @@ export default function BannerCarousel({
               </div>
               <p
                 className={`lg:text-[40px] xss:text-base md:text-[40px] sm:text-[36px] font-bold ${item.textColor} mt-2`}
-                aria-label={`${item.number} ${item.text}`}
               >
-                {item.number}
+                <CountUp value={item.number} />
               </p>
               <p className="xss:h-5 xss:mb-2 text-secondary-102 extrasmall:text-xs 2xl:text-[22px] lg:text-[20px] sm:text-[18px] md:text-[22px] xss:text-[12px] font-semibold pt-3 xss:pt-0 text-center">
                 {item.text}

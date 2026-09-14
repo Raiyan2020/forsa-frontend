@@ -26,6 +26,8 @@ import {
   toDisplayDigits,
   toNumber,
 } from "@/lib/helpers";
+import CountUp from "@/components/ui/CountUp";
+import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface LocalizedValue {
@@ -345,7 +347,9 @@ function AchievementCard({
       className={`flex min-h-[195px] flex-col items-center rounded-bl-[40px] rounded-br-[40px] rounded-tr-[40px] border-[3px] p-4 text-center shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] ${colorClass}`}
     >
       <Image src={icon} alt="" width={60} height={60} className="mb-2 h-[60px] w-auto" />
-      <strong className="text-[30px]">{value}</strong>
+      <strong className="text-[30px]">
+        <CountUp value={value} />
+      </strong>
       <span className="pt-2 font-semibold">{label}</span>
     </div>
   );
@@ -491,9 +495,10 @@ function BackgroundAndAchievements({
               <AchievementCard
                 key={card.icon}
                 icon={asset(card.icon)}
-                // The API returns these counters as Arabic-Indic digit strings
-                // under `ar` — remap to Latin digits whenever the UI is English.
-                value={toDisplayDigits(card.value, language)}
+                // Digits stay Western in both languages; the axios layer has
+                // already normalized the API's Arabic-Indic strings, and this
+                // also pins a missing counter to "0".
+                value={toDisplayDigits(card.value)}
                 label={card.label}
                 colorClass={card.color}
               />
@@ -530,7 +535,10 @@ function ListingCard({ item, isEvent }: { item: OpportunityItem; isEvent: boolea
     // rows absorb the slack and the View button stays pinned to the bottom.
     <Link href={href} className="group flex h-full flex-col pb-6">
       <article className="flex flex-1 flex-col overflow-hidden rounded-[20px] border border-primary-5 bg-white shadow-[0_4px_10px_rgba(0,0,0,0.12)]">
-        <div className="relative h-[260px] w-full shrink-0 bg-gray-100">
+        {/* 4:5 — the Instagram portrait ratio every card image in the app
+            uses, so a cover uploaded once looks identical here, on the
+            listings and on the homepage. */}
+        <div className="relative aspect-[4/5] w-full shrink-0 bg-gray-100">
           <Image
             src={image || asset("homepage/treeplanting.png")}
             alt={title}
@@ -663,6 +671,7 @@ function PublicProfileListings({
   isVolunteerTeam,
   sponsoredCount,
   developmentCount,
+  isOwnProfile,
 }: {
   userId: string;
   userType: PublicProfileResponse["user_type"];
@@ -674,6 +683,13 @@ function PublicProfileListings({
    * has no such counter (volunteers), in which case the chip always shows.
    */
   developmentCount: number | null;
+  /**
+   * Certificates are private to their owner: the tab, its grid and the fetch
+   * behind it only exist when the signed-in user is looking at their own
+   * profile. It is false on every other profile, where nothing about the
+   * certificates is requested or rendered.
+   */
+  isOwnProfile: boolean;
 }) {
   const { t } = useTranslation();
   const [section, setSection] = useState<ProfileSection>("opportunities");
@@ -776,8 +792,9 @@ function PublicProfileListings({
     queryKey: ["public-profile-certificates", userId],
     queryFn: () => getUserCertificates(userId),
     // Fetched up front, not just when the tab is open: an empty list hides the
-    // tab, the same rule the counters follow.
-    enabled: isVolunteer,
+    // tab, the same rule the counters follow. Gated on ownership too, so a
+    // visitor never even issues the request for certificates that are not theirs.
+    enabled: isVolunteer && isOwnProfile,
   });
 
   const items: OpportunityItem[] = Array.isArray(listingQuery.data?.data)
@@ -794,7 +811,7 @@ function PublicProfileListings({
   const sections: Array<{ value: ProfileSection; label: string }> = isVolunteer
     ? [
         { value: "opportunities", label: t("COMMON.OPPORTUNITIES-") },
-        ...(certificates.length > 0
+        ...(isOwnProfile && certificates.length > 0
           ? [
               {
                 value: "certificates" as ProfileSection,
@@ -876,28 +893,8 @@ function PublicProfileListings({
       <div className="border-t border-primary-5 px-3 pt-6 2xl:px-5">
         {section !== "certificates" && (
           <div className="mb-8 flex items-center justify-between gap-6 mobilescreen:flex-col">
-            <div className="flex gap-8">
-              <button
-                type="button"
-                onClick={() => setMode("organized")}
-                className={`pb-1 text-lg ${mode === "organized" ? "border-b-2 border-primary-5 font-bold text-primary-5" : "text-black"}`}
-              >
-                {t(isVolunteer ? "COMMON.ATTENDED--" : "COMMON.ORGANIZER_TAG")}
-              </button>
-              {/* A zero sponsorship counter hides its counter card, so the tag
-                  that would open an empty list goes with it — the same rule the
-                  certificates tab follows. */}
-              {!isVolunteerTeam && !isVolunteer && sponsoredCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setMode("sponsored")}
-                  className={`pb-1 text-lg ${mode === "sponsored" ? "border-b-2 border-primary-5 font-bold text-primary-5" : "text-black"}`}
-                >
-                  {t("COMMON.SPONSOR")}
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-4 mobilescreen:flex-col mobilescreen:w-full">
+
+            <div className="flex justify-between w-full items-center gap-4 mobilescreen:flex-col mobilescreen:w-full">
               {/* All / Volunteer / Development — events are one type already */}
               {section === "opportunities" && (
                 <div className="flex gap-2">
@@ -973,6 +970,7 @@ function PublicProfileListings({
 
 export default function CommonProfile({ id }: { id: string }) {
   const language = useLanguageStore((state) => state.language);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const router = useRouter();
   const profileQuery = useQuery({
     queryKey: ["public-profile", id],
@@ -1013,6 +1011,11 @@ export default function CommonProfile({ id }: { id: string }) {
   }
 
   const profile = response.profile_data;
+  // `/public-profile/<id>` is also reachable for your own account (every
+  // avatar in the community feed, register lists and leaderboards links here
+  // by user id), so ownership is decided by id rather than by route.
+  const isOwnProfile =
+    currentUserId != null && String(currentUserId) === String(profile.id);
   return (
     <div className="border-t border-black opp-itm-shadow">
       <div className="relative mx-auto w-[90%] md:w-[85%] lg:w-[90%] 2xl:w-[75%]">
@@ -1036,6 +1039,7 @@ export default function CommonProfile({ id }: { id: string }) {
               ? null
               : toNumber(profile.learn_opportunity_organized)
           }
+          isOwnProfile={isOwnProfile}
         />
       </div>
     </div>

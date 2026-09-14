@@ -1222,11 +1222,11 @@ export default function EventForm({
                         )
                       }
                       enableCropping
-                      cropAspectRatio={1} // Square, matching the 1:1 cards
+                      cropAspectRatio={4 / 5}
                       cropShape="rect"
                       cropDisplayMode="opportunity"
                       cropWidth={600}
-                      cropHeight={600} // 1:1
+                      cropHeight={750} // 4:5, Instagram portrait — matches the cards
                     />
                   </div>
 

@@ -13,6 +13,7 @@ import { IoIosShareAlt } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
 import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
+import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
@@ -285,15 +286,22 @@ export default function VolunteerEvent({
     setShowVolunteerMandateDetails(true);
   };
 
-  // Fancybox previews the post-completion gallery in place of a new browser tab
+  // Fancybox previews the post-completion gallery in place of a new browser tab.
+  // The cover photos get their own gallery id so the lightbox doesn't let you
+  // swipe from a cover shot straight into the post-completion set — they are
+  // two different things.
   useEffect(() => {
-    const galleryId = `opportunity-gallery-${id}`;
-    NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
-      showClass: "fancybox-zoomIn",
-      hideClass: "fancybox-zoomOut",
-    });
+    const galleryIds = [`opportunity-gallery-${id}`, `opportunity-cover-${id}`];
+    galleryIds.forEach((galleryId) =>
+      NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
+        showClass: "fancybox-zoomIn",
+        hideClass: "fancybox-zoomOut",
+      })
+    );
     return () => {
-      NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`);
+      galleryIds.forEach((galleryId) =>
+        NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`)
+      );
       NativeFancybox.close();
     };
   }, [id]);
@@ -731,6 +739,12 @@ export default function VolunteerEvent({
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
     : `/public-profile/${opportunityData?.created_by?.id}`;
 
+  /** Alt text and lightbox caption for the cover-photo gallery. */
+  const coverGalleryTitle =
+    (opportunityData?.primary_language === "ar"
+      ? opportunityData?.title_ar
+      : opportunityData?.title_en) || "";
+
   // The description is always shown in full — the View More toggle was removed.
   // Rendered as HTML, so it is sanitized first: the backend stores the editor's
   // markup verbatim and any organization account can author it.
@@ -892,16 +906,14 @@ export default function VolunteerEvent({
         />
       </Modal>
 
-      <div className="relative w-full">
-        {/* `object-cover` crops to the strip without ever stretching, so the
-            uploaded square keeps its proportions. */}
+      {/* <div className="relative w-full">
         <img
           className="w-full h-[320px] object-cover"
           src={opportunityData?.opportunity_images?.[0]?.image}
           alt=""
         />
         {opportunityData && <OpportunityBadges item={opportunityData} />}
-      </div>
+      </div> */}
 
       <div className="w-[90%] mobilescreen:w-[100%] py-[40px] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] lg:mx-0 md:mx-auto mx-auto">
         <div className="grid grid-cols-1 2xl:grid-cols-[470px_auto] xl:grid-cols-[435px_auto] lg:grid-cols-[380px_auto] 2xl:gap-[69px] gap-0 lg:gap-[30px] md:gap-6">
@@ -1136,11 +1148,11 @@ export default function VolunteerEvent({
                     hasMargin={false}
                     className="2xl:leading-[50px] lg:leading-[40px] md:leading-[42px] mediumscreen1:leading-[44px] mobilescreen:leading-[32px] text-start"
                   />
-                  <OpportunityVisibilityInfo
+                  {/* <OpportunityVisibilityInfo
                     isPublic={opportunityData?.is_public}
                     showLabel
                     className="text-secondary-102"
-                  />
+                  /> */}
                 </h2>
 
                 <div className="flex flex-col items-end gap-2">
@@ -1260,7 +1272,7 @@ export default function VolunteerEvent({
                 </p>
               </div>
 
-              <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
+              {/* <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
                 <img
                   src="/assets/homepage/learn_type.svg"
                   className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
@@ -1276,7 +1288,28 @@ export default function VolunteerEvent({
                       : t("COMMON.ORGANIZATION")}
                   </span>
                 </p>
-              </div>
+              </div> */}
+               {/* Volunteering category, and the beneficiaries count that
+                        only charity opportunities carry. */}
+                    {opportunityData?.volunteer_category_display && (
+                      <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
+                        <img
+                          className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                          src="/assets/homepage/health.svg"
+                          alt=""
+                        />
+                        <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                          {t("COMMON.TYPE")} :
+                        </p>
+                        <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
+                          {
+                            opportunityData.volunteer_category_display[
+                              selectedLanguage === "ar" ? "ar" : "en"
+                            ]
+                          }
+                        </p>
+                      </div>
+                    )}
 
               <div className="grid grid-cols-1 md:grid-cols-2">
                 <div className="flex items-center pb-5 mobilescreen:pb-3.5 gap-2">
@@ -1342,6 +1375,25 @@ export default function VolunteerEvent({
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Sits with the dates it copies — Google Calendar, or an .ics
+                  for Apple Calendar / Outlook. */}
+              <div className="pb-5 mobilescreen:pb-3.5">
+                <AddToCalendar
+                  payload={{
+                    title_en: opportunityData?.title_en,
+                    title_ar: opportunityData?.title_ar,
+                    location_en:
+                      opportunityData?.location_en || opportunityData?.map_desc,
+                    location_ar:
+                      opportunityData?.location_ar || opportunityData?.map_desc,
+                    start_date: opportunityData?.start_date,
+                    end_date: opportunityData?.end_date,
+                    start_time: opportunityData?.start_time,
+                    end_time: opportunityData?.end_time,
+                  }}
+                />
               </div>
 
               <div className="border-b mb-6">
@@ -1571,27 +1623,7 @@ export default function VolunteerEvent({
                       </div>
                     )}
 
-                    {/* Volunteering category, and the beneficiaries count that
-                        only charity opportunities carry. */}
-                    {opportunityData?.volunteer_category_display && (
-                      <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
-                        <img
-                          className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                          src="/assets/homepage/health.svg"
-                          alt=""
-                        />
-                        <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                          {t("COMMON.VOLUNTEER_CATEGORY")}
-                        </p>
-                        <p className="text-secondary-102 2xl:text-xl lg:text-base text-base font-bold">
-                          {
-                            opportunityData.volunteer_category_display[
-                              selectedLanguage === "ar" ? "ar" : "en"
-                            ]
-                          }
-                        </p>
-                      </div>
-                    )}
+                   
 
                     {opportunityData?.supports_beneficiaries_count &&
                       opportunityData?.beneficiaries_count != null && (
@@ -1746,7 +1778,7 @@ export default function VolunteerEvent({
                           <img
                             src={image.image}
                             alt="Completed opportunity"
-                            className="aspect-square w-full rounded-lg object-cover"
+                            className="aspect-[4/5] w-full rounded-lg object-cover"
                           />
                         </a>
                         <div
@@ -1785,6 +1817,50 @@ export default function VolunteerEvent({
           </div>
         </div>
       </div>
+
+      {/*
+        Replaces the full-bleed hero banner that used to sit at the top of the
+        page. That banner rendered only `opportunity_images[0]`, so every other
+        photo on the opportunity was unreachable; this shows them all and opens
+        a Fancybox lightbox on click. Placed at the end of the opportunity's own
+        content, just above the sponsors band, so it doesn't compete with the
+        details for the first screen.
+
+        The badges the banner used to overlay are kept, pinned to the first
+        tile — they describe the opportunity, not any one photo, so repeating
+        them on every tile would be noise.
+
+        4:5 rather than the square used by the post-completion grid above:
+        these photos are cropped to 4:5 by the upload form, so their native
+        ratio avoids a second crop.
+      */}
+      {opportunityData?.opportunity_images?.length ? (
+        <div className="w-[90%] mobilescreen:w-[100%] border-t pt-[40px] 2xl:pt-[70px] lg:mx-0 md:mx-auto mx-auto">
+          <h2 className="mb-8 text-center text-[28px] font-bold text-primary-5">
+            {t("COMMON.GALLERY")}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 pb-[40px] sm:grid-cols-3 lg:grid-cols-4 2xl:pb-[70px]">
+            {opportunityData.opportunity_images.map((img, index) => (
+              <div key={img.id ?? index} className="relative">
+                <a
+                  href={img.image}
+                  data-fancybox={`opportunity-cover-${id}`}
+                  data-caption={coverGalleryTitle}
+                  className="block cursor-zoom-in overflow-hidden rounded-lg"
+                  title={t("COMMON.CLICK_TO_VIEW")}
+                >
+                  <img
+                    src={img.image}
+                    alt={coverGalleryTitle}
+                    className="aspect-[4/5] w-full object-cover transition-transform duration-200 hover:scale-105"
+                  />
+                </a>
+                {index === 0 && <OpportunityBadges item={opportunityData} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="border-t border pt-[40px] 2xl:pt-[70px] laptopmain:pt-[50px] laptop:pt-[40px] lg:pt-[40px]">
         <SponsorsClient />

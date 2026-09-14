@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -14,10 +14,10 @@ import "swiper/css/pagination";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
-import { Modal } from "@/components/ui/Modal";
+import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { SponsorsClient } from "@/features/home";
-import { getEventById, getEventTimeSlots, registerForEvent, unregisterFromEvent } from "@/features/events/services/eventsApi";
+import { getEventById } from "@/features/events/services/eventsApi";
 import { formatSingleDate, openLocation } from "@/lib/helpers";
 import { isViewerOrganizer } from "@/features/shared/opportunityButtonState";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
@@ -50,14 +50,17 @@ interface EventDetailsData {
   location_url?: string | null;
   from_age?: number;
   to_age?: number;
-  registration_required?: boolean;
-  paid_registration?: boolean;
-  registration_fee?: string;
+  /**
+   * Fursa only announces events — the organizer runs registration on their own
+   * channel (website, WhatsApp, Instagram), so this link is the entire
+   * registration story on this screen. The API still returns
+   * `registration_required` / `paid_registration` / `registration_fee` /
+   * `is_registered`; they are deliberately not read here.
+   */
   registration_link?: string;
   is_creator?: boolean;
-  /** Per-viewer: "organizer" | "sponsor" | "registered" | "attended". */
+  /** Per-viewer: "organizer" | "sponsor". */
   relationship_tags?: string[] | null;
-  is_registered?: boolean;
   event_status?: string;
   primary_language?: string;
   has_scan_permission?: boolean;
@@ -84,15 +87,6 @@ interface EventDetailsData {
     linkedin_link?: string | null;
   };
 }
-
-interface EventTimeSlot {
-  id: number;
-  date: string;
-  start_time: string;
-  end_time: string;
-}
-
-type RegistrationMode = "register" | "unregister" | "fee" | "timeslot" | null;
 
 const asset = (path: string) => `/assets/${path}`;
 
@@ -152,88 +146,6 @@ function EventSponsors({
   );
 }
 
-function TimeSlotPicker({
-  eventId,
-  selectedSlotId,
-  onSelect,
-}: {
-  eventId: string;
-  selectedSlotId?: number;
-  onSelect: (slotId: number) => void;
-}) {
-  const { t } = useTranslation();
-  const [selectedDate, setSelectedDate] = useState("");
-  const timeSlotQuery = useQuery({
-    queryKey: ["event-time-slots", eventId],
-    queryFn: () => getEventTimeSlots(eventId),
-  });
-
-  const slots: EventTimeSlot[] = useMemo(
-    () =>
-      Array.isArray(timeSlotQuery.data?.data) ? timeSlotQuery.data.data : [],
-    [timeSlotQuery.data]
-  );
-  const slotsByDate = useMemo(
-    () =>
-      slots.reduce<Record<string, EventTimeSlot[]>>((result, slot) => {
-        (result[slot.date] ||= []).push(slot);
-        return result;
-      }, {}),
-    [slots]
-  );
-  const dates = useMemo(
-    () => Object.keys(slotsByDate).sort((a, b) => a.localeCompare(b)),
-    [slotsByDate]
-  );
-  const activeDate = selectedDate || dates[0] || "";
-
-  if (timeSlotQuery.isLoading) return <Loader inline />;
-  if (timeSlotQuery.isError) {
-    return <p className="py-8 text-center text-red-500">{t("COMMON.TOAST.REGISTRATION_FAILED")}</p>;
-  }
-  if (!slots.length) {
-    return <p className="py-8 text-center text-gray-500">{t("COMMON.NO_TIME_SLOTS_AVAILABLE")}</p>;
-  }
-
-  return (
-    <div>
-      <div className="mb-5 flex justify-center">
-        <select
-          value={activeDate}
-          onChange={(event) => setSelectedDate(event.target.value)}
-          className="rounded-xl border px-4 py-3 text-primary-5 outline-none focus:border-primary-5"
-        >
-          {dates.map((date) => (
-            <option key={date} value={date}>
-              {moment(date).format("ddd, MMMM D, YYYY")}
-            </option>
-          ))}
-        </select>
-      </div>
-      <h3 className="mb-6 text-center text-4xl font-bold text-primary-5">
-        {t("COMMON.SELECT_TIME")}
-      </h3>
-      <div className="grid grid-cols-1 justify-items-center gap-4 md:grid-cols-2">
-        {(slotsByDate[activeDate] || []).map((slot) => (
-          <button
-            key={slot.id}
-            type="button"
-            onClick={() => onSelect(slot.id)}
-            className={`h-[84px] w-[252px] rounded-[15px] px-8 py-4 ${
-              selectedSlotId === slot.id
-                ? "bg-primary-5 text-white"
-                : "bg-[#EFF0F6] text-[#181822CC]"
-            }`}
-          >
-            {moment(slot.start_time, "HH:mm:ss").format("h:mm a")} -{" "}
-            {moment(slot.end_time, "HH:mm:ss").format("h:mm a")}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function DetailRow({
   icon,
   label,
@@ -257,9 +169,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
   const language = useLanguageStore((state) => state.language);
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [registrationMode, setRegistrationMode] = useState<RegistrationMode>(null);
-  const [selectedSlotId, setSelectedSlotId] = useState<number>();
 
   // Bind Fancybox to the event image gallery
   useEffect(() => {
@@ -302,59 +211,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     router.replace("/404");
   }, [eventQuery.error, language, router, t]);
 
-  const closeRegistration = () => {
-    setRegistrationMode(null);
-    setSelectedSlotId(undefined);
-  };
-
-  const registrationMutation = useMutation({
-    mutationFn: () =>
-      registerForEvent({
-        event: eventId,
-        ...(selectedSlotId ? { time_slot_id: selectedSlotId } : {}),
-      }),
-    onSuccess: () => {
-      toast.success(
-        t(
-          selectedSlotId
-            ? "COMMON.TOAST.TIME_SLOT_REGISTRATION_SUCCESSFUL"
-            : "COMMON.TOAST.REGISTRATION_SUCCESSFUL"
-        )
-      );
-      if (event) {
-        sessionStorage.setItem(
-          "event_thankyou_details",
-          JSON.stringify({
-            title_ar: event.title_ar,
-            title_en: event.title_en,
-            start_date: event.start_date,
-            isInPerson: true,
-          })
-        );
-      }
-      closeRegistration();
-      queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
-      router.push("/event-thankyou");
-    },
-    onError: (error) =>
-      toast.error(
-        localizedError(error, language, t("COMMON.TOAST.REGISTRATION_FAILED"))
-      ),
-  });
-
-  const unregisterMutation = useMutation({
-    mutationFn: () => unregisterFromEvent(eventId),
-    onSuccess: () => {
-      toast.success(t("COMMON.TOAST.UNREGISTRATION_SUCCESSFUL"));
-      closeRegistration();
-      queryClient.invalidateQueries({ queryKey: ["event-details", eventId] });
-    },
-    onError: (error) =>
-      toast.error(
-        localizedError(error, language, t("COMMON.TOAST.UNREGISTRATION_FAILED"))
-      ),
-  });
-
   if (eventQuery.isLoading) return <Loader />;
   if (eventQuery.isError || !event) {
     return (
@@ -382,65 +238,40 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     value?.[language === "ar" ? "value_ar" : "value_en"] || "";
   const isActive = event.event_status === "upcoming" || event.event_status === "inprogress";
 
-  const openRegistration = () => {
-    if (isCreator) {
-      const republish = event.event_status === "completed" || event.event_status === "inprogress";
-      setNavState(NAV_STATE_KEYS.eventForm, {
-        id: String(event.id),
-        isRepublish: republish,
-      });
-      router.push("/event-form");
-      return;
-    }
-    if (!user?.auth_token) {
-      router.push(`/login?returnTo=${encodeURIComponent(`/event-details/${event.id}`)}`);
-      return;
-    }
-    if (event.paid_registration) {
-      setRegistrationMode(
-        event.attendance_type_display?.value_en === "Fixed Date Entry"
-          ? "timeslot"
-          : "fee"
-      );
-    } else {
-      setRegistrationMode(event.is_registered ? "unregister" : "register");
-    }
-  };
-
-  const goToRegisteredList = () => {
-    setNavState(NAV_STATE_KEYS.registerList, {
+  const goToEventForm = () => {
+    const republish = event.event_status === "completed" || event.event_status === "inprogress";
+    setNavState(NAV_STATE_KEYS.eventForm, {
       id: String(event.id),
-      event_status: event.event_status,
-      // Event attendance is updated through the organizer-owned registration
-      // endpoint; it is independent of the volunteer-opportunity QR flow.
-      manual_tracking: true,
+      isRepublish: republish,
     });
-    router.push("/event-register-list");
+    router.push("/event-form");
   };
 
+  /**
+   * Events are announcements only. The creator gets Edit/Repost; everyone else
+   * gets the organizer's own registration link, opened externally. There is no
+   * in-app register/unregister — the organizer collects sign-ups on their
+   * website, WhatsApp or Instagram, so Fursa never holds a participation record.
+   */
   const actionButton = (mobile = false) => {
     if (isCreator) {
-      // Unlike the register/unregister action below, managing your own event
-      // (Edit/Repost) isn't gated behind verification — the list cards never
-      // hid it for an unverified creator either. A banned user still can't.
+      // Managing your own event isn't gated behind verification — the list
+      // cards never hid it for an unverified creator either. A banned user
+      // still can't.
       if (user?.is_banned) return null;
       const republish = event.event_status === "completed" || event.event_status === "inprogress";
       return (
         <Button
           size="medium"
           className={mobile ? "my-6 !h-14 !w-full" : "whitespace-nowrap"}
-          onClick={openRegistration}
+          onClick={goToEventForm}
         >
           {t(republish ? "COMMON.REPOST" : "COMMON.EDIT_TEXT")}
         </Button>
       );
     }
 
-    const isExternalPaidEvent =
-      event.registration_link &&
-      event.participation_type_display?.value_en !== "Free Event" &&
-      isActive;
-    if (isExternalPaidEvent) {
+    if (event.registration_link && isActive) {
       return (
         <Button
           size="medium"
@@ -448,18 +279,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
           onClick={() => window.open(event.registration_link, "_blank", "noopener,noreferrer")}
         >
           {t("COMMON.REGISTRATION_LINK")}
-        </Button>
-      );
-    }
-
-    if (event.registration_required && isActive) {
-      return (
-        <Button
-          size="medium"
-          className={mobile ? "my-6 !h-14 !w-full" : "whitespace-nowrap"}
-          onClick={openRegistration}
-        >
-          {t(event.is_registered ? "COMMON.UNREGISTER" : "COMMON.REGISTER")}
         </Button>
       );
     }
@@ -474,91 +293,9 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     ["linkedin_link", "profile/linkdin.svg", "LinkedIn"],
   ] as const;
 
-  const modalTitle =
-    registrationMode === "fee"
-      ? t("COMMON.REGISTARTION.FEE")
-      : registrationMode === "timeslot"
-        ? t("COMMON.TIME")
-        : registrationMode === "unregister"
-          ? t("COMMON.CONFIRM_UNREGISTRATION")
-          : t("COMMON.CONFIRM_REGISTRATION");
-
   return (
     <div className="w-full">
-      <Modal
-        open={registrationMode !== null}
-        onClose={closeRegistration}
-        title={modalTitle}
-        size={registrationMode === "timeslot" ? "md" : "sm"}
-      >
-        {registrationMode === "timeslot" ? (
-          <>
-            <TimeSlotPicker
-              eventId={event.id}
-              selectedSlotId={selectedSlotId}
-              onSelect={setSelectedSlotId}
-            />
-            <div className="mt-8 flex justify-center">
-              <Button
-                size="medium"
-                disabled={!selectedSlotId || registrationMutation.isPending}
-                onClick={() => registrationMutation.mutate()}
-              >
-                {t("COMMON.CONFIRM")}
-              </Button>
-            </div>
-          </>
-        ) : registrationMode === "fee" ? (
-          <>
-            <p className="pb-10 text-center text-[70px] font-bold text-primary-5">
-              {event.registration_fee || "—"}
-            </p>
-            <div className="flex justify-center">
-              <Button
-                size="medium"
-                disabled={registrationMutation.isPending}
-                onClick={() => registrationMutation.mutate()}
-              >
-                {t("COMMON.PAY_NOW")}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="pb-10 text-center text-lg">
-              {t(
-                registrationMode === "unregister"
-                  ? "COMMON.EVENT.UNREGISTER_CONFIRMATION_MESSAGE"
-                  : "COMMON.ARE_YOU_SURE_REGISTER_FOR_EVENT"
-              )}
-            </p>
-            <div className="flex justify-center gap-5 xss:flex-col">
-              <Button
-                size="medium"
-                className="xss:!w-full"
-                disabled={registrationMutation.isPending || unregisterMutation.isPending}
-                onClick={() =>
-                  registrationMode === "unregister"
-                    ? unregisterMutation.mutate()
-                    : registrationMutation.mutate()
-                }
-              >
-                {t("COMMON.CONFIRM")}
-              </Button>
-              <Button
-                variant="secondary"
-                size="medium"
-                className="xss:!w-full"
-                onClick={closeRegistration}
-              >
-                {t("COMMON.CANCEL")}
-              </Button>
-            </div>
-          </>
-        )}
-      </Modal>
-
-      {event.event_images?.length ? (
+      {/* {event.event_images?.length ? (
         <div className="relative h-[320px] w-full md:h-[460px]">
           {(event.event_images?.length ?? 0) > 1 ? (
             <Swiper
@@ -602,7 +339,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
             )
           )}
         </div>
-      ) : null}
+      ) : null} */}
 
       <div className="mx-auto w-[90%] py-10 2xl:py-[70px] mobilescreen:w-full">
         <div className="grid grid-cols-1 gap-0 lg:grid-cols-[380px_auto] lg:gap-[30px] 2xl:grid-cols-[470px_auto] 2xl:gap-[69px]">
@@ -657,16 +394,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
               </div>
               <div className="flex shrink-0 flex-col gap-3 xss:hidden">
                 {actionButton()}
-                {isCreator && (
-                  <Button
-                    variant="secondary"
-                    size="medium"
-                    className="whitespace-nowrap"
-                    onClick={goToRegisteredList}
-                  >
-                    {t("COMMON.REGISTERED_LIST")}
-                  </Button>
-                )}
               </div>
             </div>
 
@@ -693,6 +420,23 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                     : "COMMON.PM"
                 )}
               </DetailRow>
+            </div>
+
+            {/* Sits with the dates it copies — Google Calendar, or an .ics
+                for Apple Calendar / Outlook. */}
+            <div className="pb-5 mobilescreen:pb-3.5">
+              <AddToCalendar
+                payload={{
+                  title_en: event.title_en,
+                  title_ar: event.title_ar,
+                  location_en: event.location_en,
+                  location_ar: event.location_ar,
+                  start_date: event.start_date,
+                  end_date: event.end_date,
+                  start_time: event.start_time,
+                  end_time: event.end_time,
+                }}
+              />
             </div>
 
             <div className="mb-6 border-b">
@@ -724,16 +468,6 @@ export default function EventDetails({ eventId }: { eventId: string }) {
                 </div>
                 <div className="hidden xss:flex xss:flex-col xss:gap-3">
                   {actionButton(true)}
-                  {isCreator && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="!h-14 !w-full"
-                      onClick={goToRegisteredList}
-                    >
-                      {t("COMMON.REGISTERED_LIST")}
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
@@ -786,6 +520,45 @@ export default function EventDetails({ eventId }: { eventId: string }) {
           </main>
         </div>
       </div>
+
+      {/*
+        Replaces the full-bleed hero banner that used to sit at the top of the
+        page. The banner only ever showed one photo (or auto-advanced through
+        them), so the rest of the event's images were effectively invisible;
+        this shows every one at once and opens the same Fancybox lightbox on
+        click. Placed at the end of the event's own content, just above the
+        sponsors band, so it doesn't compete with the details for the first
+        screen of attention.
+
+        4:5 rather than the square used by other thumbnail grids: these photos
+        are cropped to 4:5 by the upload form, so rendering them at their native
+        ratio avoids a second crop.
+      */}
+      {event.event_images?.length ? (
+        <div className="mx-auto w-[90%] border-t pt-10 2xl:pt-[70px] mobilescreen:w-full">
+          <h2 className="mb-8 text-center text-[28px] font-bold text-primary-5">
+            {t("COMMON.GALLERY")}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 pb-10 sm:grid-cols-3 lg:grid-cols-4 2xl:pb-[70px]">
+            {event.event_images.map((img) => (
+              <a
+                key={img.id}
+                href={img.image}
+                data-fancybox={`event-gallery-${event.id}`}
+                data-caption={language === "ar" ? event.title_ar : event.title_en}
+                className="block cursor-zoom-in overflow-hidden rounded-lg"
+                title={t("COMMON.CLICK_TO_VIEW")}
+              >
+                <img
+                  src={img.image}
+                  alt={language === "ar" ? event.title_ar : event.title_en}
+                  className="aspect-[4/5] w-full object-cover transition-transform duration-200 hover:scale-105"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="border-t pt-10 2xl:pt-[70px]">
         <SponsorsClient />

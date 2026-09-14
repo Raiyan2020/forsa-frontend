@@ -202,14 +202,14 @@ const EventListCard: React.FC<EventCardProps> = ({
     }
   };
 
+  /**
+   * Events are announcements: Fursa never takes a registration for one, so the
+   * card never offers Register/Full. The creator manages their own event, and
+   * everyone else is sent to the detail page, where the organizer's external
+   * registration link lives.
+   */
   const getButtonText = (item: EventData) => {
-    if (!user) {
-      if (item.registration_required) {
-        return t("COMMON.REGISTER");
-      } else {
-        return t("COMMON.DETAILS");
-      }
-    }
+    if (!user) return t("COMMON.DETAILS");
 
     if (item.created_by?.id === user.id) {
       if (item.event_status === "completed" || item.event_status === "inprogress") {
@@ -226,16 +226,6 @@ const EventListCard: React.FC<EventCardProps> = ({
     const today = moment();
     if (dueDate.isBefore(today, "day")) {
       return t("COMMON.CLOSED");
-    }
-
-    if (item.registration_required) {
-      // The API sends these as Arabic-Indic digit strings under `ar` — see
-      // `toNumber()`'s doc comment in lib/helpers.ts.
-      const registeredCount = toNumber(item.registered_volunteers_count);
-      if (registeredCount >= toNumber(item.participants_needed)) {
-        return t("COMMON.FULL");
-      }
-      return t("COMMON.REGISTER");
     }
 
     return t("COMMON.DETAILS");
@@ -342,8 +332,8 @@ const EventListCard: React.FC<EventCardProps> = ({
                           />
                         </div>
                       )}
-                    {/* Square (1:1) crop, matching the upload form and the other cards. */}
-                    <div className="relative w-full aspect-square">
+                    {/* 4:5 portrait (Instagram), matching the upload form and the other cards. */}
+                    <div className="relative w-full aspect-[4/5]">
                       <Image
                         src={item?.event_images[0]?.image || "/placeholder.jpg"}
                         alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}

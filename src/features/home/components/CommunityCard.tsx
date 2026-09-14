@@ -217,7 +217,7 @@ export default function CommunityCard({
                     ? currentSlide === 0
                     : currentSlide >= totalItems - maxVisibleItems
                 }
-                className="bg-white text-primary-5 p-3 rounded-full shadow-lg hover:bg-secondary-103 transition absolute top-[50%] right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-75px] lg:right-[-45px] md:right-[-40px] -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-white text-primary-5 p-3 rounded-full shadow-lg hover:bg-secondary-103 transition absolute top-[50%] right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-55px] lg:right-[-45px] md:right-[-40px] -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronRight size={24} />
               </button>

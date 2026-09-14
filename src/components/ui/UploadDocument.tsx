@@ -244,10 +244,27 @@ const CropModal: React.FC<CropModalProps> = ({
   const getBaseFrameDimensions = () => {
     const defaultWidth = 400;
     if (cropDisplayMode === 'opportunity') {
-      const desktopAspect = 3.5;
+      /*
+       * Opportunity, event and learn & serve photos are rendered on cards at
+       * Instagram's 4:5 portrait ratio, so that is what the cropper must
+       * produce.
+       *
+       * This branch used to hardcode 3.5 (a wide banner) and ignore
+       * cropWidth/cropHeight completely, while all three call sites passed
+       * `cropWidth={600} cropHeight={600} // 1:1` and the cards rendered
+       * `aspect-square`. That was three different ratios in one pipeline: the
+       * user cropped a wide strip, and the card then centre-cropped it again,
+       * throwing away most of what they had framed. It now honours the
+       * caller's dimensions like every other mode.
+       */
+      const cardAspect =
+        cropWidth && cropHeight ? cropWidth / cropHeight : 4 / 5;
       const width = cropWidth || defaultWidth;
-      const height = Math.round(width / desktopAspect);
-      return { width, height, aspectRatio: desktopAspect };
+      return {
+        width,
+        height: Math.round(width / cardAspect),
+        aspectRatio: cardAspect,
+      };
     } else if (cropDisplayMode === 'license') {
       const width = cropWidth || 300;
       return { width, height: width, aspectRatio: 1 };

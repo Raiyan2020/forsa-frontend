@@ -6,13 +6,11 @@ import "react-multi-carousel/lib/styles.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import moment from "moment";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import apiClient from "@/lib/api/client";
 import { useLanguageStore } from "@/store/languageStore";
 import Loader from "@/components/ui/Loader";
-import Image from "next/image";
 import {
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
@@ -23,9 +21,9 @@ import {
   learnServeEditPath,
 } from "@/features/opportunities/routes";
 import { NAV_STATE_KEYS, setNavState } from "@/lib/navigationState";
-import OpportunityBadges, {
-  OpportunityVisibilityInfo,
-} from "@/features/opportunities/components/OpportunityBadges";
+import OpportunityCard, {
+  getOpportunityAccent,
+} from "@/features/opportunities/components/OpportunityCard";
 
 
 interface OpportunityImage {
@@ -137,50 +135,9 @@ const responsive = {
   mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },
 };
 
-function formatDateRange(
-  start_date: string,
-  end_date: string,
-  locale: string,
-  t: (key: string) => string
-) {
-  const start = moment(start_date, "YYYY-MM-DD");
-  const end = moment(end_date, "YYYY-MM-DD");
-
-  const startDay = start.format("DD");
-  const endDay = end.format("DD");
-  const startMonth = start.month() + 1;
-  const endMonth = end.month() + 1;
-
-  const monthKeys = {
-    1: "COMMON.JANUARY",
-    2: "COMMON.FEBRUARY",
-    3: "COMMON.MARCH",
-    4: "COMMON.APRIL",
-    5: "COMMON.MAY",
-    6: "COMMON.JUNE",
-    7: "COMMON.JULY",
-    8: "COMMON.AUGUST",
-    9: "COMMON.SEPTEMBER",
-    10: "COMMON.OCTOBER",
-    11: "COMMON.NOVEMBER",
-    12: "COMMON.DECEMBER",
-  };
-
-  const startMonthKey = monthKeys[startMonth as keyof typeof monthKeys];
-  const endMonthKey = monthKeys[endMonth as keyof typeof monthKeys];
-
-  if (startMonth === endMonth) {
-    if (locale === "ar") {
-      return `${endDay}-${startDay} ${t(startMonthKey)}`;
-    }
-    return `${startDay}-${endDay} ${t(startMonthKey)}`;
-  } else {
-    if (locale === "ar") {
-      return `${startDay} ${t(startMonthKey)} - ${endDay} ${t(endMonthKey)}`;
-    }
-    return `${startDay} ${t(startMonthKey)} - ${endDay} ${t(endMonthKey)}`;
-  }
-}
+// A third copy of `formatDateRange` lived here, alongside the ones in
+// lib/helpers.ts and OpportunitiesListCard. OpportunityCard renders the date
+// strip now, so this one is gone too.
 
 export default function VolunteerCard({
   isOpportunity,
@@ -199,6 +156,11 @@ export default function VolunteerCard({
   const [maxVisibleItems, setMaxVisibleItems] = useState(3);
   const carouselRef = useRef<Carousel>(null);
   const router = useRouter();
+  const accent = getOpportunityAccent({
+    isLearnServe,
+    isOpportunity,
+    isHomepage: is_homepage,
+  });
 
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
@@ -439,252 +401,29 @@ export default function VolunteerCard({
               ) => (
                 <div
                   key={`${isLearnServe ? "learn" : "volunteer"}-${item.id}-${index}`}
-                  className="2xl:px-5 px-3 mobilescreen:px-[13px] mb-[5px] mobilescreen:pb-8"
+                  className="2xl:px-3 px-2 mobilescreen:px-[13px] mb-[5px] mobilescreen:pb-8"
                 >
-                  <Link
-                    href={
+                  <OpportunityCard
+                    item={item}
+                    isLearnServe={isLearnServe}
+                    detailHref={
                       isLearnServe
                         ? `/learn-share-event-detail/${item.id}`
                         : `/volunteer-event-detail/${item.id}`
                     }
-                  >
-                    <div className="relative">
-                      {/* Main Image Container */}
-                      {/* Square (1:1) crop — matches the ratio the upload form
-                          crops to, so the card never letterboxes or stretches. */}
-                      <div className="relative w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] overflow-hidden">
-                        <Image
-                          src={item?.opportunity_images?.[0]?.image || "/assets/homepage/baner_img.png"}
-                          alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          className="object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                      {/* Status Icons */}
-                      <OpportunityBadges item={item} />
-                      {/* Date and Time Overlay */}
-                      <div className="grid grid-cols-2 text-sm text-gray-600 bg-[#000000B2]/70 absolute w-full bottom-0 h-[39px] items-center">
-                        <span className="flex miniscreen3:text-[12px] smallscreen:text-[10px] laptopitms:text-xs text-white justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs:text-xs">
-                          <Image
-                            className="smallscreen:w-3 2xl:w-5 2xl:h-5 w-4 h-4"
-                            src="/assets/homepage/dateicn.svg"
-                            alt=""
-                            width={20}
-                            height={20}
-                            unoptimized
-                            aria-hidden="true"
-                          />
-                          {formatDateRange(item.start_date, item.end_date, selectedLanguage, t)}
-                        </span>
-                        <div className="h-[60%] w-[1px] bg-white absolute left-1/2 top-[8px]"></div>
-                        <span className="text-white miniscreen3:text-[12px] smallscreen:text-[10px] laptopitms:text-xs flex justify-center gap-2 items-center 2xl:text-base laptopmain:text-sm md:text-sm miniscreen1:text-[13px] xs:text-xs">
-                          <Image
-                            src="/assets/homepage/timeicn.svg"
-                            className="smallscreen:w-3 2xl:w-5 2xl:h-5 w-4 h-4"
-                            alt=""
-                            width={20}
-                            height={20}
-                            unoptimized
-                            aria-hidden="true"
-                          />
-                          {item.start_time && item.end_time ? (
-                            <>
-                              {moment(item.start_time, "HH:mm:ss").format("hh:mm")}{" "}
-                              {moment(item.start_time, "HH:mm:ss").format("a") === "am"
-                                ? t("COMMON.AM")
-                                : t("COMMON.PM")}{" "}
-                              -{" "}
-                              {moment(item.end_time, "HH:mm:ss").format("hh:mm")}{" "}
-                              {moment(item.end_time, "HH:mm:ss").format("a") === "am"
-                                ? t("COMMON.AM")
-                                : t("COMMON.PM")}
-                            </>
-                          ) : item.start_time ? (
-                            <>
-                              {moment(item.start_time, "HH:mm:ss").format("hh:mm")}{" "}
-                              {moment(item.start_time, "HH:mm:ss").format("a") === "am"
-                                ? t("COMMON.AM")
-                                : t("COMMON.PM")}
-                            </>
-                          ) : item.end_time ? (
-                            <>
-                              {moment(item.end_time, "HH:mm:ss").format("hh:mm")}{" "}
-                              {moment(item.end_time, "HH:mm:ss").format("a") === "am"
-                                ? t("COMMON.AM")
-                                : t("COMMON.PM")}
-                            </>
-                          ) : null}
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                  {/* Card Content */}
-                  <Link
-                    href={
-                      isLearnServe
-                        ? `/learn-share-event-detail/${item.id}`
-                        : `/volunteer-event-detail/${item.id}`
+                    borderClass={accent.border}
+                    buttonClass={accent.button}
+                    peopleIconSrc={accent.peopleIcon}
+                    actionLabel={getButtonText(item)}
+                    onAction={() => handleActionClick(item)}
+                    onTagClick={(tag: string) =>
+                      router.push(
+                        isLearnServe
+                          ? `/learn-and-share-list?tags=${encodeURIComponent(tag)}`
+                          : `/volunteer-opportunities-list?tags=${encodeURIComponent(tag)}`
+                      )
                     }
-                  >
-                    <div
-                      className={`boxshadowsitm 2xl:px-7 px-3 xss:px-3 rounded-b-[20px] border border-t-0 pb-10 relative bg-[#F7F7F7] ${
-                        isLearnServe && is_homepage
-                          ? "border-primary-803"
-                          : isOpportunity && is_homepage
-                          ? "border-primary-802"
-                          : "border-primary-5"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 2xl:pb-7 pb-3 pt-[19px]">
-                        <h3 className="2xl:text-[25px] text-lg text-secondary-100 font-bold truncate whitespace-nowrap overflow-hidden">
-                          {selectedLanguage === "ar" ? item.title_ar : item.title_en}
-                        </h3>
-                        <OpportunityVisibilityInfo
-                          isPublic={item.is_public}
-                          className="mt-1 shrink-0"
-                        />
-                      </div>
-                      <div>
-                        <div className="grid grid-cols-2 extrasmall:flex-col justify-between pb-[22px]">
-                          <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={
-                                isLearnServe && "learning_type_display" in item
-                                  ? "/assets/homepage/learn_type.svg"
-                                  : "/assets/voluneteerevent/age.svg"
-                              }
-                              className="w-5 h-5 object-contain"
-                              width={20}
-                              height={20}
-                              unoptimized
-                              alt=""
-                              aria-hidden="true"
-                            />
-                            <span className="line-clamp-1">
-                              {isLearnServe && "learning_type_display" in item ? (
-                                (() => {
-                                  const val =
-                                    item.learning_type_display?.[
-                                      selectedLanguage === "ar" ? "value_ar" : "value_en"
-                                    ] ?? "";
-                                  return val.length > 12 ? val.slice(0, 12) + ".." : val;
-                                })()
-                              ) : (
-                                <>
-                                  {item?.from_age}
-                                  {item?.to_age ? (
-                                    <>
-                                      <span className="text-secondary-102"> - </span>
-                                      {item?.to_age}
-                                    </>
-                                  ) : (
-                                    <span className="text-secondary-102"> + </span>
-                                  )}
-                                </>
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={
-                                item.format === "ONLINE" ||
-                                (item.format_display &&
-                                  (item.format_display.value_en.toLowerCase() === "online" ||
-                                    item.format_display.value_ar.toLowerCase() === "عن بعد"))
-                                  ? "/assets/voluneteerevent/online.svg"
-                                  : "/assets/homepage/locations.svg"
-                              }
-                              className="w-5 h-5 object-contain"
-                              width={20}
-                              height={20}
-                              unoptimized
-                              alt=""
-                              aria-hidden="true"
-                            />
-                            <span className="flex-1 overflow-hidden line-clamp-1 text-ellipsis">
-                              {(() => {
-                                const isOnline =
-                                  item.format === "ONLINE" ||
-                                  (item.format_display &&
-                                    (item.format_display.value_en?.toLowerCase() === "online" ||
-                                      item.format_display.value_ar?.toLowerCase() === "عن بعد"));
-
-                                if (isOnline) {
-                                  return t("COMMON.ONLINE");
-                                }
-
-                                if (isLearnServe) {
-                                  return t("COMMON.IN_PERSON");
-                                }
-
-                                // For volunteer opportunities, show location
-                                const volItem = item as VolunteerOpportunityData;
-                                const locationText =
-                                  (selectedLanguage === "ar"
-                                    ? volItem.location_ar
-                                    : volItem.location_en) || t("COMMON.LOADING_LOCATION");
-
-                                return typeof locationText === "string" && locationText.length > 12
-                                  ? locationText.slice(0, 12).concat("...")
-                                  : locationText;
-                              })()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 extrasmall:flex-col justify-between text-secondary-102 text-lg">
-                          <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight">
-                            <Image
-                              src={
-                                isLearnServe && is_homepage
-                                  ? "/assets/homepage/person_icon_organized.svg"
-                                  : isOpportunity && is_homepage
-                                  ? "/assets/homepage/person_icon_blue.svg"
-                                  : "/assets/homepage/person.svg"
-                              }
-                              className="w-5 h-5 object-contain"
-                              width={20}
-                              height={20}
-                              unoptimized
-                              alt=""
-                              aria-hidden="true"
-                            />
-                            {`${item.registered_volunteers_count}/${item.participants_needed}`}
-                          </div>
-                          <div className="flex items-center text-secondary-102 2xl:text-lg lg:text-base text-sm xss:text-base gap-2 leading-tight overflow-hidden">
-                            <Image
-                              src="/assets/homepage/health.svg"
-                              className="w-5 h-5 object-contain"
-                              width={20}
-                              height={20}
-                              unoptimized
-                              alt=""
-                              aria-hidden="true"
-                            />
-                            <p className="line-clamp-1 text-ellipsis overflow-hidden">
-                              {item?.interest_display?.[0]?.[
-                                selectedLanguage === "ar" ? "value_ar" : "value_en"
-                              ] ?? ""}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                  {/* Button */}
-                  <button
-                    className={`${
-                      isLearnServe && is_homepage
-                        ? "bg-primary-803"
-                        : isOpportunity && is_homepage
-                        ? "bg-primary-802"
-                        : "bg-primary-5"
-                    } relative mx-auto flex justify-center bottom-[25px] text-white font-bold py-2 px-6 rounded-md hover:opacity-90 transition duration-200`}
-                    onClick={() => handleActionClick(item)}
-                  >
-                    <span className="leading-tight">{getButtonText(item)}</span>
-                  </button>
+                  />
                 </div>
               )
             )}
@@ -723,7 +462,7 @@ export default function VolunteerCard({
                     : isOpportunity && is_homepage
                     ? "bg-primary-802 hover:bg-secondary-106"
                     : "bg-primary-5 hover:bg-secondary-103"
-                } text-white p-3 rounded-full shadow-lg transition absolute right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-75px] lg:right-[-50px] md:right-[-45px] top-1/2 -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                } text-white p-3 rounded-full shadow-lg transition absolute right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-55px] lg:right-[-50px] md:right-[-45px] top-1/2 -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <ChevronRight size={24} />
               </button>

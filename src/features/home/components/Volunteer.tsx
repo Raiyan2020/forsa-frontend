@@ -20,7 +20,7 @@ export default function Volunteer({ initialOpportunities = [] }: VolunteerProps)
 
   return (
     <div className="border-b border-b-[#000000]/20 relative">
-      <div className="profilevolunteer 2xl:w-[75%] laptopmain:w-[83%] laptop:w-[78%] laptopitm:w-[85%] lg:w-[90%] md:w-[85%] w-[90%] mx-auto 2xl:py-[70px] laptopmain:py-[50px] py-[40px] lg:py-[40px] mobilescreen:py-[40px] relative dotlist-white">
+      <div className="profilevolunteer 2xl:w-[75%] laptopmain:w-[90%] laptop:w-[78%] laptopitm:w-[90%] lg:w-[95%] md:w-[85%] w-[90%] mx-auto 2xl:py-[70px] laptopmain:py-[50px] py-[40px] lg:py-[40px] mobilescreen:py-[40px] relative dotlist-white">
         <div className="2xl:px-5 px-3 mobilescreen:px-[13px] flex justify-between items-center">
           <h2>
             <Title

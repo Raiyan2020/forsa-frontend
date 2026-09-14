@@ -5,47 +5,35 @@ import { toast } from "sonner";
 import i18n from "@/lib/i18n/config";
 import { t } from "i18next";
 import moment from "moment";
+import { parseLocalizedNumber, toWesternDigits } from "@/lib/digits";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const ARABIC_INDIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+/**
+ * Parse a numeric field that may arrive as an Arabic-Indic digit string.
+ *
+ * Responses are already normalized at the axios boundary (`lib/api/client.ts`),
+ * so in practice this now receives ASCII — but it stays tolerant for values
+ * that reach the UI by another route (sessionStorage payloads, SSR props,
+ * anything hand-built), and it is still the right call before doing arithmetic
+ * on an API count.
+ */
+export const toNumber = parseLocalizedNumber;
 
 /**
- * Several Fursa API endpoints localize numeric fields into Arabic-Indic digit
- * strings when Arabic is the active language — e.g. `total_certificates`
- * comes back as `"٢"` instead of `2` — which silently breaks a plain `> 0`
- * check or any arithmetic (`Number("٢")` is `NaN`, and `"٢" > 0` is therefore
- * `false`). Run a value through this before comparing or doing math on it;
- * keep the original value for display, since it's already correctly
- * localized there.
+ * Render a numeric field as digits.
+ *
+ * Digits deliberately do **not** follow the UI language: this product renders
+ * `12345` in Arabic exactly as in English, so unlike the rest of the i18n layer
+ * there is nothing to switch on. Kept as a named helper (rather than inlining
+ * `toWesternDigits`) because it also pins the empty/missing case to `"0"`,
+ * which the stat cards rely on.
  */
-export const toNumber = (value: unknown): number => {
-  if (typeof value === "number") return value;
-  if (typeof value !== "string") return 0;
-  const normalized = value.replace(/[٠-٩]/g, (digit) =>
-    String(ARABIC_INDIC_DIGITS.indexOf(digit))
-  );
-  const parsed = parseFloat(normalized);
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
-/**
- * Display counterpart of `toNumber()`. The API localizes numeric fields into
- * Arabic-Indic digit strings when Arabic is active, but the digit system on
- * screen must follow the UI language — an English UI must never render
- * `١٤١.٧٥`. Only digit characters are remapped, so separators and decimals in
- * values like `"1,234.5"` survive untouched; Arabic output is left exactly as
- * the API sent it (already correctly localized).
- */
-export const toDisplayDigits = (value: unknown, language: string): string => {
+export const toDisplayDigits = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "0";
-  const raw = String(value);
-  if (language === "ar") return raw;
-  return raw.replace(/[٠-٩]/g, (digit) =>
-    String(ARABIC_INDIC_DIGITS.indexOf(digit))
-  );
+  return toWesternDigits(value);
 };
 
 export const maskEmail = (email: string) => {

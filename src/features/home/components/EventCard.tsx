@@ -49,8 +49,11 @@ interface EventCardProps {
   refetch?: () => void;
 }
 
+// Four across on wide screens, matching the volunteer and learn & serve
+// carousels. Both the client query and the server prefetch pull 6 events, so
+// there is still a second page to scroll to at this width.
 const responsive = {
-  superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 3 },
+  superLargeDesktop: { breakpoint: { max: 4000, min: 1200 }, items: 4 },
   desktop: { breakpoint: { max: 1200, min: 800 }, items: 2 },
   tablet: { breakpoint: { max: 800, min: 464 }, items: 1 },
   mobile: { breakpoint: { max: 464, min: 0 }, items: 1 },
@@ -218,11 +221,11 @@ export default function EventCard({
         afterChange={(_, { currentSlide }) => setCurrentSlide(currentSlide)}
       >
         {events.map((item) => (
-          <div className="2xl:px-5 px-3 mobilescreen:px-[13px] mb-[5px] mobilescreen:pb-11" key={item.id}>
+          <div className="2xl:px-3 px-2 mobilescreen:px-[13px] mb-[5px] mobilescreen:pb-11" key={item.id}>
             <div className="border-[#484848] relative rounded-t-[20px] border-t-[1px] border-l-[1px] border-r-[1px]">
               <Link href={`/event-details/${item.id}`}>
-                {/* Square (1:1) crop, matching the upload form and the other cards. */}
-                <div className="relative w-full aspect-square rounded-t-[20px] overflow-hidden">
+                {/* 4:5 portrait (Instagram), matching the upload form and the other cards. */}
+                <div className="relative w-full aspect-[4/5] rounded-t-[20px] overflow-hidden">
                   <Image
                     src={item?.event_images?.[0]?.image || "/assets/homepage/baner_img.png"}
                     alt={selectedLanguage === "ar" ? item.title_ar : item.title_en}
@@ -388,7 +391,7 @@ export default function EventCard({
             className={`${is_homepage
               ? "bg-primary-801 hover:bg-secondary-104 top-[50%]"
               : "bg-primary-5 hover:bg-secondary-103 top-[63%]"
-              } text-white p-3 rounded-full shadow-lg transition absolute right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-75px] lg:right-[-50px] md:right-[-45px] top-1/2 -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed`}
+              } text-white p-3 rounded-full shadow-lg transition absolute right-[-50px] 2xl:right-[-75px] xl:right-[-50px] laptop:right-[-55px] lg:right-[-50px] md:right-[-45px] top-1/2 -translate-y-1/2 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <ChevronRight size={24} />
           </button>

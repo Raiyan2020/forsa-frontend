@@ -12,6 +12,7 @@ import { FiDownload } from "react-icons/fi";
 import { MdDelete } from "react-icons/md";
 import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
+import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
@@ -168,6 +169,22 @@ const TAG_TEXT_COLORS = [
 /** Learning types that always carry a certificate, and so a check-in. */
 const CERTIFICATE_TYPES = ["Course", "Internship"];
 
+/**
+ * Consultations are booked against a specific time slot instead of a plain
+ * yes/no confirmation. Matched on the master-choice label, which is
+ * `Consultation` / `استشارة` — the previous check looked for `"consultationss"`
+ * and `"استشارات"`, neither of which exists, so the slot picker never opened and
+ * consultations were registered with no slot at all.
+ */
+const isConsultationType = (display?: {
+  value_en?: string;
+  value_ar?: string;
+}): boolean => {
+  const en = display?.value_en?.trim().toLowerCase();
+  const ar = display?.value_ar?.trim();
+  return en === "consultation" || ar === "استشارة" || ar === "استشارات";
+};
+
 export default function LearnServeDetails({
   opportunityId,
 }: {
@@ -266,15 +283,22 @@ export default function LearnServeDetails({
     toast.error(t("COMMON.ERROR_FETCHING_OPPORTUNITY"));
   }, [opportunityQuery.error, selectedLanguage, t, router]);
 
-  // Fancybox previews the post-completion gallery in place of a new browser tab
+  // Fancybox previews the post-completion gallery in place of a new browser tab.
+  // The cover photos get their own gallery id so the lightbox doesn't let you
+  // swipe from a cover shot straight into the post-completion set — they are
+  // two different things.
   useEffect(() => {
-    const galleryId = `opportunity-gallery-${id}`;
-    NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
-      showClass: "fancybox-zoomIn",
-      hideClass: "fancybox-zoomOut",
-    });
+    const galleryIds = [`opportunity-gallery-${id}`, `opportunity-cover-${id}`];
+    galleryIds.forEach((galleryId) =>
+      NativeFancybox.bind(`[data-fancybox="${galleryId}"]`, {
+        showClass: "fancybox-zoomIn",
+        hideClass: "fancybox-zoomOut",
+      })
+    );
     return () => {
-      NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`);
+      galleryIds.forEach((galleryId) =>
+        NativeFancybox.unbind(`[data-fancybox="${galleryId}"]`)
+      );
       NativeFancybox.close();
     };
   }, [id]);
@@ -411,13 +435,7 @@ export default function LearnServeDetails({
 
     // Consultation hours are booked against a specific slot; everything else
     // is a single yes/no confirmation.
-    const isConsultationHours =
-      opportunityData?.learning_type_display &&
-      (opportunityData.learning_type_display.value_en?.toLowerCase() ===
-        "consultationss" ||
-        opportunityData.learning_type_display.value_ar === "استشارات");
-
-    if (isConsultationHours) {
+    if (isConsultationType(opportunityData?.learning_type_display)) {
       setModalType("consultation");
       setShowConsultationModal(true);
     } else {
@@ -604,6 +622,12 @@ export default function LearnServeDetails({
   const organizerPath = !opportunityData?.created_by?.is_public
     ? `/volunteer-private-profile/${opportunityData?.created_by?.id}`
     : `/public-profile/${opportunityData?.created_by?.id}`;
+
+  /** Alt text and lightbox caption for the cover-photo gallery. */
+  const coverGalleryTitle =
+    (opportunityData?.primary_language === "ar"
+      ? opportunityData?.title_ar
+      : opportunityData?.title_en) || "";
 
   // The description is always shown in full — the View More toggle was removed.
   // Rendered as HTML, so it is sanitized first: the backend stores the editor's
@@ -825,13 +849,13 @@ export default function LearnServeDetails({
         />
       </Modal>
 
-      <div className="relative w-full">
+      {/* <div className="relative w-full">
         <img
           className="w-full h-[320px] object-cover"
           src={opportunityData?.opportunity_images?.[0]?.image}
           alt=""
         />
-      </div>
+      </div> */}
 
       <div className="w-[90%] mobilescreen:w-[100%] py-[40px] 2xl:py-[70px] laptopmain:py-[50px] laptop:py-[40px] lg:py-[40px] lg:mx-0 md:mx-auto mx-auto">
         <div className="grid grid-cols-1 2xl:grid-cols-[470px_auto] xl:grid-cols-[435px_auto] lg:grid-cols-[380px_auto] 2xl:gap-[69px] gap-0 lg:gap-[30px] md:gap-6">
@@ -1047,6 +1071,23 @@ export default function LearnServeDetails({
                       : t("COMMON.PM")}
                   </p>
                 </div>
+              </div>
+
+              {/* Sits with the dates it copies — Google Calendar, or an .ics
+                  for Apple Calendar / Outlook. */}
+              <div className="pb-5 mobilescreen:pb-3.5">
+                <AddToCalendar
+                  payload={{
+                    title_en: opportunityData?.title_en,
+                    title_ar: opportunityData?.title_ar,
+                    location_en: opportunityData?.location_en,
+                    location_ar: opportunityData?.location_ar,
+                    start_date: opportunityData?.start_date,
+                    end_date: opportunityData?.end_date,
+                    start_time: opportunityData?.start_time,
+                    end_time: opportunityData?.end_time,
+                  }}
+                />
               </div>
 
               <div className="border-b mb-6">
@@ -1396,7 +1437,7 @@ export default function LearnServeDetails({
                           <img
                             src={image.image}
                             alt="Completed opportunity"
-                            className="aspect-square w-full rounded-lg object-cover"
+                            className="aspect-[4/5] w-full rounded-lg object-cover"
                           />
                         </a>
                         <div
@@ -1443,6 +1484,44 @@ export default function LearnServeDetails({
           </div>
         </div>
       </div>
+
+      {/*
+        Replaces the full-bleed hero banner that used to sit at the top of the
+        page. That banner rendered only `opportunity_images[0]`, so every other
+        photo on the opportunity was unreachable; this shows them all and opens
+        a Fancybox lightbox on click. Placed at the end of the opportunity's own
+        content, just above the sponsors band, so it doesn't compete with the
+        details for the first screen.
+
+        4:5 rather than the square used by the post-completion grid above:
+        these photos are cropped to 4:5 by the upload form, so their native
+        ratio avoids a second crop.
+      */}
+      {opportunityData?.opportunity_images?.length ? (
+        <div className="w-[90%] mobilescreen:w-[100%] border-t pt-[40px] 2xl:pt-[70px] lg:mx-0 md:mx-auto mx-auto">
+          <h2 className="mb-8 text-center text-[28px] font-bold text-primary-5">
+            {t("COMMON.GALLERY")}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 pb-[40px] sm:grid-cols-3 lg:grid-cols-4 2xl:pb-[70px]">
+            {opportunityData.opportunity_images.map((img, index) => (
+              <a
+                key={img.id ?? index}
+                href={img.image}
+                data-fancybox={`opportunity-cover-${id}`}
+                data-caption={coverGalleryTitle}
+                className="block cursor-zoom-in overflow-hidden rounded-lg"
+                title={t("COMMON.CLICK_TO_VIEW")}
+              >
+                <img
+                  src={img.image}
+                  alt={coverGalleryTitle}
+                  className="aspect-[4/5] w-full object-cover transition-transform duration-200 hover:scale-105"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="border-t border pt-[40px] 2xl:pt-[70px] laptopmain:pt-[50px] laptop:pt-[40px] lg:pt-[40px]">
         <SponsorsClient />

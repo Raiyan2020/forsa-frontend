@@ -159,15 +159,32 @@ export default function Calendar() {
               : dayEnd
         ).format("YYYY-MM-DD");
 
+  /*
+   * The year view sends no explicit range — the API derives one from
+   * `time_range: "year"`. It anchors that on the `date` param, and defaults to
+   * `now()` when it is absent, so without this the year view always returned
+   * the *current* year no matter which year the user had navigated to. The
+   * other ranges send `start_date`/`end_date`, which the API prefers over this.
+   */
+  const anchorDate = moment(miniCalendarDate).format("YYYY-MM-DD");
+
   // Fetch calendar events with time_range param
   const { data, isLoading } = useQuery({
-    queryKey: ["my-calendar", timeRange, debouncedSearch, rangeStart, rangeEnd],
+    queryKey: [
+      "my-calendar",
+      timeRange,
+      debouncedSearch,
+      rangeStart,
+      rangeEnd,
+      anchorDate,
+    ],
     queryFn: () =>
       getCalendar({
         time_range: timeRange,
         search: debouncedSearch || undefined,
         start_date: rangeStart,
         end_date: rangeEnd,
+        date: anchorDate,
       }),
   });
 
@@ -701,12 +718,15 @@ export default function Calendar() {
                     <div className="w-3 h-3 rounded-full bg-[#D9EF61]" />
                     <div className="w-3 h-3 rounded-full bg-[#70B4C2]" />
                   </div>
-                  {/* <Image
+                  {/* Decorative, exactly as in the React original — it never
+                      carried a handler there either. */}
+                  <Image
                     src={asset("calander/calnderplus.svg")}
-                    alt="Add"
+                    alt=""
                     width={20}
                     height={20}
-                  /> */}
+                    unoptimized
+                  />
                 </div>
 
                 {/* Mini calendar */}

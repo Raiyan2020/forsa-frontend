@@ -164,9 +164,11 @@ const Header = () => {
                 icon="/assets/auth/qrcode.svg"
                 label={t("COMMON.QRCODE")}
               />
-              {/* "My calendar" was removed from the menu at the client's
-                  request. The /calendar route still exists so any bookmark or
-                  Add-to-Calendar link keeps working. */}
+              <DropdownItem
+                href="/calendar"
+                icon="/assets/auth/mycalander.svg"
+                label={t("COMMON.MY.CALENDAR")}
+              />
               <DropdownItem
                 href="/achievement-reports"
                 icon="/assets/auth/file-text.svg"
@@ -184,6 +186,11 @@ const Header = () => {
                 href="/entities-profile"
                 icon="/assets/auth/volunteerprofile.svg"
                 label={t("COMMON.ORGANIZATION.PROFILE")}
+              />
+              <DropdownItem
+                href="/calendar"
+                icon="/assets/auth/mycalander.svg"
+                label={t("COMMON.MY.CALENDAR")}
               />
             </>
           )}
@@ -529,6 +536,13 @@ const Header = () => {
                   </Link>
                 </li>
               )}
+              {/* Both account types reach My Calendar, matching the desktop
+                  dropdown and the `/calendar` route's own guard. */}
+              <li className="border-b text-primary-5 text-sm">
+                <Link href="/calendar" onClick={close} className="px-4 py-3 block w-full">
+                  {t("COMMON.MY.CALENDAR")}
+                </Link>
+              </li>
               <li className="border-b text-primary-5 text-sm">
                 <button className="px-4 py-3 block w-full text-start text-primary-5" onClick={handleLogout}>
                   {t("COMMON.LOGOUT")}

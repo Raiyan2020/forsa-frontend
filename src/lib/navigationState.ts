@@ -9,11 +9,12 @@
 import { useEffect, useRef, useState } from "react";
 
 export const NAV_STATE_KEYS = {
-  /** Event registration → /event-thankyou */
-  eventThankyou: "event_thankyou_details",
   /** Opportunity / learn & serve registration → /register-now */
   opportunityThankyou: "opportunity_thankyou_details",
-  /** Opportunity or event row → /learn-share-register-list, /leran-share-register-list, /event-register-list, /volunteerlist */
+  /**
+   * Opportunity row → /learn-share-register-list, /leran-share-register-list,
+   * /volunteerlist. Events are announcement-only and have no register list.
+   */
   registerList: "register_list_details",
   /** Opportunity row → /scan-permission */
   scanPermission: "scan_permission_details",

@@ -193,14 +193,15 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
     }
   };
 
-  // Function to determine button text based on conditions
+  /**
+   * Events are announcements: Fursa never takes a registration for one, so the
+   * card never offers Register/Full. The creator manages their own event, and
+   * everyone else is sent to the detail page, where the organizer's external
+   * registration link lives.
+   */
   const getButtonText = (item: EventData) => {
     // If user is not logged in
-    if (!currentUser) {
-      return item.registration_required
-        ? t("COMMON.REGISTER")
-        : t("COMMON.DETAILS");
-    }
+    if (!currentUser) return t("COMMON.DETAILS");
 
     // If user is the creator
     if (item.created_by?.id === currentUser.id) {
@@ -225,18 +226,6 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
       return t("COMMON.CLOSED");
     }
 
-    // If registration is required and event is full
-    if (item.registration_required) {
-      // The API sends these as Arabic-Indic digit strings under `ar` — see
-      // `toNumber()`'s doc comment in lib/helpers.ts.
-      const registeredCount = toNumber(item.registered_volunteers_count);
-      if (registeredCount >= toNumber(item.participants_needed)) {
-        return t("COMMON.FULL");
-      }
-      return t("COMMON.REGISTER");
-    }
-
-    // For volunteer user, if registration is not required
     return t("COMMON.DETAILS");
   };
 
@@ -350,8 +339,8 @@ const ProfileEventCard: React.FC<ProfileEventCardProps> = ({
                         width={400}
                         height={300}
                         unoptimized
-                        /* Square (1:1) crop, matching the upload form and the other cards. */
-                        className="w-full aspect-square border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
+                        /* 4:5 portrait (Instagram), matching the upload form and the other cards. */
+                        className="w-full aspect-[4/5] border border-[#484848] border-b-0 rounded-t-[20px] object-cover"
                       />
 
                       <div className="absolute top-0 right-0 pr-4 pt-4">

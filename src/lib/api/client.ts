@@ -2,6 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { API_BASE_URL } from "@/lib/api/config";
+import { normalizeDigitsDeep } from "@/lib/digits";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -38,10 +39,24 @@ apiClient.interceptors.request.use(
  * nothing in the API returns 403 for a credential problem.
  */
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Digits do not follow the UI language in this product: an Arabic session
+    // still renders `12345`, never `١٢٣٤٥`. The API disagrees — `ar_num()`
+    // rewrites every numeric field into Arabic-Indic digits when the language
+    // header is `ar`, and hands them over as strings. Normalizing once here
+    // means no render site has to think about it, and arithmetic on a count
+    // (`> 0`, sums, sorts) works instead of yielding NaN.
+    response.data = normalizeDigitsDeep(response.data);
+    return response;
+  },
   (error) => {
     if (error?.response?.status === 401) {
       useAuthStore.getState().logout();
+    }
+    // Validation messages and field errors are localized too, and are read
+    // through lib/api/errors.ts — normalize them on the same terms.
+    if (error?.response?.data !== undefined) {
+      error.response.data = normalizeDigitsDeep(error.response.data);
     }
     return Promise.reject(error);
   }

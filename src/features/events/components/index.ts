@@ -9,10 +9,10 @@ export { default as EventFeedback } from "./EventFeedback";
 export { default as EventForm } from "./EventForm";
 export { default as EventListCard } from "./EventListCard";
 export { default as EventPostThankyou } from "./EventPostThankyou";
-export { default as EventRegisterList } from "./EventRegisterList";
 export { default as EventSeminarList } from "./EventSeminarList";
 export { default as EventSportsList } from "./EventSportsList";
-export { default as EventThankyou } from "./EventThankyou";
+// EventTimeSlotModal is generic and is kept only for LearnServeForm — events
+// themselves no longer collect time slots (announcement-only).
 export { default as EventTimeSlotModal } from "./EventTimeSlotModal";
 export { default as Events } from "./Events";
 export { default as ProfileEventCard } from "./ProfileEventCard";
