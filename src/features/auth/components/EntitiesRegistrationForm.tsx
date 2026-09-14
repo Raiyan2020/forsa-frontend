@@ -34,7 +34,11 @@ import {
 } from "@/lib/auth/socialSignup";
 import { YupEmail, YupPhoneNumber, YupRequiredString, YupStringMaxLength, YupStrongPassword, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { handleGoogleLogin } from "@/lib/helpers";
-import { isLicenseExemptOrgType } from "@/data/orgTypes";
+import {
+  isLicenseExemptOrgType,
+  sortOrgTypeOptions,
+  type OrgTypeOption,
+} from "@/data/orgTypes";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 import dynamic from "next/dynamic";
 const CountryCodeSelect = dynamic(
@@ -93,7 +97,7 @@ function EntitiesRegistrationFormComponent() {
     enabled: !!selectedLanguage,
   });
 
-  const orgTypeOptions = useMemo(
+  const orgTypeOptions: OrgTypeOption[] = useMemo(
     () =>
       orgTypeData?.data?.map((item: any) => ({
         label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
@@ -106,10 +110,15 @@ function EntitiesRegistrationFormComponent() {
   // The visible dropdown never offers "Volunteer Team" — that path only ever
   // reaches this form via the dedicated JoinUs shortcut, which skips the
   // field entirely and sets the value in the background instead.
+  //
+  // The rest are then sorted into the order the client asked for; the API
+  // returns them in insertion order, which is not it.
   const visibleOrgTypeOptions = useMemo(
     () =>
-      orgTypeOptions.filter(
-        (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+      sortOrgTypeOptions(
+        orgTypeOptions.filter(
+          (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+        )
       ),
     [orgTypeOptions]
   );

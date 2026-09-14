@@ -175,6 +175,9 @@ const ProfileVolunteerCard: React.FC<ProfileVolunteerCardProps> = ({
       ? moment(filters.endDate).format("YYYY-MM-DD")
       : undefined,
     tags: filters?.tags,
+    // Participant / Provider. Omitted when the chip is "All", so the API keeps
+    // returning both roles (BE-54).
+    profile_activity_tag: filters?.profile_activity_tag || undefined,
     user_id: isPublicProfile ? user_id : undefined,
     page: currentPage,
     limit,

@@ -17,6 +17,7 @@ import ProfileFilterForm, {
   EMPTY_PROFILE_FILTERS,
   FiltersData,
 } from "./ProfileFilterForm";
+import { ACTIVITY_TAG_TABS, ActivityTagChips } from "./ProfileDescriptionTabs";
 import { getAllOpportunities, getUserOpportunities } from "@/features/opportunities/services/opportunities";
 import { getPublicProfile, getUserCertificates } from "@/features/profile/services/profileApi";
 import { occupationOptions } from "@/data/Constants";
@@ -366,7 +367,22 @@ function BackgroundAndAchievements({
 }) {
   const { t } = useTranslation();
   const language = useLanguageStore((state) => state.language);
-  const occupation = occupationOptions.find((option) => option.value === profile.occupation);
+  /*
+   * `occupation` and `current_status` are the same answer under two names, and
+   * both hold the raw slug (`university_student`). They used to render as two
+   * separate rows under labels that are identical in both languages
+   * ("Current status" / "الوضع الحالي"), one of them showing the untranslated
+   * slug. Resolved once here, from whichever field the API populated, and
+   * falling back to the raw string only when it is genuinely free text that no
+   * option matches.
+   */
+  const rawCurrentStatus = profile.occupation || profile.current_status || "";
+  const occupation = occupationOptions.find(
+    (option) => option.value === rawCurrentStatus
+  );
+  const currentStatusLabel = occupation
+    ? occupation[language === "ar" ? "name_ar" : "name_en"]
+    : rawCurrentStatus;
   const interests = profile.interest_display || [];
   const volunteerStats = {
     hours:
@@ -446,21 +462,15 @@ function BackgroundAndAchievements({
                 {profile.company_name || profile.full_name || "—"}
               </p>
             )}
-            {userType === "volunteer" && profile.current_status && (
-              <p>
-                <strong>{t("COMMON.CURRENT_STATUS")} : </strong>
-                {profile.current_status}
-              </p>
-            )}
             {/*
               Sector was dropped from the UI at the client's request. The field
               still exists on the API (used by 8 resources) and will be removed
               there separately, so nothing reads `sector_display` here any more.
             */}
-            {userType === "volunteer" && occupation && (
+            {userType === "volunteer" && currentStatusLabel && (
               <p>
-                <strong>{t("COMMON.ENTER.OCCIPATION")} : </strong>
-                {occupation[language === "ar" ? "name_ar" : "name_en"]}
+                <strong>{t("COMMON.CURRENT_STATUS")} : </strong>
+                {currentStatusLabel}
               </p>
             )}
             {interests.length > 0 && (
@@ -622,7 +632,7 @@ function CertificatesGrid({ certificates }: { certificates: CertificateItem[] })
   }
 
   return (
-    <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-4">
       {/* Fixed box + object-contain: every tile is the same height whatever
           the certificate's aspect ratio, without cropping. */}
       {certificates.map((certificate) => {
@@ -696,6 +706,8 @@ function PublicProfileListings({
   const [mode, setMode] = useState<ListingMode>("organized");
   // All / Volunteer / Development, applied on top of the organized/sponsored tag
   const [typeFilter, setTypeFilter] = useState<OpportunityTypeFilter>("all");
+  // Participant / Provider — the role this profile played in the activity.
+  const [activityTag, setActivityTag] = useState("all");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const isVolunteer = userType === "volunteer";
@@ -724,6 +736,16 @@ function PublicProfileListings({
   const selectedOpportunityType =
     typeFilter === "all" ? undefined : OPPORTUNITY_TYPE_PARAM[typeFilter];
 
+  // Participant / Provider only applies to development activities.
+  const isDevelopmentFilter = typeFilter === "development";
+
+  // Reset the role when the type moves off Development, so a hidden chip can
+  // never keep narrowing the list behind the user's back.
+  const handleTypeFilterChange = (value: OpportunityTypeFilter) => {
+    setTypeFilter(value);
+    if (value !== "development") setActivityTag("all");
+  };
+
   // Same param mapping the owner's own profile uses in ProfileVolunteerCard /
   // ProfileEventCard, so both screens filter identically.
   const filterParams = {
@@ -734,6 +756,11 @@ function PublicProfileListings({
       ? moment(filters.endDate).format("YYYY-MM-DD")
       : undefined,
     tags: filters.tags?.length ? filters.tags : undefined,
+    // Development only, and omitted when the chip is "All" — the API then keeps
+    // returning both roles.
+    profile_activity_tag: isDevelopmentFilter
+      ? ACTIVITY_TAG_TABS.find((tag) => tag.value === activityTag)?.param
+      : undefined,
   };
 
   const listingQuery = useQuery({
@@ -746,6 +773,7 @@ function PublicProfileListings({
       deferredSearch,
       filters,
       typeFilter,
+      activityTag,
     ],
     queryFn: () => {
       if (isVolunteer && section === "opportunities") {
@@ -894,10 +922,13 @@ function PublicProfileListings({
         {section !== "certificates" && (
           <div className="mb-8 flex items-center justify-between gap-6 mobilescreen:flex-col">
 
-            <div className="flex justify-between w-full items-center gap-4 mobilescreen:flex-col mobilescreen:w-full">
+            {/* Two chip groups plus the search bar do not fit on one line
+                between ~768px and ~1135px, so the row wraps: each group moves
+                to the next line whole rather than collapsing. */}
+            <div className="flex w-full flex-wrap items-center justify-between gap-3 mobilescreen:w-full mobilescreen:justify-start">
               {/* All / Volunteer / Development — events are one type already */}
               {section === "opportunities" && (
-                <div className="flex gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
                   {OPPORTUNITY_TYPE_TABS.filter(
                     // A zero development counter hides its counter card, so the
                     // chip that would filter to an empty list goes too. `null`
@@ -910,7 +941,7 @@ function PublicProfileListings({
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setTypeFilter(type.value)}
+                      onClick={() => handleTypeFilterChange(type.value)}
                       className={`rounded-full border border-primary-5 px-4 py-2 text-sm font-bold whitespace-nowrap ${
                         typeFilter === type.value
                           ? "bg-primary-5 text-white"
@@ -922,14 +953,23 @@ function PublicProfileListings({
                   ))}
                 </div>
               )}
-              <Searchbar
-                value={search}
-                onSearchChange={setSearch}
-                onFilterClick={() => setFilterOpen(true)}
-                hasActiveFilters={hasActiveFilters}
-                onClearFilters={clearFilters}
-                isLoading={search !== deferredSearch}
-              />
+              {/* Participant / Provider is a development-only split. */}
+              {section === "opportunities" && isDevelopmentFilter && (
+                <ActivityTagChips
+                  value={activityTag}
+                  onChange={setActivityTag}
+                />
+              )}
+              <div className="shrink-0 mobilescreen:w-full">
+                <Searchbar
+                  value={search}
+                  onSearchChange={setSearch}
+                  onFilterClick={() => setFilterOpen(true)}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearFilters={clearFilters}
+                  isLoading={search !== deferredSearch}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -938,7 +978,7 @@ function PublicProfileListings({
         ) : section === "certificates" ? (
           <CertificatesGrid certificates={certificates} />
         ) : items.length ? (
-          <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-4">
             {items.map((item) => (
               // Volunteer and learn-serve opportunities are separate backend
               // models with their own id sequences, so a plain `item.id` can

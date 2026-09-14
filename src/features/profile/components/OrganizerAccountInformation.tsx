@@ -25,7 +25,11 @@ import {
 } from "@/features/auth/services/authApi";
 import { getAccountInfo, getOrganizerProfile, updateAccountInfo, updateOrganizerDocuments, updateOrganizerProfile } from "@/features/profile/services/profileApi";
 import { socialMediaOptions } from "@/data/Constants";
-import { isLicenseExemptOrgType } from "@/data/orgTypes";
+import {
+  isLicenseExemptOrgType,
+  sortOrgTypeOptions,
+  type OrgTypeOption,
+} from "@/data/orgTypes";
 import { withCacheBust } from "@/lib/helpers";
 import { YupPhoneNumber, YupDigitsOnlyOptional, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
@@ -150,12 +154,14 @@ export default function OrganizerAccountInformation() {
     enabled: !!selectedLanguage,
   });
 
-  const orgTypeOptions =
+  // Sorted into the client's order, same as the entities registration form.
+  const orgTypeOptions: OrgTypeOption[] = sortOrgTypeOptions(
     orgTypeData?.data?.map((item: any) => ({
       label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
       value: item.id.toString(),
       rawValue: item.value_en,
-    })) || [];
+    })) || []
+  );
 
   const tagOptions =
     tagsData?.data?.map((item: any) => ({

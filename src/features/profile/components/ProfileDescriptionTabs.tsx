@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import ProfileEventCard from "@/features/events/components/ProfileEventCard";
 import { downloadUserCertificate, getUserCertificates } from "@/features/profile/services/profileApi";
+import { getDropdownChoices } from "@/features/shared/services/dropdowns";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import ProfileFilterForm, {
@@ -45,17 +46,26 @@ const OPPORTUNITY_TYPE_TABS: Array<{
   { value: "development", labelKey: "COMMON.LEARN_SERVE", param: "learn_serve_opportunity" },
 ];
 
-function OpportunityTypeChips({
+/**
+ * The pill row used above a listing. Presentational — the caller resolves each
+ * label, because the opportunity chips are i18n keys while the certificate
+ * chips are already-localized values from the API.
+ */
+function FilterChips<T extends string>({
+  tabs,
   value,
   onChange,
 }: {
-  value: OpportunityTypeFilter;
-  onChange: (value: OpportunityTypeFilter) => void;
+  tabs: ReadonlyArray<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
 }) {
-  const { t } = useTranslation();
   return (
-    <div className="flex gap-2">
-      {OPPORTUNITY_TYPE_TABS.map((type) => (
+    // `shrink-0` matters: without it a narrow row squeezes the group down to
+    // one chip wide and it stacks into a vertical column instead of staying a
+    // row. The group keeps its width and the *container* wraps it instead.
+    <div className="flex shrink-0 flex-wrap gap-2">
+      {tabs.map((type) => (
         <button
           key={type.value}
           type="button"
@@ -66,12 +76,114 @@ function OpportunityTypeChips({
               : "bg-white text-primary-5"
           }`}
         >
-          {t(type.labelKey)}
+          {type.label}
         </button>
       ))}
     </div>
   );
 }
+
+function OpportunityTypeChips({
+  value,
+  onChange,
+}: {
+  value: OpportunityTypeFilter;
+  onChange: (value: OpportunityTypeFilter) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <FilterChips
+      tabs={OPPORTUNITY_TYPE_TABS.map((tab) => ({
+        value: tab.value,
+        label: t(tab.labelKey),
+      }))}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/**
+ * The role the profile owner played in an activity. A development activity
+ * counts towards their counter whichever of the two it was — they took part in
+ * it (Participant) or they ran it (Provider) — so the listing can be split by
+ * that role.
+ *
+ * **Development opportunities only.** The rule is stated about فرص تطور, and a
+ * volunteer opportunity has no Provider side on a volunteer's profile, so these
+ * chips are shown only while the Development type chip is active and the filter
+ * resets whenever the type moves off it.
+ *
+ * The value is sent to the listing endpoints as `profile_activity_tag`; "All"
+ * omits the param. Not implemented server-side yet (BE-54), so today every chip
+ * returns the same list.
+ */
+export const ACTIVITY_TAG_TABS: ReadonlyArray<{
+  value: string;
+  labelKey: string;
+  /** The API value. Absent for "All", which sends nothing. */
+  param?: string;
+}> = [
+  { value: "all", labelKey: "COMMON.ALL" },
+  { value: "participant", labelKey: "COMMON.PARTICIPANT", param: "Participant" },
+  { value: "provider", labelKey: "COMMON.PROVIDER", param: "Provider" },
+];
+
+export function ActivityTagChips({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <FilterChips
+      tabs={ACTIVITY_TAG_TABS.map((tab) => ({
+        value: tab.value,
+        label: t(tab.labelKey),
+      }))}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/**
+ * The certificates tab splits by what the certificate was earned for.
+ *
+ * The list of types is **admin-editable master data**, fetched from
+ * `GET /api/choices/certificate_filter_type/` like every other dropdown in the
+ * app — not a list hardcoded here. The selected value is then sent to
+ * `/user-certificates/` as `certificate_type`, so the API does the filtering;
+ * see `getUserCertificates()`.
+ *
+ * Neither piece exists on the backend yet (BE-53). `/choices/{type}/` answers
+ * 404 for an unknown type, so the query fails and the three types the client
+ * asked for are used until it is seeded — delete the fallback then. And an
+ * unrecognised query param is ignored, so every chip returns the full list
+ * until `certificate_type` is honoured.
+ *
+ * The existing `filter-type` choice is deliberately **not** reused: it is
+ * shared with the opportunities filter modal and carries `Class` and
+ * `Consultation` as well, neither of which can ever have a certificate (BE-47).
+ */
+const CERTIFICATE_FILTER_CHOICE_TYPE = "certificate_filter_type";
+
+/** The "no filter" chip. Not a type — it just means the param is omitted. */
+const ALL_CERTIFICATE_TYPES = "all";
+
+interface ChoiceOption {
+  id?: number | string;
+  value_en?: string;
+  value_ar?: string;
+}
+
+const CERTIFICATE_TYPE_FALLBACK: ReadonlyArray<Required<Pick<ChoiceOption, "value_en" | "value_ar">>> = [
+  { value_en: "Volunteer", value_ar: "تطوع" },
+  { value_en: "Course", value_ar: "دورة" },
+  { value_en: "Internship", value_ar: "تدريب" },
+];
 
 const TAB_CONTENT_CLASS =
   "mt-0 border-t border-primary-5 2xl:pt-16 laptopmain:pt-8 lg:pt-5 pt-5 md:pt-5 lg:pb-[50px] md:pb-[20px] pb-[20px]";
@@ -115,11 +227,17 @@ export default function ProfileDescriptionTabs({
               </span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="event" className={TAB_TRIGGER_CLASS}>
-            <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
-              {t("COMMON.EVENTS-")}
-            </span>
-          </TabsTrigger>
+          {/* Events are an announcement surface only (BE-41) — a volunteer has
+              no event history to show, so their own profile is Opportunities +
+              Certificates. Teams and entities keep the tab: they organise and
+              sponsor events. */}
+          {!isVolunteer && (
+            <TabsTrigger value="event" className={TAB_TRIGGER_CLASS}>
+              <span className="2xl:text-[30px] lg:text-[20px] md:text-[18px] font-bold text-primary-5">
+                {t("COMMON.EVENTS-")}
+              </span>
+            </TabsTrigger>
+          )}
         </TabsList>
       </div>
 
@@ -138,13 +256,15 @@ export default function ProfileDescriptionTabs({
         </TabsContent>
       )}
 
-      <TabsContent value="event" className={TAB_CONTENT_CLASS}>
-        <MyEventsTabs
-          isVolunteerTeam={isVolunteerTeam}
-          isPublicProfile={isPublicProfile}
-          user_id={user_id}
-        />
-      </TabsContent>
+      {!isVolunteer && (
+        <TabsContent value="event" className={TAB_CONTENT_CLASS}>
+          <MyEventsTabs
+            isVolunteerTeam={isVolunteerTeam}
+            isPublicProfile={isPublicProfile}
+            user_id={user_id}
+          />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }
@@ -178,18 +298,65 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
   const pageSizeRef = useRef(9);
   const [displayedCount, setDisplayedCount] = useState(9);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [typeFilter, setTypeFilter] = useState("all");
 
+  // The chip is a query param, so the server owns the filtering and the list
+  // that gets paged on screen is the list the server returned.
   const { data: response, isLoading } = useQuery({
-    queryKey: ["user-certificates", userId],
-    queryFn: () => getUserCertificates(userId as string),
+    queryKey: ["user-certificates", userId, typeFilter],
+    queryFn: () =>
+      getUserCertificates(
+        userId as string,
+        typeFilter === ALL_CERTIFICATE_TYPES ? undefined : typeFilter
+      ),
     enabled: Boolean(userId),
   });
 
+  // The filter's own options. `retry: false` because a missing choice type is a
+  // 404 that will not become anything else by asking again.
+  const { data: typeChoices } = useQuery({
+    queryKey: ["dropdown", CERTIFICATE_FILTER_CHOICE_TYPE],
+    queryFn: () => getDropdownChoices(CERTIFICATE_FILTER_CHOICE_TYPE),
+    retry: false,
+  });
+
+  const typeTabs = useMemo(() => {
+    const choices: ChoiceOption[] = Array.isArray(typeChoices?.data)
+      ? typeChoices.data
+      : CERTIFICATE_TYPE_FALLBACK;
+
+    return [
+      { value: "all", label: t("COMMON.ALL") },
+      ...choices
+        .filter((choice) => choice.value_en)
+        .map((choice) => ({
+          // The English value is the match key — it is what the certificate's
+          // own learning type is reported as, and it does not change with the
+          // viewer's language the way the label does.
+          value: String(choice.value_en),
+          label:
+            (selectedLanguage === "ar" ? choice.value_ar : choice.value_en) ||
+            String(choice.value_en),
+        })),
+    ];
+  }, [typeChoices, selectedLanguage, t]);
+
+  // Already filtered by the API — there is deliberately no second filter here.
+  // Duplicating the rule client-side is how the two drift apart, and it would
+  // also mean paging a list the server never returned.
   const allCertificates: ProfileCertificate[] = Array.isArray(response?.data)
     ? response.data
     : EMPTY_PROFILE_CERTIFICATES;
+
   const certificates = allCertificates.slice(0, displayedCount);
   const hasMore = displayedCount < allCertificates.length;
+
+  // Reset paging here rather than in an effect on `typeFilter`: the count only
+  // ever needs resetting because the user changed the chip.
+  const handleTypeFilterChange = (value: string) => {
+    setTypeFilter(value);
+    setDisplayedCount(pageSizeRef.current);
+  };
 
   const updatePageSize = useCallback(() => {
     const width = window.innerWidth;
@@ -259,16 +426,27 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
     return <Loader inline className="py-20" />;
   }
 
-  if (allCertificates.length === 0) {
-    return (
-      <p className="py-8 text-center text-lg font-medium text-secondary-102">
-        {t("COMMON.NO_CERTIFICATES_AVAILABLE")}
-      </p>
-    );
-  }
-
+  /*
+   * The chips stay visible on an empty result. Now that the server does the
+   * filtering, an empty response means "none of this type", not "none at all" —
+   * hiding the chips there would strand the user on a filter they cannot leave.
+   */
   return (
-    <InfiniteScroll
+    <>
+      <div className="flex px-3 mobilescreen:justify-center mobilescreen:px-[13px] 2xl:px-5">
+        <FilterChips
+          tabs={typeTabs}
+          value={typeFilter}
+          onChange={handleTypeFilterChange}
+        />
+      </div>
+
+      {allCertificates.length === 0 ? (
+        <p className="py-8 text-center text-lg font-medium text-secondary-102">
+          {t("COMMON.NO_CERTIFICATES_AVAILABLE")}
+        </p>
+      ) : (
+        <InfiniteScroll
       dataLength={certificates.length}
       next={loadMore}
       hasMore={hasMore}
@@ -280,7 +458,7 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
       }
       className="overflow-hidden pt-[25px] md:pt-[30px] lg:pt-[24px] laptop:pt-[40px] 2xl:pt-[50px]"
     >
-      <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-[25px] md:grid-cols-2 xl:grid-cols-4">
         {certificates.map((certificate, index) => {
           const title =
             (selectedLanguage === "ar"
@@ -358,8 +536,10 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
             </div>
           );
         })}
-      </div>
-    </InfiniteScroll>
+          </div>
+        </InfiniteScroll>
+      )}
+    </>
   );
 }
 
@@ -579,6 +759,7 @@ function OpportunityTabs({
     isVolunteer ? "registered" : "organized"
   );
   const [typeFilter, setTypeFilter] = useState<OpportunityTypeFilter>("all");
+  const [activityTag, setActivityTag] = useState("all");
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -625,9 +806,25 @@ function OpportunityTabs({
   const typeParam = OPPORTUNITY_TYPE_TABS.find(
     (type) => type.value === typeFilter
   )?.param;
-  const typedFilters: FiltersData = typeParam
-    ? { ...filters, opportunity_type: typeParam }
-    : filters;
+
+  // Participant / Provider only applies to development activities.
+  const isDevelopmentFilter = typeFilter === "development";
+  const activityTagParam = isDevelopmentFilter
+    ? ACTIVITY_TAG_TABS.find((tag) => tag.value === activityTag)?.param
+    : undefined;
+
+  // Reset the role when the type moves off Development, so a hidden chip can
+  // never keep narrowing the list behind the user's back.
+  const handleTypeFilterChange = (value: OpportunityTypeFilter) => {
+    setTypeFilter(value);
+    if (value !== "development") setActivityTag("all");
+  };
+
+  const typedFilters: FiltersData = {
+    ...filters,
+    ...(typeParam ? { opportunity_type: typeParam } : {}),
+    ...(activityTagParam ? { profile_activity_tag: activityTagParam } : {}),
+  };
 
   return (
     <>
@@ -689,9 +886,18 @@ function OpportunityTabs({
             )}
           </div>
 
-          <div className="flex items-center gap-4 mobilescreen:flex-col mobilescreen:items-start">
-            <OpportunityTypeChips value={typeFilter} onChange={setTypeFilter} />
-            <div className="orgsearch">
+          {/* Two chip groups plus the search bar do not fit on one line
+              between ~768px and ~1135px, so the row wraps: each group moves to
+              the next line whole rather than collapsing. */}
+          <div className="flex flex-wrap items-center justify-end gap-3 mobilescreen:justify-start">
+            <OpportunityTypeChips
+              value={typeFilter}
+              onChange={handleTypeFilterChange}
+            />
+            {isDevelopmentFilter && (
+              <ActivityTagChips value={activityTag} onChange={setActivityTag} />
+            )}
+            <div className="orgsearch shrink-0 mobilescreen:w-full">
               <Searchbar
                 onFilterClick={() => setOpen(true)}
                 onSearchChange={(value) => setSearchQuery(value)}

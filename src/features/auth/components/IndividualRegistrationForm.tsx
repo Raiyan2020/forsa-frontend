@@ -42,7 +42,11 @@ const CountryCodeSelect = dynamic(
 import BirthDateField from "@/components/ui/BirthDateField";
 import SelectInput from "@/components/ui/SelectInput";
 import Loader from "@/components/ui/Loader";
-import { nationalityOptions } from "@/data/Constants";
+import {
+  findNationalityResidency,
+  nationalityNeedsPassport,
+  nationalityResidencyOptions,
+} from "@/data/Constants";
 
 function DobWatcher({
   setIsUnder18,
@@ -135,6 +139,12 @@ function IndividualRegistrationFormComponent() {
     termsAccepted: false,
     dob: "",
     civil_id: "",
+    passport_number: "",
+    /**
+     * Holds the combined nationality/residency choice — see
+     * `nationalityResidencyOptions`. `handleSubmit` splits it into the API's
+     * `nationality` + `residency_status` pair.
+     */
     nationality: "",
     emergency_contact_name: "",
     emergency_contact_phone: "",
@@ -171,7 +181,22 @@ function IndividualRegistrationFormComponent() {
     dob: YupDateOfBirth(MIN_SIGNUP_AGE),
     email: YupEmail,
     password: YupStrongPassword,
-    civil_id: YupCivilId,
+    /*
+     * Which identifier is mandatory follows the nationality choice, the same
+     * way `RegisterRequest::validateIdentityDocument()` decides it server-side:
+     * a Kuwaiti or a non-Kuwaiti resident gives a civil ID, a non-Kuwaiti
+     * non-resident gives a passport number instead.
+     */
+    civil_id: Yup.string().when("nationality", {
+      is: (value: string) => !!value && !nationalityNeedsPassport(value),
+      then: () => YupCivilId,
+      otherwise: () => Yup.string().notRequired(),
+    }),
+    passport_number: Yup.string().when("nationality", {
+      is: (value: string) => nationalityNeedsPassport(value),
+      then: () => YupStringMaxLength(20).concat(YupRequiredString),
+      otherwise: () => Yup.string().notRequired(),
+    }),
     nationality: Yup.string().concat(YupRequiredString),
     termsAccepted: Yup.boolean()
       .required(t("COMMON.REQUIRED.FIELD"))
@@ -226,11 +251,21 @@ function IndividualRegistrationFormComponent() {
     { resetForm }: FormikHelpers<typeof initialValues>
   ) => {
     try {
+      // One dropdown on screen, two fields on the wire. The identifier that
+      // does not apply is sent empty rather than left out, so switching the
+      // choice after typing cannot carry a stale civil ID or passport through.
+      const residency = findNationalityResidency(values.nationality);
+      const usesPassport = residency?.identifier === "passport_number";
+
       await registerMutation.mutateAsync({
         ...values,
         gender: values.gender,
         country_code: values.country_code,
         phone_number: values.phone_number,
+        nationality: residency?.nationality ?? "",
+        residency_status: residency?.residency_status ?? "",
+        civil_id: usesPassport ? "" : values.civil_id,
+        passport_number: usesPassport ? values.passport_number : "",
         user_type: "volunteer",
         preferred_language: selectedLanguage,
       });
@@ -262,7 +297,14 @@ function IndividualRegistrationFormComponent() {
     dob: values.dob,
     gender: values.gender,
     civil_id: values.civil_id,
-    nationality: values.nationality,
+    /*
+     * Mapped back to the API's own `kuwaitis` / `other`, because the mandate
+     * screen still asks the two-option question: `/social-auth/` accepts
+     * neither `residency_status` nor `passport_number` and requires a civil ID
+     * from every new volunteer, so the three-way choice has nowhere to land
+     * there yet (BE-50).
+     */
+    nationality: findNationalityResidency(values.nationality)?.nationality ?? "",
     emergency_contact_name: values.emergency_contact_name,
     emergency_contact_phone: values.emergency_contact_phone,
     emergency_contact_country_code: values.emergency_contact_country_code,
@@ -547,24 +589,44 @@ function IndividualRegistrationFormComponent() {
                   </div>
 
                   <div className="grid grid-cols-2 mobilescreen:grid-cols-1 mobilescreen:gap-0 gap-6 selectfiled">
-                    <Input
-                      name="civil_id"
-                      type="text"
-                      label={t("COMMON.CIVIL_ID")}
-                      maxLength={12}
-                      digitsOnly
-                    />
+                    {/* Nationality comes first here: it decides which
+                        identifier is asked for below it. */}
                     <SelectInput
                       name="nationality"
                       label={t("COMMON.NATIONALITY")}
-                      options={nationalityOptions.map((item) => ({
+                      options={nationalityResidencyOptions.map((item) => ({
                         label: selectedLanguage === "ar" ? item.name_ar : item.name_en,
                         value: item.value,
                       }))}
-                      onChange={(selectedOption) =>
-                        setFieldValue("nationality", selectedOption?.value || "")
-                      }
+                      onChange={(selectedOption) => {
+                        const value = selectedOption?.value || "";
+                        setFieldValue("nationality", value);
+                        // Clear whichever identifier this choice does not use,
+                        // so a half-typed value cannot be submitted or shown
+                        // against the wrong question.
+                        if (nationalityNeedsPassport(value)) {
+                          setFieldValue("civil_id", "");
+                        } else {
+                          setFieldValue("passport_number", "");
+                        }
+                      }}
                     />
+                    {nationalityNeedsPassport(values.nationality) ? (
+                      <Input
+                        name="passport_number"
+                        type="text"
+                        label={t("COMMON.PASSPORT_NUMBER")}
+                        maxLength={20}
+                      />
+                    ) : (
+                      <Input
+                        name="civil_id"
+                        type="text"
+                        label={t("COMMON.CIVIL_ID")}
+                        maxLength={12}
+                        digitsOnly
+                      />
+                    )}
                   </div>
 
                   {isUnder18 && (

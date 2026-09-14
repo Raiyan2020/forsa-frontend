@@ -23,7 +23,11 @@ import {
   passSocialInfoRequest,
   registerRequest,
 } from "@/features/auth/services/authApi";
-import { nationalityOptions } from "@/data/Constants";
+import {
+  findNationalityResidency,
+  nationalityNeedsPassport,
+  nationalityResidencyOptions,
+} from "@/data/Constants";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import { startLinkedinLogin } from "@/lib/auth/linkedin";
 import { handleGoogleLogin } from "@/lib/helpers";
@@ -156,6 +160,8 @@ export default function RegisterVolunteerModalForm({
     nickname: "",
     gender: "",
     civil_id: "",
+    passport_number: "",
+    /** Combined nationality/residency choice — split on submit. */
     nationality: "",
     termsAccepted: false,
     dob: "",
@@ -196,7 +202,18 @@ export default function RegisterVolunteerModalForm({
     }),
     country_code: Yup.string().concat(YupRequiredString),
     dob: YupStringMaxLength(10).concat(YupRequiredString),
-    civil_id: YupCivilId,
+    // Same rule the API applies: civil ID for a Kuwaiti or a resident,
+    // passport number for a non-Kuwaiti non-resident.
+    civil_id: Yup.string().when("nationality", {
+      is: (value: string) => !!value && !nationalityNeedsPassport(value),
+      then: () => YupCivilId,
+      otherwise: () => Yup.string().notRequired(),
+    }),
+    passport_number: Yup.string().when("nationality", {
+      is: (value: string) => nationalityNeedsPassport(value),
+      then: () => YupStringMaxLength(20).concat(YupRequiredString),
+      otherwise: () => Yup.string().notRequired(),
+    }),
     nationality: Yup.string().concat(YupRequiredString),
     email: YupEmail,
     password: YupStrongPassword,
@@ -285,12 +302,18 @@ export default function RegisterVolunteerModalForm({
     { resetForm }: FormikHelpers<typeof initialValues>
   ) => {
     try {
+      const residency = findNationalityResidency(values.nationality);
+      const usesPassport = residency?.identifier === "passport_number";
+
       await registerMutation.mutateAsync({
         ...values,
         gender: values.gender,
         country_code: values.country_code,
         phone_number: values.phone_number,
-        civil_id: values.civil_id,
+        nationality: residency?.nationality ?? "",
+        residency_status: residency?.residency_status ?? "",
+        civil_id: usesPassport ? "" : values.civil_id,
+        passport_number: usesPassport ? values.passport_number : "",
         user_type: "volunteer",
         preferred_language: selectedLanguage,
       });
@@ -492,14 +515,30 @@ export default function RegisterVolunteerModalForm({
 
                 <div className="grid grid-cols-2 mobilescreen:gap-[0px] mobilescreen:grid-cols-1 gap-[100px]">
                   <div>
-                    <p className={FIELD_LABEL_CLASS}>{t("COMMON.CIVIL_ID")}</p>
-                    <ModalInput
-                      name="civil_id"
-                      type="text"
-                      placeholder={t("COMMON.CIVIL_ID")}
-                      maxLength={12}
-                      digitsOnly
-                    />
+                    {nationalityNeedsPassport(values.nationality) ? (
+                      <>
+                        <p className={FIELD_LABEL_CLASS}>
+                          {t("COMMON.PASSPORT_NUMBER")}
+                        </p>
+                        <ModalInput
+                          name="passport_number"
+                          type="text"
+                          placeholder={t("COMMON.PASSPORT_NUMBER")}
+                          maxLength={20}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <p className={FIELD_LABEL_CLASS}>{t("COMMON.CIVIL_ID")}</p>
+                        <ModalInput
+                          name="civil_id"
+                          type="text"
+                          placeholder={t("COMMON.CIVIL_ID")}
+                          maxLength={12}
+                          digitsOnly
+                        />
+                      </>
+                    )}
                   </div>
                   <div>
                     <p className={FIELD_LABEL_CLASS}>
@@ -508,14 +547,20 @@ export default function RegisterVolunteerModalForm({
                     <SelectInput
                       name="nationality"
                       label={t("COMMON.NATIONALITY")}
-                      options={nationalityOptions.map((item) => ({
+                      options={nationalityResidencyOptions.map((item) => ({
                         label:
                           selectedLanguage === "ar" ? item.name_ar : item.name_en,
                         value: item.value,
                       }))}
-                      onChange={(selectedOption) =>
-                        setFieldValue("nationality", selectedOption?.value || "")
-                      }
+                      onChange={(selectedOption) => {
+                        const value = selectedOption?.value || "";
+                        setFieldValue("nationality", value);
+                        if (nationalityNeedsPassport(value)) {
+                          setFieldValue("civil_id", "");
+                        } else {
+                          setFieldValue("passport_number", "");
+                        }
+                      }}
                     />
                   </div>
                 </div>

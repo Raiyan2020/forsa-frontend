@@ -381,10 +381,33 @@ export default function MoreProfile() {
 }
 
 export const ProfileCard = ({ profile }: { profile: UserProfile }) => {
+  const userType = profile?.user_details?.user_type;
   const profileUrl =
-    !profile?.is_public && profile?.user_details?.user_type === "volunteer"
+    !profile?.is_public && userType === "volunteer"
       ? `/volunteer-private-profile/${profile?.user_details?.id}`
       : `/public-profile/${profile?.user_details?.id}`;
+
+  /*
+   * An individual volunteer is identified by nickname only — their real name
+   * stays private, so there is deliberately no fall back to first/last name
+   * here. That matches `/public-profile/{id}`, where the API returns
+   * `full_name: null` for a volunteer for the same reason, and the header shows
+   * `display_name || nickname || "—"`.
+   *
+   * Organizations and volunteer teams keep the name fallback: their name is
+   * their public identity, not personal information.
+   */
+  const isIndividual = userType === "volunteer" || userType === "individual";
+  const fullName = [
+    profile?.user_details?.first_name,
+    profile?.user_details?.last_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const displayName = isIndividual
+    ? profile?.nickname || "—"
+    : profile?.nickname || fullName || "—";
 
   return (
     <div className="flex flex-col items-center pb-8">
@@ -402,7 +425,9 @@ export const ProfileCard = ({ profile }: { profile: UserProfile }) => {
                   orgDummy
                 )
               }
-              alt={profile?.user_details?.first_name + " " + profile?.user_details?.last_name}
+              // Same rule as the heading — the alt text is rendered HTML and
+              // would leak the real name just as readily.
+              alt={displayName}
               fill
               unoptimized
             />
@@ -411,7 +436,7 @@ export const ProfileCard = ({ profile }: { profile: UserProfile }) => {
       </div>
       <h3 className="text-center font-semibold 2xl:text-[25px] lg:text-lg mediumscreen:text-xl mobilescreen:text-sm text-lg text-secondary-100 pt-2">
         <Link href={profileUrl} className="cursor-pointer hover:underline">
-          {profile?.nickname || profile?.user_details?.first_name + " " + profile?.user_details?.last_name}
+          {displayName}
         </Link>
       </h3>
     </div>

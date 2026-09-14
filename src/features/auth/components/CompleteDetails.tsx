@@ -32,7 +32,11 @@ import {
   clearSocialSignupState,
   takeSocialPrefill,
 } from "@/lib/auth/socialSignup";
-import { isLicenseExemptOrgType } from "@/data/orgTypes";
+import {
+  isLicenseExemptOrgType,
+  sortOrgTypeOptions,
+  type OrgTypeOption,
+} from "@/data/orgTypes";
 import { NAV_STATE_KEYS, takeNavState } from "@/lib/navigationState";
 
 const CountryCodeSelect = dynamic(
@@ -130,7 +134,7 @@ export default function CompleteDetails() {
   });
 
   // Transform API responses into options for SelectInput
-  const orgTypeOptions = useMemo(
+  const orgTypeOptions: OrgTypeOption[] = useMemo(
     () =>
       orgTypeData?.data?.map((item: any) => ({
         label: selectedLanguage === "ar" ? item.value_ar : item.value_en,
@@ -142,11 +146,14 @@ export default function CompleteDetails() {
 
   // The visible dropdown never offers "Volunteer Team" — that path only ever
   // reaches this form via the dedicated JoinUs shortcut, which skips the
-  // field entirely and sets the value in the background instead.
+  // field entirely and sets the value in the background instead. The rest are
+  // sorted into the client's order, same as the entities form.
   const visibleOrgTypeOptions = useMemo(
     () =>
-      orgTypeOptions.filter(
-        (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+      sortOrgTypeOptions(
+        orgTypeOptions.filter(
+          (o: (typeof orgTypeOptions)[number]) => o.rawValue !== "Volunteer Team"
+        )
       ),
     [orgTypeOptions]
   );

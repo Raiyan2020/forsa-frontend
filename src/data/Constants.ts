@@ -81,6 +81,74 @@ export const nationalityOptions = [
   },
 ];
 
+/**
+ * The nationality question as the client states it: three choices, not two,
+ * because which identifier is mandatory depends on residency as well as
+ * nationality.
+ *
+ * The API models this as **two** fields — `nationality` (`kuwaitis` | `other`)
+ * plus `residency_status` (`resident` | `non_resident`, required only for a
+ * non-Kuwaiti) — and `RegisterRequest::validateIdentityDocument()` then demands
+ * `civil_id` or `passport_number` accordingly. One dropdown is the clearer
+ * question to ask, so the two API fields are derived from the choice on submit
+ * rather than asked for separately.
+ */
+export const nationalityResidencyOptions = [
+  {
+    value: "kuwaiti",
+    name_en: "Kuwaiti",
+    name_ar: "كويتي",
+    nationality: "kuwaitis",
+    residency_status: "",
+    identifier: "civil_id",
+  },
+  {
+    value: "non_kuwaiti_resident",
+    name_en: "Non-Kuwaiti resident",
+    name_ar: "غير كويتي مقيم",
+    nationality: "other",
+    residency_status: "resident",
+    identifier: "civil_id",
+  },
+  {
+    value: "non_kuwaiti_non_resident",
+    name_en: "Non-Kuwaiti non-resident",
+    name_ar: "غير كويتي غير مقيم",
+    nationality: "other",
+    residency_status: "non_resident",
+    identifier: "passport_number",
+  },
+] as const;
+
+export type NationalityResidencyOption =
+  (typeof nationalityResidencyOptions)[number];
+
+export const findNationalityResidency = (
+  value: string
+): NationalityResidencyOption | undefined =>
+  nationalityResidencyOptions.find((option) => option.value === value);
+
+/** True for the one choice that asks for a passport instead of a civil ID. */
+export const nationalityNeedsPassport = (value: string): boolean =>
+  findNationalityResidency(value)?.identifier === "passport_number";
+
+/**
+ * Rebuilds the dropdown value from a stored account, so the edit screens show
+ * what the user picked. A non-Kuwaiti whose `residency_status` was never set —
+ * every account created before this question had three options — falls back to
+ * resident, which is what the old two-option form effectively meant.
+ */
+export const nationalityResidencyValueFrom = (
+  nationality?: string | null,
+  residencyStatus?: string | null
+): string => {
+  if (!nationality) return "";
+  if (nationality === "kuwaitis") return "kuwaiti";
+  return residencyStatus === "non_resident"
+    ? "non_kuwaiti_non_resident"
+    : "non_kuwaiti_resident";
+};
+
 export const nationalityFilterOptions = [
   {
     value: "kuwaitis",
