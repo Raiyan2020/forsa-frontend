@@ -73,9 +73,7 @@ export const getVolunteerTeamProfilesList = (params?: any) =>
  *
  * The filtering belongs on this endpoint rather than in the client: the same
  * list is paged on screen, so narrowing it after the fact would page a list the
- * server never agreed to. Not yet implemented server-side — an unknown query
- * param is ignored there, so today this returns the full list either way
- * (BE-53).
+ * server never agreed to.
  */
 export const getUserCertificates = (
   userId: string | number,

@@ -2,9 +2,10 @@
  * `POST /social-auth/` is both the login and the register endpoint: it issues a
  * token for a known email and creates the account for an unknown one. What it
  * will not do is create a half-account — a brand-new volunteer must arrive with
- * `civil_id`, a brand-new organization with its company details — so the sign-up
- * screens ask `POST /check-user/` first and send anyone new through the matching
- * onboarding screen before the single social-auth call.
+ * the identifier required by their nationality/residency selection (civil ID or
+ * passport), and a brand-new organization with its company details — so the
+ * sign-up screens ask `POST /check-user/` first and send anyone new through the
+ * matching onboarding screen before the single social-auth call.
  *
  * Two payloads ride along in sessionStorage between those screens:
  *   `oauth_user`  — the provider profile (email, names, provider id, picture).

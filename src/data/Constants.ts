@@ -88,7 +88,7 @@ export const nationalityOptions = [
  *
  * The API models this as **two** fields — `nationality` (`kuwaitis` | `other`)
  * plus `residency_status` (`resident` | `non_resident`, required only for a
- * non-Kuwaiti) — and `RegisterRequest::validateIdentityDocument()` then demands
+ * non-Kuwaiti) — and `IdentityDocumentValidator` then demands
  * `civil_id` or `passport_number` accordingly. One dropdown is the clearer
  * question to ask, so the two API fields are derived from the choice on submit
  * rather than asked for separately.

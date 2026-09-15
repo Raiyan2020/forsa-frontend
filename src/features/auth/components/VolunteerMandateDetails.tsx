@@ -23,7 +23,11 @@ import {
   passSocialInfoRequest,
 } from "@/features/auth/services/authApi";
 import { getApiErrorMessages, isApiSuccess } from "@/lib/api/errors";
-import { nationalityOptions } from "@/data/Constants";
+import {
+  findNationalityResidency,
+  nationalityNeedsPassport,
+  nationalityResidencyOptions,
+} from "@/data/Constants";
 import { cn } from "@/lib/helpers";
 import { YupCivilId, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
@@ -60,6 +64,8 @@ interface MandateFormValues {
   gender: string;
   country_code: string;
   civil_id: string;
+  passport_number: string;
+  /** Combined nationality/residency choice; split into API fields on submit. */
   nationality: string;
   termsAccepted: boolean;
   emergency_contact_name: string;
@@ -181,6 +187,7 @@ export default function VolunteerMandateDetails({
       gender: "",
       country_code: "",
       civil_id: "",
+      passport_number: "",
       nationality: "",
       termsAccepted: false,
       emergency_contact_name: "",
@@ -212,7 +219,16 @@ export default function VolunteerMandateDetails({
     }),
     dob: YupStringMaxLength(10).concat(YupRequiredString),
     country_code: Yup.string().concat(YupRequiredString),
-    civil_id: YupCivilId,
+    civil_id: Yup.string().when("nationality", {
+      is: (value: string) => !!value && !nationalityNeedsPassport(value),
+      then: () => YupCivilId,
+      otherwise: () => Yup.string().notRequired(),
+    }),
+    passport_number: Yup.string().when("nationality", {
+      is: (value: string) => nationalityNeedsPassport(value),
+      then: () => YupStringMaxLength(20).concat(YupRequiredString),
+      otherwise: () => Yup.string().notRequired(),
+    }),
     nationality: Yup.string().concat(YupRequiredString),
     termsAccepted: Yup.boolean()
       .required(t("COMMON.REQUIRED.FIELD"))
@@ -322,7 +338,15 @@ export default function VolunteerMandateDetails({
       // has no such field and should not be handed one. Everything else — the
       // provider profile plus civil_id / nickname / the volunteer details — is
       // what the endpoint documents.
-      const profile: Record<string, unknown> = { ...values };
+      const residency = findNationalityResidency(values.nationality);
+      const usesPassport = residency?.identifier === "passport_number";
+      const profile: Record<string, unknown> = {
+        ...values,
+        nationality: residency?.nationality ?? "",
+        residency_status: residency?.residency_status ?? "",
+        civil_id: usesPassport ? "" : values.civil_id,
+        passport_number: usesPassport ? values.passport_number : "",
+      };
       delete profile.termsAccepted;
       const finalUserData = {
         ...userData,
@@ -477,30 +501,42 @@ export default function VolunteerMandateDetails({
                     </div>
 
                     <div className="grid grid-cols-2 mobilescreen:grid-cols-1 mobilescreen:gap-0 gap-6 selectfiled">
-                      <Input
-                        name="civil_id"
-                        type="text"
-                        label={t("COMMON.CIVIL_ID")}
-                        maxLength={12}
-                        digitsOnly
-                      />
                       <SelectInput
                         name="nationality"
                         label={t("COMMON.NATIONALITY")}
-                        options={nationalityOptions.map((item) => ({
+                        options={nationalityResidencyOptions.map((item) => ({
                           label:
                             selectedLanguage === "ar"
                               ? item.name_ar
                               : item.name_en,
                           value: item.value,
                         }))}
-                        onChange={(selectedOption) =>
-                          setFieldValue(
-                            "nationality",
-                            selectedOption?.value || ""
-                          )
-                        }
+                        onChange={(selectedOption) => {
+                          const value = selectedOption?.value || "";
+                          setFieldValue("nationality", value);
+                          if (nationalityNeedsPassport(value)) {
+                            setFieldValue("civil_id", "");
+                          } else {
+                            setFieldValue("passport_number", "");
+                          }
+                        }}
                       />
+                      {nationalityNeedsPassport(values.nationality) ? (
+                        <Input
+                          name="passport_number"
+                          type="text"
+                          label={t("COMMON.PASSPORT_NUMBER")}
+                          maxLength={20}
+                        />
+                      ) : (
+                        <Input
+                          name="civil_id"
+                          type="text"
+                          label={t("COMMON.CIVIL_ID")}
+                          maxLength={12}
+                          digitsOnly
+                        />
+                      )}
                     </div>
 
                     {/* Emergency Contact Fields - Only shown if user is under 18 */}

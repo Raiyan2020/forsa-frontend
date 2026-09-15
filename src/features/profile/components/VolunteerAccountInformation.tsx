@@ -27,8 +27,11 @@ import {
 } from "@/features/auth/services/authApi";
 import { getAccountInfo, getVolunteerProfile, updateAccountInfo, updateVolunteerProfile } from "@/features/profile/services/profileApi";
 import {
+  findNationalityResidency,
   healthConcernOptions,
-  nationalityOptions,
+  nationalityNeedsPassport,
+  nationalityResidencyOptions,
+  nationalityResidencyValueFrom,
   occupationOptions,
   socialMediaOptions,
 } from "@/data/Constants";
@@ -117,9 +120,11 @@ interface CombinedFormValues {
   health_concerns: string;
   is_public: boolean;
   gender: string;
+  /** Combined nationality/residency choice; split into API fields on submit. */
   nationality: string;
   dob: string;
   civil_id: string;
+  passport_number: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
   emergency_contact_country_code: string;
@@ -274,7 +279,7 @@ export default function VolunteerAccountInformation() {
       value: item.id,
     })) || [];
 
-  const nationalityOpts = nationalityOptions.map((item) => ({
+  const nationalityOpts = nationalityResidencyOptions.map((item) => ({
     label: selectedLanguage === "ar" ? item.name_ar : item.name_en,
     value: item.value,
   }));
@@ -359,9 +364,14 @@ export default function VolunteerAccountInformation() {
           : "no",
     is_public: volunteerProfile?.data?.is_public ?? true,
     gender: volunteerProfile?.data?.gender_display?.id ?? "",
-    nationality: volunteerProfile?.data?.nationality ?? "",
+    nationality: nationalityResidencyValueFrom(
+      volunteerProfile?.data?.nationality ?? accountData?.data?.nationality,
+      volunteerProfile?.data?.residency_status ??
+        accountData?.data?.residency_status
+    ),
     dob: volunteerProfile?.data?.dob ?? "",
     civil_id: volunteerProfile?.data?.civil_id ?? "",
+    passport_number: volunteerProfile?.data?.passport_number ?? "",
     emergency_contact_name: accountData?.data?.emergency_contact_name ?? "",
     emergency_contact_phone: accountData?.data?.emergency_contact_phone ?? "",
     emergency_contact_country_code:
@@ -404,7 +414,17 @@ export default function VolunteerAccountInformation() {
         return nicknameAvailability.available !== false;
       }),
     dob: Yup.date().nullable(),
-    civil_id: YupCivilId,
+    nationality: Yup.string().concat(YupRequiredString),
+    civil_id: Yup.string().when("nationality", {
+      is: (value: string) => !!value && !nationalityNeedsPassport(value),
+      then: () => YupCivilId,
+      otherwise: () => Yup.string().notRequired(),
+    }),
+    passport_number: Yup.string().when("nationality", {
+      is: (value: string) => nationalityNeedsPassport(value),
+      then: () => YupStringMaxLength(20).concat(YupRequiredString),
+      otherwise: () => Yup.string().notRequired(),
+    }),
     emergency_contact_name: Yup.string().when("dob", {
       is: isUnderage,
       then: () => YupStringMaxLength(100).concat(YupRequiredString).matches(/^[A-Za-z\s]+$/, t("COMMON.ENGLISH_ONLY")),
@@ -699,6 +719,8 @@ export default function VolunteerAccountInformation() {
         }
       });
 
+      const residency = findNationalityResidency(values.nationality);
+      const usesPassport = residency?.identifier === "passport_number";
       const profileData: Record<string, unknown> = {
         nickname: values.nickname,
         occupation: values.occupation,
@@ -707,8 +729,10 @@ export default function VolunteerAccountInformation() {
         interest_ids: values._interests,
         is_public: values.is_public,
         gender: values.gender,
-        nationality: values.nationality,
-        civil_id: values.civil_id,
+        nationality: residency?.nationality ?? "",
+        residency_status: residency?.residency_status ?? "",
+        civil_id: usesPassport ? "" : values.civil_id,
+        passport_number: usesPassport ? values.passport_number : "",
         ...socialMediaFields,
         // Only send a real date when one is provided
         dob: values.dob ? formatDateToYYYYMMDD(values.dob) : null,
@@ -721,6 +745,29 @@ export default function VolunteerAccountInformation() {
       );
 
       if (hasAccountChanges) {
+        // `/account/` now runs the same three-way identity check as the profile
+        // update (BE-50), filling anything the request omits from what is
+        // already stored. An account that has no identifier stored yet — every
+        // social sign-up from before that question was asked — would therefore
+        // fail a plain phone-number edit on a field this request never touched.
+        // Sending the current selection along on a save that is happening
+        // anyway both answers the check and repairs the stored row. It
+        // deliberately does not set `hasAccountChanges`: on its own it is not a
+        // reason to call `/account/`.
+        if (residency) {
+          accountFormData.append("nationality", residency.nationality);
+          if (residency.residency_status) {
+            accountFormData.append(
+              "residency_status",
+              residency.residency_status
+            );
+          }
+          accountFormData.append(
+            usesPassport ? "passport_number" : "civil_id",
+            usesPassport ? values.passport_number : values.civil_id
+          );
+        }
+
         const accountResponse =
           await updateAccountMutation.mutateAsync(accountFormData);
         if (!assertAccountUpdateSucceeded(accountResponse, errorReport)) return;
@@ -974,13 +1021,22 @@ export default function VolunteerAccountInformation() {
 
                       <div className="flex mobilescreen:gap-0 mobilescreen:flex-col gap-4">
                         <div className="relative flex-1">
-                          <Input
-                            name="civil_id"
-                            type="text"
-                            label={t("COMMON.CIVIL_ID")}
-                            maxLength={12}
-                            digitsOnly
-                          />
+                          {nationalityNeedsPassport(values.nationality) ? (
+                            <Input
+                              name="passport_number"
+                              type="text"
+                              label={t("COMMON.PASSPORT_NUMBER")}
+                              maxLength={20}
+                            />
+                          ) : (
+                            <Input
+                              name="civil_id"
+                              type="text"
+                              label={t("COMMON.CIVIL_ID")}
+                              maxLength={12}
+                              digitsOnly
+                            />
+                          )}
                         </div>
                         <div className="relative flex-1">
                           <Input
@@ -1072,12 +1128,15 @@ export default function VolunteerAccountInformation() {
                         name="nationality"
                         label={t("COMMON.SELECT.NATIONALITY")}
                         options={nationalityOpts}
-                        onChange={(selectedOption) =>
-                          setFieldValue(
-                            "nationality",
-                            selectedOption?.value || ""
-                          )
-                        }
+                        onChange={(selectedOption) => {
+                          const value = selectedOption?.value || "";
+                          setFieldValue("nationality", value);
+                          if (nationalityNeedsPassport(value)) {
+                            setFieldValue("civil_id", "");
+                          } else {
+                            setFieldValue("passport_number", "");
+                          }
+                        }}
                       />
                     </div>
 

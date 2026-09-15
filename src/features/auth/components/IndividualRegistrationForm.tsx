@@ -283,11 +283,7 @@ function IndividualRegistrationFormComponent() {
     }
   };
 
-  /**
-   * What of this form can be carried into /volunteer-mandate-details so the
-   * volunteer does not answer the same questions twice. `civil_id` matters
-   * most: `/social-auth/` refuses a brand-new volunteer without one.
-   */
+  /** Answers carried into /volunteer-mandate-details for social signup. */
   const volunteerPrefill = (values: typeof initialValues) => ({
     first_name: values.first_name,
     last_name: values.last_name,
@@ -297,14 +293,10 @@ function IndividualRegistrationFormComponent() {
     dob: values.dob,
     gender: values.gender,
     civil_id: values.civil_id,
-    /*
-     * Mapped back to the API's own `kuwaitis` / `other`, because the mandate
-     * screen still asks the two-option question: `/social-auth/` accepts
-     * neither `residency_status` nor `passport_number` and requires a civil ID
-     * from every new volunteer, so the three-way choice has nowhere to land
-     * there yet (BE-50).
-     */
-    nationality: findNationalityResidency(values.nationality)?.nationality ?? "",
+    passport_number: values.passport_number,
+    // The mandate screen uses the same combined dropdown value and performs
+    // the API split itself when it submits.
+    nationality: values.nationality,
     emergency_contact_name: values.emergency_contact_name,
     emergency_contact_phone: values.emergency_contact_phone,
     emergency_contact_country_code: values.emergency_contact_country_code,

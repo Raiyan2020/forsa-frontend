@@ -33,7 +33,7 @@ export interface FiltersData {
    * The role the profile owner played in the activity — `Participant` or
    * `Provider`. Set by the chips above the listing, not by the filter modal;
    * it rides along here so it reaches the query the same way
-   * `opportunity_type` does. Empty means both. See BE-54.
+   * `opportunity_type` does. Empty means both.
    */
   profile_activity_tag?: string;
 }

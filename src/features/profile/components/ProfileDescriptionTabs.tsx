@@ -115,8 +115,8 @@ function OpportunityTypeChips({
  * resets whenever the type moves off it.
  *
  * The value is sent to the listing endpoints as `profile_activity_tag`; "All"
- * omits the param. Not implemented server-side yet (BE-54), so today every chip
- * returns the same list.
+ * omits the param. The backend matches the input case-insensitively while row
+ * payloads use lowercase `participant` / `provider`.
  */
 export const ACTIVITY_TAG_TABS: ReadonlyArray<{
   value: string;
@@ -158,12 +158,6 @@ export function ActivityTagChips({
  * `/user-certificates/` as `certificate_type`, so the API does the filtering;
  * see `getUserCertificates()`.
  *
- * Neither piece exists on the backend yet (BE-53). `/choices/{type}/` answers
- * 404 for an unknown type, so the query fails and the three types the client
- * asked for are used until it is seeded — delete the fallback then. And an
- * unrecognised query param is ignored, so every chip returns the full list
- * until `certificate_type` is honoured.
- *
  * The existing `filter-type` choice is deliberately **not** reused: it is
  * shared with the opportunities filter modal and carries `Class` and
  * `Consultation` as well, neither of which can ever have a certificate (BE-47).
@@ -178,12 +172,6 @@ interface ChoiceOption {
   value_en?: string;
   value_ar?: string;
 }
-
-const CERTIFICATE_TYPE_FALLBACK: ReadonlyArray<Required<Pick<ChoiceOption, "value_en" | "value_ar">>> = [
-  { value_en: "Volunteer", value_ar: "تطوع" },
-  { value_en: "Course", value_ar: "دورة" },
-  { value_en: "Internship", value_ar: "تدريب" },
-];
 
 const TAB_CONTENT_CLASS =
   "mt-0 border-t border-primary-5 2xl:pt-16 laptopmain:pt-8 lg:pt-5 pt-5 md:pt-5 lg:pb-[50px] md:pb-[20px] pb-[20px]";
@@ -312,8 +300,7 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
     enabled: Boolean(userId),
   });
 
-  // The filter's own options. `retry: false` because a missing choice type is a
-  // 404 that will not become anything else by asking again.
+  // The filter's own options are backend-managed master choices.
   const { data: typeChoices } = useQuery({
     queryKey: ["dropdown", CERTIFICATE_FILTER_CHOICE_TYPE],
     queryFn: () => getDropdownChoices(CERTIFICATE_FILTER_CHOICE_TYPE),
@@ -323,7 +310,7 @@ function CertificateTabs({ user_id }: { user_id?: string }) {
   const typeTabs = useMemo(() => {
     const choices: ChoiceOption[] = Array.isArray(typeChoices?.data)
       ? typeChoices.data
-      : CERTIFICATE_TYPE_FALLBACK;
+      : [];
 
     return [
       { value: "all", label: t("COMMON.ALL") },

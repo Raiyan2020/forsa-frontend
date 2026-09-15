@@ -16,8 +16,8 @@
  *   Private / Company   → Commercial
  *   Community           → Society
  *
- * Second restructure, requested 2026-09-14 and **not yet applied on the
- * backend** (BE-51). Six visible types, with `Society` splitting in two:
+ * Second restructure (backend migration `2026_09_15_000001`). Six visible
+ * types, with `Society` splitting in two:
  *
  *   Institution → Governmental   حكومي
  *   Commercial  → Commercial     تجاري        (label change only)
@@ -26,9 +26,8 @@
  *   Society     → Association    جمعية        ← splits
  *   (new)         Community      مجتمع        ← splits
  *
- * Every name from all three generations is therefore recognised here at once.
- * The dropdown will show the old labels until the backend migration lands, and
- * will show the new ones the moment it does, with no frontend change needed.
+ * Every name from all three generations remains recognised here during
+ * rollout, including cached responses from deployments on the old vocabulary.
  */
 
 /**

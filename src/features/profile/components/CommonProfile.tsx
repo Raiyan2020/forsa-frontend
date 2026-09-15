@@ -48,13 +48,13 @@ interface ProfileStatistics {
     total_hours?: number | string;
     total_opportunities?: number | string;
     total_certificates?: number | string;
+    opportunities_organized?: number | string;
     /**
      * Volunteer development-opportunity counter. Number of learn-serve
      * activities the volunteer took part in as Participant OR Provider — one
      * per opportunity, not per certificate. The backend returns this as
-     * `development_opportunities_count` (FURSA_BACKEND_ISSUES.md BE-54); the
-     * `total_*` aliases are legacy fallbacks kept until that is deployed
-     * everywhere.
+     * `development_opportunities_count`; the `total_*` aliases support older
+     * API deployments during rollout.
      */
     total_volunteer_opportunities?: number | string;
     total_learn_opportunities?: number | string;
@@ -99,12 +99,11 @@ interface ProfileData {
   total_opportunities?: number | string;
   total_certificates?: number | string;
   /**
-   * Volunteer split counters (FURSA_BACKEND_ISSUES.md BE-54).
+   * Volunteer split counters.
    * `development_opportunities_count` is the canonical backend field —
    * attended learn-serve registrations plus created (approved) learn-serve
-   * opportunities, one per activity, never certificates. `total_opportunities`
-   * today is ambiguous (volunteer-only or combined), so the explicit split is
-   * preferred with the legacy field as fallback until BE-54 is deployed.
+   * opportunities, one per role, never certificates. `total_opportunities` is
+   * the attended total across volunteer and development opportunities.
    */
   development_opportunities_count?: number | string | null;
   total_volunteer_opportunities?: number | string | null;
@@ -418,20 +417,39 @@ function BackgroundAndAchievements({
    *    style of the entity's development counter (n_learnServeicn.svg +
    *    OPPORTUNITIESORGANIZED-- + primary-503).
    *
-   * `total_opportunities` is kept only as a legacy fallback for (2) until
-   * BE-54 lands the explicit split; (3) deliberately never falls back to
-   * `total_certificates` — certificates exist only for a subset of learn-serve
-   * rows, so that would undercount.
+   * The backend's `total_opportunities` combines attended volunteer and
+   * development activities. The volunteer-only figure is therefore derived by
+   * subtracting the participant portion of the development counter; the latter
+   * is combined Participant + Provider, and `opportunities_organized` supplies
+   * the Provider portion. Explicit split fields still win during rollout.
    */
+  const attendedTotal = toNumber(
+    profile.statistics?.all_time?.total_opportunities ??
+      profile.total_opportunities
+  );
+  const developmentTotal = toNumber(
+    profile.development_opportunities_count ??
+      profile.statistics?.all_time?.total_learn_opportunities ??
+      profile.statistics?.all_time?.total_development_opportunities ??
+      profile.total_learn_opportunities ??
+      profile.total_development_opportunities ??
+      profile.learn_opportunities_count
+  );
+  const providedDevelopment = toNumber(
+    profile.opportunities_organized ??
+      profile.statistics?.all_time?.opportunities_organized
+  );
+  const attendedDevelopment = Math.max(
+    0,
+    developmentTotal - providedDevelopment
+  );
   const volunteerStats = {
     hours:
       profile.statistics?.all_time?.total_hours ?? profile.total_volunteer_hours ?? 0,
     volunteerOpportunities:
       profile.statistics?.all_time?.total_volunteer_opportunities ??
       profile.total_volunteer_opportunities ??
-      profile.statistics?.all_time?.total_opportunities ??
-      profile.total_opportunities ??
-      0,
+      Math.max(0, attendedTotal - attendedDevelopment),
     developmentOpportunities:
       profile.development_opportunities_count ??
       profile.statistics?.all_time?.total_learn_opportunities ??
@@ -1172,8 +1190,8 @@ export default function CommonProfile({ id }: { id: string }) {
   const isOwnProfile =
     currentUserId != null && String(currentUserId) === String(profile.id);
   const isTeam = Boolean(response.is_volunteer_team);
-  // Pure volunteers get the volunteer development counter (BE-54); teams use
-  // the organization counter even if ever labelled `volunteer`.
+  // Pure volunteers get the volunteer development counter; teams use the
+  // organization counter even if ever labelled `volunteer`.
   const isPureVolunteer = response.user_type === "volunteer" && !isTeam;
   const volunteerDevelopmentRaw =
     profile.development_opportunities_count ??
@@ -1204,8 +1222,8 @@ export default function CommonProfile({ id }: { id: string }) {
           developmentCount={
             isPureVolunteer
               ? volunteerDevelopmentRaw == null
-                ? // Backend has not exposed the counter yet: no counter to gate
-                  // on, so keep the Development chip visible.
+                ? // Older API deployment: no counter to gate on, so keep the
+                  // Development chip visible.
                   null
                 : toNumber(volunteerDevelopmentRaw)
               : profile.learn_opportunity_organized == null
