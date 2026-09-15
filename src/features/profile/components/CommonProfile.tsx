@@ -48,7 +48,17 @@ interface ProfileStatistics {
     total_hours?: number | string;
     total_opportunities?: number | string;
     total_certificates?: number | string;
-    opportunities_organized?: number | string;
+    /**
+     * Volunteer development-opportunity counter. Number of learn-serve
+     * activities the volunteer took part in as Participant OR Provider — one
+     * per opportunity, not per certificate. The backend returns this as
+     * `development_opportunities_count` (FURSA_BACKEND_ISSUES.md BE-54); the
+     * `total_*` aliases are legacy fallbacks kept until that is deployed
+     * everywhere.
+     */
+    total_volunteer_opportunities?: number | string;
+    total_learn_opportunities?: number | string;
+    total_development_opportunities?: number | string;
   };
 }
 
@@ -83,9 +93,24 @@ interface ProfileData {
   learn_opportunity_organized?: number | string | null;
   vol_opportunity_organized?: number | string | null;
   sponsored?: number | string | null;
+  /** Alias returned by `/organization-profile/` — public-profile uses `sponsored`. */
+  sponsored_count?: number | string | null;
   total_volunteer_hours?: number | string;
   total_opportunities?: number | string;
   total_certificates?: number | string;
+  /**
+   * Volunteer split counters (FURSA_BACKEND_ISSUES.md BE-54).
+   * `development_opportunities_count` is the canonical backend field —
+   * attended learn-serve registrations plus created (approved) learn-serve
+   * opportunities, one per activity, never certificates. `total_opportunities`
+   * today is ambiguous (volunteer-only or combined), so the explicit split is
+   * preferred with the legacy field as fallback until BE-54 is deployed.
+   */
+  development_opportunities_count?: number | string | null;
+  total_volunteer_opportunities?: number | string | null;
+  total_learn_opportunities?: number | string | null;
+  total_development_opportunities?: number | string | null;
+  learn_opportunities_count?: number | string | null;
   opportunities_organized?: number | string;
   statistics?: ProfileStatistics;
 }
@@ -384,14 +409,40 @@ function BackgroundAndAchievements({
     ? occupation[language === "ar" ? "name_ar" : "name_en"]
     : rawCurrentStatus;
   const interests = profile.interest_display || [];
+  /*
+   * Volunteer counters on `/public-profile/{id}`:
+   * 1. Volunteer hour — attended hours.
+   * 2. Volunteer Opportunity — volunteer_opportunity participations.
+   * 3. Development Opportunity — learn-serve activities as Participant OR
+   *    Provider (one per opportunity, NOT certificates). Uses the exact card
+   *    style of the entity's development counter (n_learnServeicn.svg +
+   *    OPPORTUNITIESORGANIZED-- + primary-503).
+   *
+   * `total_opportunities` is kept only as a legacy fallback for (2) until
+   * BE-54 lands the explicit split; (3) deliberately never falls back to
+   * `total_certificates` — certificates exist only for a subset of learn-serve
+   * rows, so that would undercount.
+   */
   const volunteerStats = {
     hours:
       profile.statistics?.all_time?.total_hours ?? profile.total_volunteer_hours ?? 0,
-    opportunities:
-      profile.statistics?.all_time?.total_opportunities ?? profile.total_opportunities ?? 0,
-    certificates:
-      profile.statistics?.all_time?.total_certificates ?? profile.total_certificates ?? 0,
+    volunteerOpportunities:
+      profile.statistics?.all_time?.total_volunteer_opportunities ??
+      profile.total_volunteer_opportunities ??
+      profile.statistics?.all_time?.total_opportunities ??
+      profile.total_opportunities ??
+      0,
+    developmentOpportunities:
+      profile.development_opportunities_count ??
+      profile.statistics?.all_time?.total_learn_opportunities ??
+      profile.statistics?.all_time?.total_development_opportunities ??
+      profile.total_learn_opportunities ??
+      profile.total_development_opportunities ??
+      profile.learn_opportunities_count ??
+      0,
   };
+  // `sponsored` (public-profile) vs `sponsored_count` (organization-profile).
+  const sponsoredValue = profile.sponsored ?? profile.sponsored_count ?? 0;
   const organizationCards = [
     {
       icon: "profile/statistics/n_Volunteerhours.svg",
@@ -415,7 +466,7 @@ function BackgroundAndAchievements({
       ? [
           {
             icon: "profile/statistics/n_sponseredbyus.svg",
-            value: profile.sponsored ?? 0,
+            value: sponsoredValue,
             label: t("COMMON.SPONSERED.ORGANIZED"),
             color: "border-primary-504 text-primary-504",
           },
@@ -431,18 +482,34 @@ function BackgroundAndAchievements({
     },
     {
       icon: "profile/statistics/n_VolunteerOpportunities.svg",
-      value: volunteerStats.opportunities,
+      value: volunteerStats.volunteerOpportunities,
       label: t("COMMON.VOLUNTEER_OPPORTUNITIES-"),
       color: "border-primary-502 text-primary-502",
     },
+    // Same card style as the entity's development counter: the icon,
+    // label key and color are intentionally identical so both read as the same
+    // "Development Opportunity" metric — one per learn-serve activity as
+    // Participant or Provider, never a certificate count.
     {
-      icon: "profile/statistics/n_Certificate.svg",
-      value: volunteerStats.certificates,
-      label: t("COMMON.CERTIFICATE-"),
+      icon: "profile/statistics/n_learnServeicn.svg",
+      value: volunteerStats.developmentOpportunities,
+      label: t("COMMON.OPPORTUNITIESORGANIZED--"),
       color: "border-primary-503 text-primary-503",
     },
   ];
-  const cards = userType === "organization" ? organizationCards : volunteerCards;
+  /*
+   * Volunteer teams are organization-like accounts (`organizer_type 21`,
+   * `is_volunteer_team: true`) and keep the organization counters. Force the
+   * organization set whenever the flag is on, even if a response ever labels
+   * the row `user_type: "volunteer"` — otherwise a team would fall through to
+   * the volunteer counters (hours/participations) which are always 0 for a
+   * team and look exactly like the "all counters are 0" bug (backend never
+   * reads the statistics rollup — see FURSA_BACKEND_ISSUES.md BE-55).
+   */
+  const cards =
+    userType === "organization" || isVolunteerTeam
+      ? organizationCards
+      : volunteerCards;
 
   return (
     <section className="px-3 pt-10 2xl:px-5 2xl:pt-[70px]">
@@ -710,7 +777,13 @@ function PublicProfileListings({
   const [activityTag, setActivityTag] = useState("all");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
-  const isVolunteer = userType === "volunteer";
+  /*
+   * Pure volunteers never organise events, so they get no Events tab at all.
+   * Volunteer teams are organization-like (`is_volunteer_team: true`) and keep
+   * the Events tab even if a response ever labels the row
+   * `user_type: "volunteer"` — otherwise the team would lose the tab entirely.
+   */
+  const isVolunteer = userType === "volunteer" && !isVolunteerTeam;
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<FiltersData>(EMPTY_PROFILE_FILTERS);
@@ -746,6 +819,12 @@ function PublicProfileListings({
     if (value !== "development") setActivityTag("all");
   };
 
+  // Teams have no Sponsor side: the Sponsor button below is hidden for them,
+  // so `mode` can only be "sponsored" for a team if the flag resolved after
+  // the user already picked it. Derive instead of syncing with an effect —
+  // a team always reads as organized without a cascading render.
+  const eventsMode: ListingMode = isVolunteerTeam ? "organized" : mode;
+
   // Same param mapping the owner's own profile uses in ProfileVolunteerCard /
   // ProfileEventCard, so both screens filter identically.
   const filterParams = {
@@ -768,6 +847,7 @@ function PublicProfileListings({
       "public-profile-listing",
       userId,
       userType,
+      isVolunteerTeam,
       section,
       mode,
       deferredSearch,
@@ -796,7 +876,7 @@ function PublicProfileListings({
       return getAllOpportunities({
         filter_type:
           section === "events"
-            ? mode === "organized"
+            ? eventsMode === "organized"
               ? "organized_events"
               : "sponsored_events"
             : mode,
@@ -960,6 +1040,41 @@ function PublicProfileListings({
                   onChange={setActivityTag}
                 />
               )}
+              {/*
+                Events subfilter mirrors the own profile's MyEventsTabs:
+                volunteers never reach here (no Events tab), teams get
+                Organizer only, entities get Organizer + Sponsor. `mode`
+                already drives the `organized_events` / `sponsored_events`
+                query above — these buttons are the only writer.
+              */}
+              {section === "events" && (
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("organized")}
+                    className={`rounded-full border border-primary-5 px-4 py-2 text-sm font-bold whitespace-nowrap ${
+                      eventsMode === "organized"
+                        ? "bg-primary-5 text-white"
+                        : "bg-white text-primary-5"
+                    }`}
+                  >
+                    {t("COMMON.ORGANIZER_TAG")}
+                  </button>
+                  {!isVolunteerTeam && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("sponsored")}
+                      className={`rounded-full border border-primary-5 px-4 py-2 text-sm font-bold whitespace-nowrap ${
+                        eventsMode === "sponsored"
+                          ? "bg-primary-5 text-white"
+                          : "bg-white text-primary-5"
+                      }`}
+                    >
+                      {t("COMMON.SPONSOR")}
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="shrink-0 mobilescreen:w-full">
                 <Searchbar
                   value={search}
@@ -1056,6 +1171,18 @@ export default function CommonProfile({ id }: { id: string }) {
   // by user id), so ownership is decided by id rather than by route.
   const isOwnProfile =
     currentUserId != null && String(currentUserId) === String(profile.id);
+  const isTeam = Boolean(response.is_volunteer_team);
+  // Pure volunteers get the volunteer development counter (BE-54); teams use
+  // the organization counter even if ever labelled `volunteer`.
+  const isPureVolunteer = response.user_type === "volunteer" && !isTeam;
+  const volunteerDevelopmentRaw =
+    profile.development_opportunities_count ??
+    profile.statistics?.all_time?.total_learn_opportunities ??
+    profile.statistics?.all_time?.total_development_opportunities ??
+    profile.total_learn_opportunities ??
+    profile.total_development_opportunities ??
+    profile.learn_opportunities_count ??
+    null;
   return (
     <div className="border-t border-black opp-itm-shadow">
       <div className="relative mx-auto w-[90%] md:w-[85%] lg:w-[90%] 2xl:w-[75%]">
@@ -1067,17 +1194,23 @@ export default function CommonProfile({ id }: { id: string }) {
         <BackgroundAndAchievements
           profile={profile}
           userType={response.user_type}
-          isVolunteerTeam={Boolean(response.is_volunteer_team)}
+          isVolunteerTeam={isTeam}
         />
         <PublicProfileListings
           userId={String(profile.id)}
           userType={response.user_type}
-          isVolunteerTeam={Boolean(response.is_volunteer_team)}
-          sponsoredCount={toNumber(profile.sponsored)}
+          isVolunteerTeam={isTeam}
+          sponsoredCount={toNumber(profile.sponsored ?? profile.sponsored_count)}
           developmentCount={
-            profile.learn_opportunity_organized == null
-              ? null
-              : toNumber(profile.learn_opportunity_organized)
+            isPureVolunteer
+              ? volunteerDevelopmentRaw == null
+                ? // Backend has not exposed the counter yet: no counter to gate
+                  // on, so keep the Development chip visible.
+                  null
+                : toNumber(volunteerDevelopmentRaw)
+              : profile.learn_opportunity_organized == null
+                ? null
+                : toNumber(profile.learn_opportunity_organized)
           }
           isOwnProfile={isOwnProfile}
         />
