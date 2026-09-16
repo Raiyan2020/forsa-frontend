@@ -39,14 +39,16 @@
  * covers both the pre-`2026_08_23` value and the new split-out type, and
  * `Public` is kept for a record that predates the first restructure.
  *
- * NOTE — `Institution`, and its successor `Governmental`, are deliberately
- * absent. `Institution` absorbed both `Public` (licence-exempt) and `Government`
- * (not), so whether it should be exempt is genuinely ambiguous and is one of the
- * open questions on the licence rules. Leaving them out means a government body
- * is asked for a licence, which is the safe direction: the backend rejects a
- * licence it does not need far more gracefully than it accepts a missing one.
+ * `Governmental` and its predecessor `Institution` are exempt too, which the
+ * backend confirmed after this list was first written: a governmental body is
+ * verified from an official document or authorization letter during admin
+ * approval, not from a commercial licence at sign-up. Both names are listed
+ * because `Institution` absorbed the pre-restructure `Public` and `Government`
+ * values, and the answer is the same for all of them.
  */
 const LICENSE_EXEMPT_ORG_TYPES = [
+  "Governmental",
+  "Institution",
   "Society",
   "Association",
   "Community",
