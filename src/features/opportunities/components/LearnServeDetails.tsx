@@ -7,6 +7,15 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
+import { Lock, LockOpen, Pencil, RotateCcw } from "lucide-react";
+import ManageActionIcon from "@/components/ui/ManageActionIcon";
+import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
+import AttendanceQrModal from "@/features/opportunities/components/AttendanceQrModal";
+import SelfScanModal from "@/features/opportunities/components/SelfScanModal";
+import {
+  issueLearnServeAttendanceCode,
+  learnServeSelfScan,
+} from "@/features/opportunities/services/selfCheckIn";
 import { toast } from "sonner";
 import { FiDownload } from "react-icons/fi";
 import { MdDelete } from "react-icons/md";
@@ -25,7 +34,7 @@ import RegisterVolunteerModalForm from "@/features/auth/components/RegisterVolun
 import ResetPasswordForm from "@/features/auth/components/ResetPasswordForm";
 import VolunteerMandateDetails from "@/features/auth/components/VolunteerMandateDetails";
 import { SponsorsClient } from "@/features/home";
-import { closeLearnServeOpportunityRegistration, getLearnServeOpportunityById, updateLearnServeOpportunityImages } from "@/features/opportunities/services/learnServe";
+import { closeLearnServeOpportunityRegistration, getLearnServeOpportunityById, reopenLearnServeOpportunityRegistration, updateLearnServeOpportunityImages } from "@/features/opportunities/services/learnServe";
 import { deleteOpportunityImage, downloadOpportunityImage } from "@/features/opportunities/services/opportunities";
 import {
   formatSingleDate,
@@ -36,6 +45,7 @@ import {
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import { sanitizeRichText } from "@/lib/sanitizeRichText";
 import {
+  canToggleRegistration,
   isCreatorRepostState,
   isViewerOrganizer,
 } from "@/features/shared/opportunityButtonState";
@@ -222,6 +232,11 @@ export default function LearnServeDetails({
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [showCloseRegistration, setShowCloseRegistration] = useState(false);
+  const [showReopenRegistration, setShowReopenRegistration] = useState(false);
+  const [showPrimaryActionConfirm, setShowPrimaryActionConfirm] =
+    useState(false);
+  const [showAttendanceQr, setShowAttendanceQr] = useState(false);
+  const [showSelfScan, setShowSelfScan] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
@@ -251,6 +266,20 @@ export default function LearnServeDetails({
   const closeRegistrationMutation = useMutation({
     mutationFn: () => closeLearnServeOpportunityRegistration(id),
   });
+  const reopenRegistrationMutation = useMutation({
+    mutationFn: () => reopenLearnServeOpportunityRegistration(id),
+  });
+
+  /**
+   * BE-61 Part B — one code, and issuing it is *mutating*: each call mints a
+   * fresh two-hour code and invalidates the previous one. So it runs from the
+   * button, never from opening the page, and a re-issue is the organizer's
+   * explicit choice.
+   */
+  const issueAttendanceCodeMutation = useMutation({
+    mutationFn: () => issueLearnServeAttendanceCode(id),
+  });
+  const selfScanMutation = useMutation({ mutationFn: learnServeSelfScan });
   const downloadImageMutation = useMutation({
     mutationFn: downloadOpportunityImage,
   });
@@ -462,6 +491,29 @@ export default function LearnServeDetails({
     }
   };
 
+  /** The creator's Edit / Repost icon confirms before it navigates. */
+  const handleConfirmPrimaryAction = () => {
+    setShowPrimaryActionConfirm(false);
+    if (isRepostState) {
+      handleRepublishClick();
+    } else {
+      handleRegisterClick();
+    }
+  };
+
+  /** Creator-only: undo an earlier close-registration. Mirrors VolunteerEvent. */
+  const handleReopenRegistration = async () => {
+    try {
+      await reopenRegistrationMutation.mutateAsync();
+      toast.success(t("COMMON.TOAST.REOPEN_REGISTRATION_SUCCESS"));
+      setShowReopenRegistration(false);
+      refetch();
+    } catch (error) {
+      console.error("Reopen registration failed:", error);
+      toast.error(t("COMMON.TOAST.REOPEN_REGISTRATION_FAILED"));
+    }
+  };
+
   const openDeleteModal = (imageId: number) => {
     setDeletingImageId(imageId);
     setShowDeleteModal(true);
@@ -605,9 +657,65 @@ export default function LearnServeDetails({
               (opportunityData?.participants_needed ?? 0)
           ))));
 
-  // Only worth offering while the opportunity is still taking registrations.
-  const canCloseRegistration =
-    isCreator && !isRepostState && withinRegistrationWindow;
+  /**
+   * Closing and reopening are now the same control, offered over the same
+   * window: the publisher may flip registration either way until one day
+   * before the end date (`canToggleRegistration`). The old rule let the
+   * creator close only before the opportunity started and never reopen —
+   * `!isRepostState` is gone for exactly that reason.
+   */
+  const canManageRegistration = isCreator && canToggleRegistration(opportunityData);
+
+  /**
+   * BE-61 Part B — self check-in for development opportunities.
+   *
+   * Unlike volunteering's permanent printed pair, this code only exists on the
+   * opportunity's LAST day and lives two hours. The server enforces both, and
+   * refuses internships outright (manual attendance only, by the client's
+   * decision), so the button is offered whenever the organizer might plausibly
+   * want it and the API is left to say no with a localized reason — the
+   * alternative is duplicating three server rules here and drifting from them.
+   */
+  const canIssueAttendanceCode = isCreator;
+
+  /**
+   * The participant's scan: one, ever. `is_attended` going true is the whole
+   * state machine — there is no check-out on this side.
+   */
+  const canSelfScan =
+    !isCreator &&
+    opportunityData?.is_registered === true &&
+    opportunityData?.is_attended !== true;
+
+  const opportunityTitle =
+    (opportunityData?.primary_language === "ar"
+      ? opportunityData?.title_ar
+      : opportunityData?.title_en) || "";
+
+  const handleIssueAttendanceCode = () => {
+    setShowAttendanceQr(true);
+    issueAttendanceCodeMutation.mutate();
+  };
+
+  const handleSelfScan = async (code: string) => {
+    try {
+      await selfScanMutation.mutateAsync({ code });
+      toast.success(t("COMMON.TOAST.ATTENDANCE_RECORDED"));
+      refetch();
+    } catch (error) {
+      // Rethrown so the camera stays up — an expired code is the most likely
+      // failure here, and the organizer re-issuing it fixes it in seconds.
+      const messages = getApiErrorMessages(error, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(t("COMMON.TOAST.SELF_SCAN_FAILED"));
+      }
+      throw error;
+    }
+  };
+  const canCloseRegistration = canManageRegistration && withinRegistrationWindow;
+  const canReopenRegistration = canManageRegistration && closedByCreator;
 
   const actionButtonLabel = isRepostState
     ? t("COMMON.REPOST")
@@ -648,13 +756,22 @@ export default function LearnServeDetails({
     isInPerson,
   };
 
+  /**
+   * Matches `VolunteerEvent`: the creator's controls are the shared icon row,
+   * a viewer keeps the labelled Register / Unregister button.
+   *
+   * The icon row renders from the desktop call only (`!mobile`) but carries no
+   * `xss:hidden`, so it is visible at every width — unlike the buttons it
+   * replaced, whose mobile counterpart never existed. The `mobile` call is left
+   * with the viewer's button alone, or the row would appear twice on a phone.
+   */
   const actionButton = (mobile: boolean) => (
     <div
       className={
-        mobile ? "flex flex-col" : "flex flex-col items-end gap-2"
+        mobile ? "flex flex-col" : "flex flex-col items-end gap-3"
       }
     >
-      {showActionButton && (
+      {showActionButton && !isCreator && (
         <Button
           variant="primary"
           size="medium"
@@ -663,32 +780,64 @@ export default function LearnServeDetails({
               ? "whitespace-nowrap my-6 w-full !h-14"
               : "whitespace-nowrap block xss:hidden"
           }
-          onClick={isRepostState ? handleRepublishClick : handleRegisterClick}
+          onClick={handleRegisterClick}
         >
           {actionButtonLabel}
         </Button>
       )}
 
-      {/* The creator can close registration before the due date */}
-      {canCloseRegistration && (
-        <Button
-          variant="secondary"
-          size="medium"
-          className={
-            mobile
-              ? "whitespace-nowrap mb-6 w-full !h-14"
-              : "whitespace-nowrap block xss:hidden"
-          }
-          onClick={() => setShowCloseRegistration(true)}
-        >
-          {t("COMMON.CLOSE_REGISTRATION")}
-        </Button>
-      )}
-
-      {closedByCreator && (
+      {/* A viewer has no padlock to read the state off, so they keep the pill */}
+      {closedByCreator && !isCreator && (
         <span className="whitespace-nowrap rounded-[20px] bg-[#F1F1F5] px-4 py-2 text-sm font-bold text-secondary-102">
           {t("COMMON.REGISTRATION_CLOSED")}
         </span>
+      )}
+
+      {!mobile && isCreator && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {showActionButton && (
+            <ManageActionIcon
+              label={actionButtonLabel}
+              icon={
+                isRepostState ? (
+                  <RotateCcw className="h-5 w-5" />
+                ) : (
+                  <Pencil className="h-5 w-5" />
+                )
+              }
+              onClick={() => setShowPrimaryActionConfirm(true)}
+            />
+          )}
+
+          {/* One padlock, two states: open → click to close, closed → accented
+              and click to reopen. */}
+          {canCloseRegistration && (
+            <ManageActionIcon
+              label={t("COMMON.CLOSE_REGISTRATION")}
+              icon={<LockOpen className="h-5 w-5" />}
+              onClick={() => setShowCloseRegistration(true)}
+            />
+          )}
+
+          {canReopenRegistration && (
+            <ManageActionIcon
+              label={t("COMMON.REOPEN_REGISTRATION")}
+              icon={<Lock className="h-5 w-5" />}
+              onClick={() => setShowReopenRegistration(true)}
+              accent
+            />
+          )}
+
+          {/* Closed but past the toggle window — still has to be readable */}
+          {closedByCreator && !canReopenRegistration && (
+            <ManageActionIcon
+              label={t("COMMON.REGISTRATION_CLOSED")}
+              icon={<Lock className="h-5 w-5" />}
+              disabled
+              accent
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -949,6 +1098,32 @@ export default function LearnServeDetails({
                   <span className="xl:w-[140px] 2xl:w-[200px] lg:w-[95px] xsl:w-[150px] xss:w-[90px] smallscreen1:w-full smallscreen1:text-sm">
                     {t("COMMON.REGISTERED_LIST")}
                   </span>
+                </Button>
+                {canIssueAttendanceCode && (
+                  <Button
+                    variant="primary"
+                    size="medium"
+                    onClick={handleIssueAttendanceCode}
+                    className="mt-3 xs4:w-[125px] 2xl:!text-lg xss:w-auto laptop:!w-full text-sm px-1 font-bold text-primary-5 border-b border-primary-5 xsmall:text-xs !rounded-[20px] md:h-[60px]"
+                  >
+                    <span className="xl:w-[140px] 2xl:w-[200px] lg:w-[95px] xsl:w-[150px] xss:w-[90px] smallscreen1:w-full smallscreen1:text-sm">
+                      {t("COMMON.ATTENDANCE_QR")}
+                    </span>
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* BE-61 — the participant's own scanner. */}
+            {canSelfScan && (
+              <div className="flex w-full justify-center px-5 pb-10">
+                <Button
+                  variant="primary"
+                  size="medium"
+                  onClick={() => setShowSelfScan(true)}
+                  className="w-full max-w-[320px] !rounded-[20px]"
+                >
+                  {t("COMMON.SCAN_ATTENDANCE_QR")}
                 </Button>
               </div>
             )}
@@ -1586,6 +1761,119 @@ export default function LearnServeDetails({
             type="button"
             onClick={() => setShowCloseRegistration(false)}
             disabled={closeRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* BE-61 Part B — one sheet, with its expiry printed on it. */}
+      <AttendanceQrModal
+        open={showAttendanceQr}
+        onClose={() => setShowAttendanceQr(false)}
+        title={t("COMMON.ATTENDANCE_QR")}
+        instructions={t("COMMON.ATTENDANCE_QR_LEARN_SERVE_INSTRUCTIONS")}
+        isLoading={issueAttendanceCodeMutation.isPending}
+        error={
+          issueAttendanceCodeMutation.isError
+            ? getApiErrorMessage(
+                issueAttendanceCodeMutation.error,
+                selectedLanguage
+              ) || t("COMMON.TOAST.ATTENDANCE_QR_FAILED")
+            : null
+        }
+        sheets={
+          issueAttendanceCodeMutation.data?.data
+            ? [
+                {
+                  code: issueAttendanceCodeMutation.data.data.code,
+                  label: t("COMMON.ATTENDANCE_QR"),
+                  caption: opportunityTitle,
+                  // The expiry is printed on the sheet itself: this code is
+                  // shown on a screen for two hours, not taped to a wall, and
+                  // whoever holds it needs to know when it dies.
+                  footnote: t("COMMON.QR_EXPIRES_AT", {
+                    time: moment(
+                      issueAttendanceCodeMutation.data.data.expires_at
+                    ).format("HH:mm"),
+                  }),
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* BE-61 Part B — the participant's camera. One scan, no direction. */}
+      <SelfScanModal
+        open={showSelfScan}
+        onClose={() => setShowSelfScan(false)}
+        title={t("COMMON.SCAN_ATTENDANCE_QR")}
+        hint={t("COMMON.SCAN_ATTENDANCE_HINT")}
+        onScan={handleSelfScan}
+        isPending={selfScanMutation.isPending}
+      />
+
+      {/* Edit / Repost — the only dialog here in front of a navigation. */}
+      <Modal
+        open={showPrimaryActionConfirm}
+        onClose={() => setShowPrimaryActionConfirm(false)}
+        title={actionButtonLabel}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {isRepostState
+            ? t("COMMON.ARE_YOU_SURE_REPOST_OPPORTUNITY")
+            : t("COMMON.ARE_YOU_SURE_EDIT_OPPORTUNITY")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleConfirmPrimaryAction}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowPrimaryActionConfirm(false)}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={showReopenRegistration}
+        onClose={() => setShowReopenRegistration(false)}
+        title={t("COMMON.REOPEN_REGISTRATION")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_REOPEN_REGISTRATION")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleReopenRegistration}
+            disabled={reopenRegistrationMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowReopenRegistration(false)}
+            disabled={reopenRegistrationMutation.isPending}
             className="xss:!w-full"
           >
             {t("COMMON.CANCEL")}

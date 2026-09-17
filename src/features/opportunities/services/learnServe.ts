@@ -34,6 +34,23 @@ export const unregisterFromLearnServeOpportunity = (id: string) =>
 export const closeLearnServeOpportunityRegistration = (id: string) =>
   apiClient.post(`/learn-serve-opportunities/${id}/close-registration/`).then((r) => r.data);
 
+/**
+ * Creator-only: undo an earlier close-registration.
+ *
+ * Volunteering has a dedicated `POST .../reopen-registration/` route; learn &
+ * serve has only the close half (BE-63 asks for the symmetric one). Until it
+ * lands, the flag is cleared through the ordinary update endpoint, which
+ * already validates `is_registration_closed` as a boolean and is a partial
+ * update — a payload carrying nothing else leaves every other column alone.
+ * The notification behaviour is identical either way: both paths run
+ * OpportunityChangeNotifier over a snapshot that includes this column.
+ */
+export const reopenLearnServeOpportunityRegistration = (id: string) => {
+  const data = new FormData();
+  data.append("is_registration_closed", "0");
+  return updateLearnServeOpportunity({ id, data });
+};
+
 export const deleteLearnServeRegistrationByOpportunity = ({ opportunity_id, user_id }: { opportunity_id: string | number; user_id: string | number }) =>
   apiClient.delete(`/learnserve/${opportunity_id}/unregister/${user_id}/`).then((r) => r.data);
 

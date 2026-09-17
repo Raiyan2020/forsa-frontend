@@ -277,14 +277,20 @@ export default function EventForm({
     if (!eventData) return;
     // Refresh the form with the loaded data
     setFormKey((prevKey) => prevKey + 1);
-    const eventImages =
-      eventData.event_images?.map((img: any) => ({
-        id: img.id,
-        image: img.image,
-      })) || [];
+    // A repost is a NEW run of the event. Its images were shot during the
+    // previous one — Fursa has no after-completion flag on event media, so the
+    // poster and the day-of photos sit in the same `event_images` array — and
+    // none of them describe the new date. Start the picker empty so the
+    // required-images rule forces a fresh upload.
+    const eventImages = isRepublish
+      ? []
+      : (eventData.event_images?.map((img: any) => ({
+          id: img.id,
+          image: img.image,
+        })) || []);
     setModifiedEventImages(eventImages);
-    setExistingImageIds(eventData.event_images?.map((img: any) => img.id) || []);
-  }, [eventData]);
+    setExistingImageIds(eventImages.map((img: { id: number }) => img.id));
+  }, [eventData, isRepublish]);
 
   const { data: eventTypeData, isLoading: eventTypeLoading } = useQuery({
     queryKey: ["event-type-choices", selectedLanguage],
@@ -674,9 +680,17 @@ export default function EventForm({
       values._interests.forEach((interest) => {
         formData.append("interest_ids[]", interest);
       });
-      // On update, tell the backend which existing images to keep. Sending no
-      // existing_image_ids at all means "drop them".
-      if (id && eventData?.event_images?.length > 0) {
+      // Republish: the new event starts with no media at all. The key MUST be
+      // present — EventController::republish() always hands the source to
+      // RepublishMedia::apply(), which clones the WHOLE source gallery when
+      // `existing_image_ids` is absent. `existing_image_ids[]` sent zero times
+      // has no multipart representation, so the empty keep-set travels as the
+      // scalar "none" sentinel that MediaKeepSet::normalizeEmptySignal()
+      // rewrites to an empty array before validation.
+      if (id && isRepublish) {
+        formData.append("existing_image_ids", "none");
+      } else if (id && eventData?.event_images?.length > 0) {
+        // On update, tell the backend which existing images to keep.
         existingImageIds.forEach((imageId) => {
           formData.append("existing_image_ids[]", imageId.toString());
         });

@@ -206,3 +206,48 @@ export function isViewerOrganizer(
     Boolean(userId) && String(item.created_by?.id ?? "") === String(userId)
   );
 }
+
+
+/** The subset of a payload the registration open/close window reads. */
+export interface RegistrationToggleSource {
+  end_date?: string | null;
+  due_date?: string | null;
+}
+
+/**
+ * Whether the publisher may still flip registration open or closed.
+ *
+ * The client's rule, verbatim: «يحق للناشر فتح وإغلاق الفرصة لحد يوم قبل تاريخ
+ * الانتهاء» — the publisher may open *and* close the opportunity up until one
+ * day before its end date. Closing was previously one-way, and was blocked the
+ * moment the opportunity started; both are wrong under this rule.
+ *
+ * The cutoff is `end_date`, not `due_date`: `due_date` is the registration
+ * deadline the publisher is overriding here, so gating on it would make the
+ * control disappear exactly when it is wanted. `due_date` is only a fallback
+ * for legacy records saved without an end date.
+ *
+ * The last allowed day is the day BEFORE `end_date`, inclusive — so an
+ * opportunity ending on the 30th can still be toggled all through the 29th.
+ *
+ * UTC day comparison, matching the rest of this file: Kuwait is UTC+3, so the
+ * window closes up to three hours late rather than early. Erring open keeps a
+ * publisher from losing the control before the day they were promised.
+ *
+ * This is presentation only. The API accepts a close or reopen at any time
+ * (see BE-63), so it must enforce the same window before this is a real rule.
+ */
+export function canToggleRegistration(
+  item: RegistrationToggleSource | null | undefined
+): boolean {
+  if (!item) return false;
+  const cutoff = item.end_date || item.due_date || null;
+  // No end date on record: nothing to count back from, so leave the control up.
+  if (!cutoff) return true;
+  // Lenient parse, like every other date read in this file: `end_date` arrives
+  // as "YYYY-MM-DD" from some endpoints and "YYYY-MM-DD HH:mm:ss" from others,
+  // and strict ISO would reject the second and silently leave the control up.
+  const parsed = moment.utc(cutoff);
+  if (!parsed.isValid()) return true;
+  return moment.utc().isSameOrBefore(parsed.subtract(1, "day"), "day");
+}

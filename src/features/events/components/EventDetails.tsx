@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +12,10 @@ import { Autoplay, Pagination } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/pagination";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
+import { Pencil, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import ManageActionIcon from "@/components/ui/ManageActionIcon";
 import Loader from "@/components/ui/Loader";
 import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
@@ -199,6 +202,11 @@ export default function EventDetails({ eventId }: { eventId: string }) {
    */
   const isCreator = isViewerOrganizer(event, user?.id);
 
+  // Declared above the loading/error early returns below — a hook after them
+  // runs conditionally, which React forbids.
+  const [showPrimaryActionConfirm, setShowPrimaryActionConfirm] =
+    useState(false);
+
   useEffect(() => {
     const responseStatus = (
       eventQuery.error as { response?: { status?: number; data?: unknown } }
@@ -238,11 +246,15 @@ export default function EventDetails({ eventId }: { eventId: string }) {
     value?.[language === "ar" ? "value_ar" : "value_en"] || "";
   const isActive = event.event_status === "upcoming" || event.event_status === "inprogress";
 
+  // Whether the creator's icon means Edit or Repost — derived once, since the
+  // button, its icon, its dialog copy and the nav payload all read it.
+  const isRepostState =
+    event.event_status === "completed" || event.event_status === "inprogress";
+
   const goToEventForm = () => {
-    const republish = event.event_status === "completed" || event.event_status === "inprogress";
     setNavState(NAV_STATE_KEYS.eventForm, {
       id: String(event.id),
-      isRepublish: republish,
+      isRepublish: isRepostState,
     });
     router.push("/event-form");
   };
@@ -259,15 +271,23 @@ export default function EventDetails({ eventId }: { eventId: string }) {
       // cards never hid it for an unverified creator either. A banned user
       // still can't.
       if (user?.is_banned) return null;
-      const republish = event.event_status === "completed" || event.event_status === "inprogress";
+      // The shared icon row, same as the two opportunity detail screens. The
+      // desktop and mobile containers are mutually exclusive here (`xss:hidden`
+      // vs `hidden xss:flex`), so one branch serves both.
       return (
-        <Button
-          size="medium"
-          className={mobile ? "my-6 !h-14 !w-full" : "whitespace-nowrap"}
-          onClick={goToEventForm}
-        >
-          {t(republish ? "COMMON.REPOST" : "COMMON.EDIT_TEXT")}
-        </Button>
+        <div className={mobile ? "flex flex-wrap gap-2" : "flex flex-wrap items-center justify-end gap-2"}>
+          <ManageActionIcon
+            label={t(isRepostState ? "COMMON.REPOST" : "COMMON.EDIT_TEXT")}
+            icon={
+              isRepostState ? (
+                <RotateCcw className="h-5 w-5" />
+              ) : (
+                <Pencil className="h-5 w-5" />
+              )
+            }
+            onClick={() => setShowPrimaryActionConfirm(true)}
+          />
+        </div>
       );
     }
 
@@ -563,6 +583,47 @@ export default function EventDetails({ eventId }: { eventId: string }) {
       <div className="border-t pt-10 2xl:pt-[70px]">
         <SponsorsClient />
       </div>
+
+      {/* The creator's icon confirms before it navigates, matching the two
+          opportunity detail screens. Repost reads as "edit" at a glance but
+          creates a second event, so the copy says the original survives. */}
+      <Modal
+        open={showPrimaryActionConfirm}
+        onClose={() => setShowPrimaryActionConfirm(false)}
+        title={t(isRepostState ? "COMMON.REPOST" : "COMMON.EDIT_TEXT")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t(
+            isRepostState
+              ? "COMMON.ARE_YOU_SURE_REPOST_EVENT"
+              : "COMMON.ARE_YOU_SURE_EDIT_EVENT"
+          )}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={() => {
+              setShowPrimaryActionConfirm(false);
+              goToEventForm();
+            }}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowPrimaryActionConfirm(false)}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

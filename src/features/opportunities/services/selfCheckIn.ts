@@ -1,0 +1,75 @@
+import apiClient from "@/lib/api/client";
+import type { ApiResponse } from "@/lib/api/types";
+
+/**
+ * BE-61 — self check-in QR.
+ *
+ * Two different mechanisms behind one idea, so they are deliberately not shared:
+ *
+ * | | Volunteering | Learn & serve |
+ * |---|---|---|
+ * | codes | **two**, IN and OUT | **one** |
+ * | lifetime | permanent — the organizer prints them once | **2 hours** from issuance |
+ * | issued | any time after creation (`GET`, idempotent) | **on the last day only** (`POST`, mutating) |
+ * | a scan records | a timestamp, and real worked hours | `is_attended`, nothing more |
+ *
+ * The API returns the **raw payload string**, never an image — rendering the QR
+ * is ours (`react-qr-code`), as is decoding it from the camera (`jsqr`).
+ */
+
+// ─── Volunteering: two permanent printed codes ───────────────────────────────
+
+export interface VolunteerAttendanceCode {
+  direction: "in" | "out";
+  code: string;
+}
+
+export interface VolunteerAttendanceCodes {
+  check_in: VolunteerAttendanceCode;
+  check_out: VolunteerAttendanceCode;
+}
+
+/**
+ * Creator-only. Idempotent: the server generates the pair once and returns the
+ * same strings on every later call, so a sheet printed in March still scans in
+ * September.
+ */
+export const getVolunteerAttendanceCodes = (
+  id: string
+): Promise<ApiResponse<VolunteerAttendanceCodes>> =>
+  apiClient.get(`/volunteer-opportunities/${id}/attendance-qr/`).then((r) => r.data);
+
+/**
+ * The volunteer's own scan. `direction` is not guesswork — the server looks the
+ * code up in the column that matches it, so an IN code sent as `"out"` reads as
+ * an invalid code. Drive it from `self_attendance.next_action`.
+ */
+export const volunteerSelfScan = (payload: {
+  code: string;
+  direction: "in" | "out";
+}): Promise<ApiResponse<unknown>> =>
+  apiClient.post("/volunteer-attendance/self-scan/", payload).then((r) => r.data);
+
+// ─── Learn & serve: one code, last day, two hours ────────────────────────────
+
+export interface LearnServeAttendanceCode {
+  code: string;
+  expires_at: string;
+}
+
+/**
+ * Creator-only, and **mutating** — each call issues a fresh code and invalidates
+ * the previous one, so it belongs behind a deliberate click, not a page load.
+ * Refused unless today is the opportunity's last day, and always for an
+ * internship (manual attendance only, by the client's decision).
+ */
+export const issueLearnServeAttendanceCode = (
+  id: string
+): Promise<ApiResponse<LearnServeAttendanceCode>> =>
+  apiClient.post(`/learn-serve-opportunities/${id}/attendance-qr/`).then((r) => r.data);
+
+/** One scan, no direction: it flips `is_attended` and nothing else. */
+export const learnServeSelfScan = (payload: {
+  code: string;
+}): Promise<ApiResponse<unknown>> =>
+  apiClient.post("/learn-serve-attendance/self-scan/", payload).then((r) => r.data);

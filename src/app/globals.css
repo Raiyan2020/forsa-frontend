@@ -1346,3 +1346,49 @@ form .rmdp-arrow-container:hover {
   padding: 0.5rem 0.75rem;
   text-align: start;
 }
+
+/*
+ * BE-61 — printing the attendance QR sheets.
+ *
+ * The organizer prints these once and puts them on the wall, so the printed
+ * page must carry the codes and nothing else: no header, no sidebar, no dialog
+ * chrome. Rather than build a separate print route, the poster area marks
+ * itself `.qr-print-area` and everything else is hidden for the print medium
+ * only. `position: static` on the ancestors is what stops the modal's own
+ * `fixed` positioning from clipping the sheet to one screen's worth.
+ */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .qr-print-area,
+  .qr-print-area * {
+    visibility: visible;
+  }
+
+  .qr-print-area {
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* One sheet per code: a wall needs the arrival and departure codes in
+     different places, so they must not share a page. */
+  .qr-print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .qr-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .qr-print-hide {
+    display: none !important;
+  }
+}

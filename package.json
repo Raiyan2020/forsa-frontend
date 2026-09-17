@@ -53,6 +53,7 @@
     "react-multi-carousel": "^2.8.6",
     "react-multi-date-picker": "^4.5.2",
     "react-places-autocomplete": "^7.3.0",
+    "react-qr-code": "^2.2.0",
     "react-quill-new": "^3.8.3",
     "react-select": "^5.10.2",
     "react-slick": "^0.31.0",

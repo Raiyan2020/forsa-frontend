@@ -37,9 +37,7 @@ export function OpportunityBadges({
   if (!hasAnyBadge) return null;
 
   return (
-    <div
-      className={`absolute top-0 right-0 pr-4 pt-4 flex flex-col items-end gap-2 ${className}`}
-    >
+    <div className={`absolute top-0 right-0 pr-4 pt-4 flex flex-col items-end gap-2 ${className}`} >
       {item.is_emergency && (
         <span className="bg-[#D32F2F] text-white text-xs font-bold rounded-full px-3 py-1 leading-tight shadow-md">
           {t("COMMON.EMERGENCY_PRIORITY_BADGE")}

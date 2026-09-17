@@ -11,6 +11,15 @@ import { toast } from "sonner";
 import { FiDownload } from "react-icons/fi";
 import { IoIosShareAlt } from "react-icons/io";
 import { MdDelete } from "react-icons/md";
+import { Award, Lock, LockOpen, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import ManageActionIcon from "@/components/ui/ManageActionIcon";
+import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
+import AttendanceQrModal from "@/features/opportunities/components/AttendanceQrModal";
+import SelfScanModal from "@/features/opportunities/components/SelfScanModal";
+import {
+  getVolunteerAttendanceCodes,
+  volunteerSelfScan,
+} from "@/features/opportunities/services/selfCheckIn";
 import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
 import AddToCalendar from "@/components/shared/AddToCalendar";
@@ -38,6 +47,7 @@ import {
 import { getCheckInCountdown, getCheckInWindow } from "@/features/opportunities/checkInWindow";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
+  canToggleRegistration,
   getOpportunityButtonLabelKey,
   getOpportunityButtonState,
   isCreatorRepostState,
@@ -108,6 +118,16 @@ export interface VolunteerOpportunityData {
   registration_link?: string;
   manual_tracking?: boolean;
   qr_attendance_enabled?: boolean;
+  /**
+   * BE-61 — the viewer's own check-in state for TODAY, or null when they are
+   * not registered or not signed in. `next_action` is what decides which of the
+   * two printed codes their scanner expects, so the button never has to guess.
+   */
+  self_attendance?: {
+    checked_in_at?: string | null;
+    checked_out_at?: string | null;
+    next_action?: "in" | "out" | "done" | null;
+  } | null;
   manual_attendance_enabled?: boolean;
   preparation_valid_until?: string | null;
   /** Hour-precise end of the check-in window; prefer it over the date-only field. */
@@ -239,6 +259,11 @@ export default function VolunteerEvent({
   const [showCloseRegistration, setShowCloseRegistration] = useState(false);
   const [showReopenRegistration, setShowReopenRegistration] = useState(false);
   const [showResubmit, setShowResubmit] = useState(false);
+  const [showSendCertificates, setShowSendCertificates] = useState(false);
+  const [showAttendanceQr, setShowAttendanceQr] = useState(false);
+  const [showSelfScan, setShowSelfScan] = useState(false);
+  const [showPrimaryActionConfirm, setShowPrimaryActionConfirm] =
+    useState(false);
   const [showDeleteOpportunity, setShowDeleteOpportunity] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
@@ -273,6 +298,20 @@ export default function VolunteerEvent({
   const reopenRegistrationMutation = useMutation({
     mutationFn: () => reopenVolunteerOpportunityRegistration(id),
   });
+
+  /**
+   * BE-61 — the organizer's printable pair. Fetched only once the dialog is
+   * open: the call is idempotent but it *creates* the codes on first use, so
+   * there is no reason to mint them for someone merely viewing the page.
+   */
+  const attendanceCodesQuery = useQuery({
+    queryKey: ["volunteer-attendance-codes", id],
+    queryFn: () => getVolunteerAttendanceCodes(id),
+    enabled: showAttendanceQr && Boolean(id),
+    staleTime: Infinity,
+  });
+
+  const selfScanMutation = useMutation({ mutationFn: volunteerSelfScan });
   const resubmitMutation = useMutation({
     mutationFn: () => resubmitVolunteerOpportunity(id),
   });
@@ -400,6 +439,10 @@ export default function VolunteerEvent({
     } catch (error) {
       console.error("Send certificates failed:", error);
       toast.error(t("COMMON.TOAST.CERTIFICATES_SEND_FAILED"));
+    } finally {
+      // Closed either way — the toast carries the outcome, and leaving the
+      // dialog up invites a second send of the same certificates.
+      setShowSendCertificates(false);
     }
   };
 
@@ -503,6 +546,22 @@ export default function VolunteerEvent({
   const handleRepublishClick = () => {
     setNavState(NAV_STATE_KEYS.volunteerForm, { id, isRepublish: true });
     router.push("/volunteer-form");
+  };
+
+  /**
+   * The creator's Edit / Repost icon confirms before it navigates, so every
+   * control in the icon row behaves the same way — an unlabelled glyph should
+   * never act on the first tap. Repost in particular reads as "edit" at a
+   * glance but creates a second opportunity, which is worth a sentence before
+   * the form opens.
+   */
+  const handleConfirmPrimaryAction = () => {
+    setShowPrimaryActionConfirm(false);
+    if (isRepostState) {
+      handleRepublishClick();
+    } else {
+      handleRegisterClick();
+    }
   };
 
   const goToVolunteerList = () => {
@@ -743,13 +802,21 @@ export default function VolunteerEvent({
       (opportunityData?.is_registered ||
         (user?.user_type !== "organization" && !isFull)));
 
-  // Only worth offering while the opportunity is still taking registrations.
-  const canCloseRegistration =
-    isCreator && !isCompleted && !isRegistrationClosed && !isRepostState;
+  /**
+   * Closing and reopening are one control over one window: the client's rule is
+   * that the publisher may flip registration either way until a day before the
+   * end date. Closing used to stop the moment the opportunity started
+   * (`!isRepostState`), and reopening had no cutoff at all — so a finished
+   * opportunity could still be reopened. Both are now bounded by
+   * `canToggleRegistration`.
+   */
+  const canManageRegistration =
+    isCreator && !isCompleted && canToggleRegistration(opportunityData);
+  const canCloseRegistration = canManageRegistration && !isRegistrationClosed;
   // Reopening only makes sense after the creator explicitly closed it early —
   // a window closed by its due date passing reopens on its own schedule.
   const canReopenRegistration =
-    isCreator && opportunityData?.is_registration_closed === true;
+    canManageRegistration && opportunityData?.is_registration_closed === true;
   const isRejected = opportunityData?.approval_status === "rejected";
   // Match the opportunity cards: deletion can only be requested by the
   // creator before the opportunity starts or completes.
@@ -823,6 +890,64 @@ export default function VolunteerEvent({
    * `requires_check_in: false` and get no attendance surface at all.
    */
   const canShowScanPermission = isCreator && checkInWindow.qrEnabled;
+
+  /**
+   * BE-61 — self check-in.
+   *
+   * The organizer's pair is permanent and printed, so the button is offered
+   * from the moment the opportunity exists: they need it *before* the first
+   * day, not during it. Only a completed opportunity has nothing left to
+   * record.
+   */
+  const canGenerateAttendanceQr = isCreator && !isCompleted;
+
+  // Printed on each sheet so a stack of them stays sortable. Follows the
+  // opportunity's own `primary_language`, like the page heading does.
+  const opportunityTitle =
+    (opportunityData?.primary_language === "ar"
+      ? opportunityData?.title_ar
+      : opportunityData?.title_en) || "";
+
+  /**
+   * The volunteer's own scanner. `self_attendance` is null unless the backend
+   * sees them as registered, so it doubles as the registration check; once
+   * `next_action` is "done" both scans are in for today and the button retires
+   * until tomorrow.
+   */
+  const selfAttendance = opportunityData?.self_attendance;
+  const nextSelfScanDirection =
+    selfAttendance?.next_action === "in" || selfAttendance?.next_action === "out"
+      ? selfAttendance.next_action
+      : null;
+  const canSelfScan =
+    !isCreator && Boolean(selfAttendance) && nextSelfScanDirection !== null;
+
+  const handleSelfScan = async (code: string) => {
+    if (!nextSelfScanDirection) return;
+    try {
+      await selfScanMutation.mutateAsync({
+        code,
+        direction: nextSelfScanDirection,
+      });
+      toast.success(
+        nextSelfScanDirection === "in"
+          ? t("COMMON.TOAST.CHECK_IN_RECORDED")
+          : t("COMMON.TOAST.CHECK_OUT_RECORDED")
+      );
+      refetch();
+    } catch (error) {
+      // Rethrown so the scanner keeps the camera up: the usual causes — the
+      // wrong sheet, or a code for another opportunity — are fixed by pointing
+      // somewhere else, not by reopening the dialog.
+      const messages = getApiErrorMessages(error, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(t("COMMON.TOAST.SELF_SCAN_FAILED"));
+      }
+      throw error;
+    }
+  };
   const canShowScanQR =
     !isCreator &&
     opportunityData?.has_scan_permission &&
@@ -1086,6 +1211,24 @@ export default function VolunteerEvent({
                 />
               </div>
 
+              {/* BE-61 — the volunteer's own scanner. Deliberately outside the
+                  block below, which is gated on being the creator or a
+                  delegated scanner; this one belongs to the participant. */}
+              {canSelfScan && (
+                <div className="flex w-full justify-center px-5 pb-10">
+                  <Button
+                    variant="primary"
+                    size="medium"
+                    onClick={() => setShowSelfScan(true)}
+                    className="w-full max-w-[320px] !rounded-[20px]"
+                  >
+                    {nextSelfScanDirection === "in"
+                      ? t("COMMON.SCAN_CHECK_IN_QR")
+                      : t("COMMON.SCAN_CHECK_OUT_QR")}
+                  </Button>
+                </div>
+              )}
+
               {(isCreator || canShowScanQR) && (
                 <div
                   className={`w-[100%] flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] msscreen1:bottom-[70px] mdscreen:bottom-[75px] bottom-[50px] pt-[50px] lg:bottom-[100px] px-5 2xl:pb-[70px] lg:pb-[40px] pb-[40px] ${shouldShowOnlyMobile ? "hidden miniscreen9:flex" : ""
@@ -1093,7 +1236,7 @@ export default function VolunteerEvent({
                 >
                   {/* Desktop / tablet: no Scan QR here */}
                   {isCreator && (
-                    <div className="flex gap-5 items-center extrasmall:gap-[10px] miniscreen9:hidden">
+                    <div className="flex gap-5 items-center extrasmall:gap-[10px] miniscreen9:hidden flex-wrap justify-center w-full">
                       <Button
                         variant="primary"
                         size="medium"
@@ -1104,6 +1247,23 @@ export default function VolunteerEvent({
                           {t("COMMON.LIST_OF_VOLUNTEERS")}
                         </span>
                       </Button>
+                      {/* BE-61 — the real self check-in QR. The «التحضير الذاتي
+                          QR» button beside it is the *delegation* screen for the
+                          organizer-scans-volunteer flow the client retired; it
+                          stays until that flow's kill switch is flipped, which
+                          is a coordinated release, not this change. */}
+                      {canGenerateAttendanceQr && (
+                        <Button
+                          variant="primary"
+                          size="medium"
+                          onClick={() => setShowAttendanceQr(true)}
+                          className={LIST_BUTTON_CLASS}
+                        >
+                          <span className={LIST_BUTTON_LABEL_CLASS}>
+                            {t("COMMON.ATTENDANCE_QR")}
+                          </span>
+                        </Button>
+                      )}
                       {canShowScanPermission && (
                         <Button
                           variant="primary"
@@ -1133,6 +1293,18 @@ export default function VolunteerEvent({
                             {t("COMMON.LIST_OF_VOLUNTEERS")}
                           </span>
                         </Button>
+                        {canGenerateAttendanceQr && (
+                          <Button
+                            variant="primary"
+                            size="medium"
+                            onClick={() => setShowAttendanceQr(true)}
+                            className={`${LIST_BUTTON_CLASS} smallscreen1:w-full smallscreen1:text-sm`}
+                          >
+                            <span className={LIST_BUTTON_LABEL_CLASS}>
+                              {t("COMMON.ATTENDANCE_QR")}
+                            </span>
+                          </Button>
+                        )}
                       </div>
 
                       {canShowScanPermission && (
@@ -1210,88 +1382,116 @@ export default function VolunteerEvent({
                   /> */}
                 </h2>
 
-                <div className="flex flex-col items-end gap-2">
-                  {showActionButton && (
+                <div className="flex flex-col items-end gap-3">
+                  {/*
+                    The creator's own primary action (Edit / Repost) joins the
+                    icon row below — a pencil or a repost arrow. Everyone else
+                    keeps a labelled button, because for them this is Register /
+                    Unregister: the page's main call to action, and the one
+                    control a volunteer must not have to hover to identify.
+                  */}
+                  {showActionButton && !isCreator && (
                     <Button
                       variant="primary"
                       size="medium"
                       className="whitespace-nowrap block xss:hidden disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={isViewerActionDisabled}
-                      onClick={
-                        isRepostState ? handleRepublishClick : handleRegisterClick
-                      }
+                      onClick={handleRegisterClick}
                     >
                       {actionButtonLabel}
                     </Button>
                   )}
 
-                  {/* The creator can close registration before the due date */}
-                  {canCloseRegistration && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap block xss:hidden"
-                      onClick={() => setShowCloseRegistration(true)}
-                    >
-                      {t("COMMON.CLOSE_REGISTRATION")}
-                    </Button>
-                  )}
-
-                  {closedByCreator && (
+                  {/* The creator reads the closed state off the accented lock
+                      in the row below; a viewer has no lock, so they keep the
+                      labelled pill. */}
+                  {closedByCreator && !isCreator && (
                     <span className="whitespace-nowrap rounded-[20px] bg-[#F1F1F5] px-4 py-2 text-sm font-bold text-secondary-102">
                       {t("COMMON.REGISTRATION_CLOSED")}
                     </span>
                   )}
 
-                  {canReopenRegistration && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap block xss:hidden"
-                      onClick={() => setShowReopenRegistration(true)}
-                    >
-                      {t("COMMON.REOPEN_REGISTRATION")}
-                    </Button>
-                  )}
+                  {/* Creator manage actions. Wraps rather than overflowing:
+                      on a narrow screen the title beside it takes the full
+                      width, so the row needs to be able to fall onto a second
+                      line. */}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {showActionButton && isCreator && (
+                      <ManageActionIcon
+                        label={actionButtonLabel}
+                        icon={
+                          isRepostState ? (
+                            <RotateCcw className="h-5 w-5" />
+                          ) : (
+                            <Pencil className="h-5 w-5" />
+                          )
+                        }
+                        onClick={() => setShowPrimaryActionConfirm(true)}
+                        disabled={isViewerActionDisabled}
+                      />
+                    )}
 
-                  {isRejected && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap block xss:hidden"
-                      onClick={() => setShowResubmit(true)}
-                    >
-                      {t("COMMON.RESUBMIT_WITHOUT_EDIT")}
-                    </Button>
-                  )}
+                    {/*
+                      One padlock, two states, rather than two buttons that are
+                      never both applicable: open → click to close, closed →
+                      accented and click to reopen. The accent is what replaces
+                      the «التسجيل مغلق» pill for the creator.
+                    */}
+                    {canCloseRegistration && (
+                      <ManageActionIcon
+                        label={t("COMMON.CLOSE_REGISTRATION")}
+                        icon={<LockOpen className="h-5 w-5" />}
+                        onClick={() => setShowCloseRegistration(true)}
+                      />
+                    )}
 
-                  {canSendCertificates && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap block xss:hidden"
-                      onClick={handleSendCertificates}
-                      disabled={sendCertificatesMutation.isPending}
-                    >
-                      {t("COMMON.SEND_CERTIFICATES")}
-                    </Button>
-                  )}
+                    {canReopenRegistration && (
+                      <ManageActionIcon
+                        label={t("COMMON.REOPEN_REGISTRATION")}
+                        icon={<Lock className="h-5 w-5" />}
+                        onClick={() => setShowReopenRegistration(true)}
+                        accent
+                      />
+                    )}
 
-                  {/* Labelled like the other manage actions rather than a bare
-                      icon, so the destructive one isn't the only unlabelled
-                      control in the column. No `xss:hidden`: its siblings have
-                      a full-width mobile counterpart further down and this one
-                      doesn't, so hiding it would drop delete on mobile. */}
-                  {canRequestDeletion && (
-                    <Button
-                      variant="secondary"
-                      size="medium"
-                      className="whitespace-nowrap"
-                      onClick={() => setShowDeleteOpportunity(true)}
-                    >
-                      {t("COMMON.DELETE_OPPORTUNITY")}
-                    </Button>
-                  )}
+                    {/* Closed, but past the toggle window — the state still has
+                        to be readable, so the lock stays as a disabled marker
+                        instead of vanishing. */}
+                    {closedByCreator && isCreator && !canReopenRegistration && (
+                      <ManageActionIcon
+                        label={t("COMMON.REGISTRATION_CLOSED")}
+                        icon={<Lock className="h-5 w-5" />}
+                        disabled
+                        accent
+                      />
+                    )}
+
+                    {isRejected && (
+                      <ManageActionIcon
+                        label={t("COMMON.RESUBMIT_WITHOUT_EDIT")}
+                        icon={<RefreshCw className="h-5 w-5" />}
+                        onClick={() => setShowResubmit(true)}
+                      />
+                    )}
+
+                    {canSendCertificates && (
+                      <ManageActionIcon
+                        label={t("COMMON.SEND_CERTIFICATES")}
+                        icon={<Award className="h-5 w-5" />}
+                        onClick={() => setShowSendCertificates(true)}
+                        disabled={sendCertificatesMutation.isPending}
+                      />
+                    )}
+
+                    {canRequestDeletion && (
+                      <ManageActionIcon
+                        label={t("COMMON.DELETE_OPPORTUNITY")}
+                        icon={<Trash2 className="h-5 w-5" />}
+                        onClick={() => setShowDeleteOpportunity(true)}
+                        danger
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1739,16 +1939,18 @@ export default function VolunteerEvent({
                   </div>
                 </div>
 
+                {/* Mobile counterpart of the primary action. Creators are
+                    excluded: their Edit/Repost now lives in the icon row up
+                    top, which renders at every width, so keeping this would
+                    show the same action twice on a phone. */}
                 <div className="hidden xss:block">
-                  {showActionButton && (
+                  {showActionButton && !isCreator && (
                     <Button
                       variant="primary"
                       size="medium"
                       className="whitespace-nowrap mb-9 w-full !h-14 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={isViewerActionDisabled}
-                      onClick={
-                        isRepostState ? handleRepublishClick : handleRegisterClick
-                      }
+                      onClick={handleRegisterClick}
                     >
                       {actionButtonLabel}
                     </Button>
@@ -2076,6 +2278,127 @@ export default function VolunteerEvent({
             type="button"
             onClick={() => setShowResubmit(false)}
             disabled={resubmitMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* BE-61 — the organizer's two printed sheets. */}
+      <AttendanceQrModal
+        open={showAttendanceQr}
+        onClose={() => setShowAttendanceQr(false)}
+        title={t("COMMON.ATTENDANCE_QR")}
+        instructions={t("COMMON.ATTENDANCE_QR_INSTRUCTIONS")}
+        isLoading={attendanceCodesQuery.isLoading}
+        error={
+          attendanceCodesQuery.isError
+            ? getApiErrorMessage(attendanceCodesQuery.error, selectedLanguage) ||
+              t("COMMON.TOAST.ATTENDANCE_QR_FAILED")
+            : null
+        }
+        sheets={
+          attendanceCodesQuery.data?.data
+            ? [
+                {
+                  code: attendanceCodesQuery.data.data.check_in.code,
+                  label: t("COMMON.CHECK_IN_QR"),
+                  caption: opportunityTitle,
+                },
+                {
+                  code: attendanceCodesQuery.data.data.check_out.code,
+                  label: t("COMMON.CHECK_OUT_QR"),
+                  caption: opportunityTitle,
+                },
+              ]
+            : []
+        }
+      />
+
+      {/* BE-61 — the volunteer's camera. */}
+      <SelfScanModal
+        open={showSelfScan}
+        onClose={() => setShowSelfScan(false)}
+        title={
+          nextSelfScanDirection === "in"
+            ? t("COMMON.SCAN_CHECK_IN_QR")
+            : t("COMMON.SCAN_CHECK_OUT_QR")
+        }
+        hint={
+          nextSelfScanDirection === "in"
+            ? t("COMMON.SCAN_CHECK_IN_HINT")
+            : t("COMMON.SCAN_CHECK_OUT_HINT")
+        }
+        onScan={handleSelfScan}
+        isPending={selfScanMutation.isPending}
+      />
+
+      {/* Edit / Repost. The only dialog here in front of a navigation rather
+          than a mutation — see `handleConfirmPrimaryAction`. */}
+      <Modal
+        open={showPrimaryActionConfirm}
+        onClose={() => setShowPrimaryActionConfirm(false)}
+        title={actionButtonLabel}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {isRepostState
+            ? t("COMMON.ARE_YOU_SURE_REPOST_OPPORTUNITY")
+            : t("COMMON.ARE_YOU_SURE_EDIT_OPPORTUNITY")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleConfirmPrimaryAction}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowPrimaryActionConfirm(false)}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CANCEL")}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Sending certificates used to fire straight off the button click. It is
+          the one action here that leaves the app — volunteers get mail — so it
+          gets the same confirm step as the rest now that its control is an
+          unlabelled icon. */}
+      <Modal
+        open={showSendCertificates}
+        onClose={() => setShowSendCertificates(false)}
+        title={t("COMMON.SEND_CERTIFICATES")}
+        size="sm"
+      >
+        <div className="text-center pb-6 text-lg">
+          {t("COMMON.ARE_YOU_SURE_SEND_CERTIFICATES")}
+        </div>
+        <div className="flex justify-center w-full gap-5">
+          <Button
+            variant="primary"
+            type="button"
+            size="medium"
+            onClick={handleSendCertificates}
+            disabled={sendCertificatesMutation.isPending}
+            className="xss:!w-full"
+          >
+            {t("COMMON.CONFIRM")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="medium"
+            type="button"
+            onClick={() => setShowSendCertificates(false)}
+            disabled={sendCertificatesMutation.isPending}
             className="xss:!w-full"
           >
             {t("COMMON.CANCEL")}

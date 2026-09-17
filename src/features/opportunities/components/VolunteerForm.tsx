@@ -472,11 +472,16 @@ export default function VolunteerForm({
   useEffect(() => {
     if (!opportunityData) return;
 
-    // Only images captured before completion belong to the editable set
-    const oppImages =
-      opportunityData.opportunity_images
-        ?.filter((img: any) => img.is_after_completed === false)
-        .map((img: any) => ({ id: img.id, image: img.image })) || [];
+    // Only images captured before completion belong to the editable set.
+    // A repost is a NEW run of the opportunity, so none of the source's images
+    // carry over at all — the gallery was shot during the previous run and
+    // cannot stand for the new one. Starting empty makes the required-images
+    // rule below force a fresh upload.
+    const oppImages = isRepublish
+      ? []
+      : (opportunityData.opportunity_images
+          ?.filter((img: any) => img.is_after_completed === false)
+          .map((img: any) => ({ id: img.id, image: img.image })) || []);
 
     setModifiedOpportunityImages(oppImages);
     setModifiedLicenseImage(
@@ -518,7 +523,7 @@ export default function VolunteerForm({
         setSponsorIdsToFetch(sponsorData.filter((v: any) => v != null));
       }
     }
-  }, [opportunityData]);
+  }, [opportunityData, isRepublish]);
 
   const { data: tagsData, isLoading: tagsLoading } = useQuery({
     queryKey: ["volunteer-opportunity-interest-choices", selectedLanguage],
@@ -1100,18 +1105,19 @@ export default function VolunteerForm({
         formData.append("interest_ids[]", interest);
       });
 
-      // Republish media contract (backend RepublishMedia service): the source
-      // id is sent when the keep-set is non-empty — `existing_image_ids[]`
-      // without it 422s with "A source is required to copy images", and
-      // `opportunity_id` without a keep-set clones the source's ENTIRE gallery.
-      // A keep-everything repost is expressed by sending both; removing every
-      // image falls back to a plain create with no media copy.
-      if (isRepublish && id && existingImageIds.length > 0) {
+      // Republish media contract (backend RepublishMedia service). A repost
+      // never reuses the source's images, so the keep-set is always empty:
+      // `existing_image_ids` carries the scalar "none" sentinel that
+      // MediaKeepSet::normalizeEmptySignal() turns into an empty array —
+      // `existing_image_ids[]` sent zero times has no multipart representation
+      // and would read as "keep everything". `opportunity_id` is still sent so
+      // RepublishMedia::apply() can copy the LICENCE across; with an empty
+      // keep-set it copies no images.
+      if (isRepublish && id) {
         formData.append("opportunity_id", id);
-      }
-
-      // Only send existing_image_ids for images with is_after_completed === false
-      if (id && existingImageIds.length > 0) {
+        formData.append("existing_image_ids", "none");
+      } else if (id && existingImageIds.length > 0) {
+        // Editing: only images with is_after_completed === false are kept
         existingImageIds.forEach((imageId) => {
           formData.append("existing_image_ids[]", imageId.toString());
         });
