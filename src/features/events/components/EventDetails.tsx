@@ -424,7 +424,7 @@ export default function EventDetails({ eventId }: { eventId: string }) {
 
             {/* Sits with the dates it copies — Google Calendar, or an .ics
                 for Apple Calendar / Outlook. */}
-            <div className="pb-5 mobilescreen:pb-3.5">
+            <div className="flex">
               <AddToCalendar
                 payload={{
                   title_en: event.title_en,

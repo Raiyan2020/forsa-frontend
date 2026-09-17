@@ -81,11 +81,19 @@ export interface VolunteerOpportunityData {
   due_date?: string | null;
   start_date: string;
   end_date: string;
+  /**
+   * Present only when the organiser chose separate days rather than a
+   * consecutive range. When it is, `start_date`/`end_date` are merely the
+   * first and last of those days — the opportunity does not run in between.
+   */
+  time_slots?: { id?: number; date?: string }[];
   start_time: string;
   end_time: string;
   location_en?: string;
   location_ar?: string;
   location_url?: string | null;
+  /** The WhatsApp contact link — which `location_url` falls back to; see below. */
+  link?: string | null;
   map_desc?: string | null;
   latitude?: number | string;
   longitude?: number | string;
@@ -604,8 +612,45 @@ export default function VolunteerEvent({
     [opportunityData]
   );
 
+  /** The exact days this opportunity runs, ascending. */
+  const scheduledDays = useMemo(() => {
+    const slots = opportunityData?.time_slots;
+    if (!Array.isArray(slots)) return [];
+    return [
+      ...new Set(
+        slots
+          .map((slot) => slot?.date?.slice(0, 10))
+          .filter((day): day is string => Boolean(day))
+      ),
+    ].sort();
+  }, [opportunityData?.time_slots]);
+
+  const hasScatteredSchedule = scheduledDays.length > 0;
+
+  /*
+   * An opportunity can now answer "where" with a maps link instead of a map
+   * pin, in which case there are no coordinates to open. Two things make this
+   * fiddlier than reading the field:
+   *
+   *  - the API resource falls `location_url` back to `link` (the WhatsApp
+   *    number) when the column is empty, so an empty location would otherwise
+   *    open a WhatsApp chat when someone clicks the address;
+   *  - with only a link there is no address text either, so the label has to
+   *    say something other than "address not found", which reads as broken.
+   */
+  const locationUrl =
+    opportunityData?.location_url &&
+    opportunityData.location_url !== opportunityData?.link
+      ? opportunityData.location_url
+      : null;
+
   /**
-   * Total commitment = hours per day × number of days in the range (inclusive).
+   * Total commitment = hours per day × number of days actually worked.
+   *
+   * Counting the calendar span is only right for a consecutive opportunity.
+   * With separate days it over-counts every gap — four Saturdays across a
+   * month would read as a month of work — so the scheduled days are counted
+   * directly when they exist.
    */
   const totalDuration = useMemo(() => {
     if (!opportunityData) return { hrs: 0, mins: 0 };
@@ -616,15 +661,16 @@ export default function VolunteerEvent({
         )
       )
       .asHours();
-    const numberOfDays =
-      moment(opportunityData.end_date).diff(
-        moment(opportunityData.start_date),
-        "days"
-      ) + 1;
+    const numberOfDays = hasScatteredSchedule
+      ? scheduledDays.length
+      : moment(opportunityData.end_date).diff(
+          moment(opportunityData.start_date),
+          "days"
+        ) + 1;
     const totalHours = hoursPerDay * numberOfDays;
     const hrs = Math.floor(totalHours);
     return { hrs, mins: Math.round((totalHours - hrs) * 60) };
-  }, [opportunityData]);
+  }, [opportunityData, hasScatteredSchedule, scheduledDays]);
 
   if (opportunityQuery.isLoading) {
     return <Loader />;
@@ -641,7 +687,16 @@ export default function VolunteerEvent({
   // start is still in the future. Prefer the schedule for that contradictory
   // state so an otherwise open opportunity keeps its registration action.
   const isCompleted = status === "completed" && !startsInFuture;
-  const registrationDeadline = dueDate ?? startDate ?? endDate;
+  /*
+   * A due date is optional. Without one the opportunity keeps accepting
+   * volunteers until it ends — which is what the backend does
+   * (`HasRegistrationWindow::registrationClosesAt()` falls back to `end_date`,
+   * never to `start_date`). Falling back to `startDate` here instead would
+   * close the local heuristic a day after the opportunity began while the
+   * server was still accepting registrations, so the button would disappear on
+   * an opportunity a volunteer could still join.
+   */
+  const registrationDeadline = dueDate ?? endDate ?? startDate;
   // The creator can also close registration by hand before the deadline, which
   // the backend reports through is_registration_closed / is_registration_open.
   const closedByCreator =
@@ -1252,22 +1307,32 @@ export default function VolunteerEvent({
               )}
 
               <div className="flex items-center text-gray-600 text-sm pb-5 mobilescreen:pb-3.5 gap-2">
-                <img
-                  className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                  src="/assets/homepage/duedate.svg"
-                  alt=""
-                />
+          
                 <p className="text-primary-5 2xl:text-xl lg:text-base text-base font-bold">
                   {t("COMMON.DUE_DATE")} :
                   <span className="text-secondary-102 font-bold">
                     {" "}
+                    {/*
+                      * No due date is a real answer, not missing data:
+                      * registration stays open to the last day. Saying "no
+                      * data" reads as a broken record and gives a volunteer no
+                      * idea whether they can still sign up.
+                      */}
                     {dueDate
                       ? formatSingleDate(
                         dueDate.format("YYYY-MM-DD"),
                         selectedLanguage,
                         t
                       )
-                      : t("COMMON.NO_DATA_AVAILABLE")}
+                      : endDate
+                        ? t("COMMON.OPEN_UNTIL_END_DATE", {
+                          date: formatSingleDate(
+                            endDate.format("YYYY-MM-DD"),
+                            selectedLanguage,
+                            t
+                          ),
+                        })
+                        : t("COMMON.NO_DATA_AVAILABLE")}
                   </span>
                 </p>
               </div>
@@ -1295,7 +1360,7 @@ export default function VolunteerEvent({
                       <div className="flex items-center mb-5 mobilescreen:mb-3.5 gap-2">
                         <img
                           className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                          src="/assets/homepage/health.svg"
+                          src="/assets/homepage/conclution.svg"
                           alt=""
                         />
                         <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
@@ -1346,11 +1411,37 @@ export default function VolunteerEvent({
                     )}
                   </p>
                 </div>
+                {/*
+                  * Start and end above are the first and last day either way.
+                  * For a separate-days opportunity that is not the whole
+                  * story — the range spans days it does not run on — so the
+                  * exact list is spelled out rather than left to be inferred.
+                  */}
+                {hasScatteredSchedule && (
+                  <div className="col-span-1 flex flex-wrap items-center gap-2 pb-5 mobilescreen:pb-3.5 md:col-span-2">
+                    <img
+                      className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
+                      src="/assets/homepage/dateicn.svg"
+                      alt=""
+                    />
+                    <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
+                      {t("COMMON.SCATTERED_DAYS")} :
+                    </p>
+                    {scheduledDays.map((day) => (
+                      <span
+                        key={day}
+                        className="rounded-full bg-[#29246D]/[0.06] px-3 py-1 text-sm font-bold text-secondary-102"
+                      >
+                        {formatSingleDate(day, selectedLanguage, t)}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {opportunityData?.start_time &&
                   opportunityData?.end_time &&
                   moment(opportunityData.start_time, "HH:mm:ss", true).isValid() &&
                   moment(opportunityData.end_time, "HH:mm:ss", true).isValid() && (
-                  <div className="flex items-center font-bold 2xl:text-xl lg:text-base text-base gap-2">
+                  <div className="flex items-center gap-2 pb-2 font-bold mobilescreen:pb-1.5 2xl:text-xl lg:text-base text-base">
                     <img
                       className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
                       src="/assets/homepage/timeicn.svg"
@@ -1379,7 +1470,7 @@ export default function VolunteerEvent({
 
               {/* Sits with the dates it copies — Google Calendar, or an .ics
                   for Apple Calendar / Outlook. */}
-              <div className="pb-5 mobilescreen:pb-3.5">
+              <div className="flex">
                 <AddToCalendar
                   payload={{
                     title_en: opportunityData?.title_en,
@@ -1506,7 +1597,7 @@ export default function VolunteerEvent({
                         <p
                           onClick={() =>
                             openLocation(
-                              null,
+                              locationUrl,
                               opportunityData?.latitude,
                               opportunityData?.longitude
                             )
@@ -1517,14 +1608,18 @@ export default function VolunteerEvent({
                               ? opportunityData?.location_ar
                               : opportunityData?.location_en) ||
                             opportunityData?.map_desc ||
-                            t("COMMON.ADDRESS_NOT_FOUND")
+                            (locationUrl
+                              ? t("COMMON.OPEN_LOCATION_LINK")
+                              : t("COMMON.ADDRESS_NOT_FOUND"))
                           }
                         >
                           {(selectedLanguage === "ar"
                             ? opportunityData?.location_ar
                             : opportunityData?.location_en) ||
                             opportunityData?.map_desc ||
-                            t("COMMON.ADDRESS_NOT_FOUND")}
+                            (locationUrl
+                              ? t("COMMON.OPEN_LOCATION_LINK")
+                              : t("COMMON.ADDRESS_NOT_FOUND"))}
                         </p>
                       </div>
                     </div>
@@ -1565,7 +1660,7 @@ export default function VolunteerEvent({
                       <div className="flex items-center gap-2 mb-5 mobilescreen:mb-3.5">
                         <img
                           className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
-                          src="/assets/voluneteerevent/relief.svg"
+                          src="/assets/voluneteerevent/airplane_logo_vector.svg"
                           alt=""
                         />
                         <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
@@ -1834,33 +1929,7 @@ export default function VolunteerEvent({
         these photos are cropped to 4:5 by the upload form, so their native
         ratio avoids a second crop.
       */}
-      {opportunityData?.opportunity_images?.length ? (
-        <div className="w-[90%] mobilescreen:w-[100%] border-t pt-[40px] 2xl:pt-[70px] lg:mx-0 md:mx-auto mx-auto">
-          <h2 className="mb-8 text-center text-[28px] font-bold text-primary-5">
-            {t("COMMON.GALLERY")}
-          </h2>
-          <div className="grid grid-cols-2 gap-3 pb-[40px] sm:grid-cols-3 lg:grid-cols-4 2xl:pb-[70px]">
-            {opportunityData.opportunity_images.map((img, index) => (
-              <div key={img.id ?? index} className="relative">
-                <a
-                  href={img.image}
-                  data-fancybox={`opportunity-cover-${id}`}
-                  data-caption={coverGalleryTitle}
-                  className="block cursor-zoom-in overflow-hidden rounded-lg"
-                  title={t("COMMON.CLICK_TO_VIEW")}
-                >
-                  <img
-                    src={img.image}
-                    alt={coverGalleryTitle}
-                    className="aspect-[4/5] w-full object-cover transition-transform duration-200 hover:scale-105"
-                  />
-                </a>
-                {index === 0 && <OpportunityBadges item={opportunityData} />}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      
 
       <div className="border-t border pt-[40px] 2xl:pt-[70px] laptopmain:pt-[50px] laptop:pt-[40px] lg:pt-[40px]">
         <SponsorsClient />

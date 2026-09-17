@@ -21,6 +21,19 @@ interface DatePickerProps {
   disabled?: boolean;
   showDueDate?: boolean;
   enforceStartDate?: Date;
+  /**
+   * Show a button that empties the field. Opt-in, because on a required date
+   * there is nothing useful to clear *to* — it only makes sense where an empty
+   * value is a real answer, and an edit screen otherwise has no way to undo a
+   * date once one has been picked.
+   */
+  clearable?: boolean;
+  /**
+   * Append the `(D-M-Y)` format hint to the label. On by default, since the
+   * field also accepts typing; pass `false` where the label is already long
+   * enough to wrap, which costs more clarity than the hint buys.
+   */
+  showFormatHint?: boolean;
 }
 
 interface FormValues {
@@ -38,6 +51,8 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
       disabled = false,
       showDueDate = false,
       enforceStartDate,
+      clearable = false,
+      showFormatHint = true,
       ...props
     },
     ref
@@ -236,11 +251,17 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
             `}
             onClick={handleIconClick}
           >
-            {`${label} (`}
-            <span className="lg:text-xs md:text-[10px]">
-              {i18n.t("COMMON.DATE_FORMAT")}
-            </span>
-            {`)`}
+            {showFormatHint ? (
+              <>
+                {`${label} (`}
+                <span className="lg:text-xs md:text-[10px]">
+                  {i18n.t("COMMON.DATE_FORMAT")}
+                </span>
+                {`)`}
+              </>
+            ) : (
+              label
+            )}
           </label>
         )}
 
@@ -292,6 +313,31 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
               />
             )}
           />
+
+          {clearable && displayValue && !disabled && (
+            <button
+              type="button"
+              onClick={() => {
+                setFieldValue(name, "");
+                setDisplayValue("");
+                helpers.setTouched(true);
+                setTimeout(() => validateField(name), 0);
+              }}
+              aria-label={i18n.t("COMMON.CLEAR_DATE")}
+              className="absolute text-primary-5/60 hover:text-primary-5"
+              // Sits inboard of the calendar icon, which keeps its own edge.
+              style={{
+                left: isRtl ? "38px" : "auto",
+                right: isRtl ? "auto" : "38px",
+                top: "50%",
+                transform: "translateY(-50%)",
+              }}
+            >
+              <span aria-hidden="true" className="text-lg leading-none">
+                ×
+              </span>
+            </button>
+          )}
 
           {/* Custom Calendar Icon */}
           <button

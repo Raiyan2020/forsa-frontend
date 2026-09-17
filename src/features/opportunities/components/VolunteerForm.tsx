@@ -15,7 +15,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { FaMinus, FaPlus } from "react-icons/fa";
+import { FaLink, FaMapMarkerAlt, FaMinus, FaPlus } from "react-icons/fa";
 import * as Yup from "yup";
 
 import Input from "@/components/ui/Input";
@@ -31,6 +31,10 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Title from "@/components/shared/Title";
+import OpportunityScheduleDates, {
+  toFormDateValue,
+  type ScheduleMode,
+} from "@/features/opportunities/components/OpportunityScheduleDates";
 import { getDropdownChoicesRequest } from "@/features/auth/services/authApi";
 import { checkLicenseRequirement, createVolunteerOpportunity, deleteOpportunityImage, getOpportunityById, syncOpportunitySponsors, updateVolunteerOpportunity } from "@/features/opportunities/services/opportunities";
 import { getAllOrganizations } from "@/features/shared/services/directory";
@@ -69,8 +73,15 @@ interface VolunteerFormValues {
   title_ar: string;
   title_en: string;
   dueDate: string;
+  /**
+   * Both modes keep these populated — the first and last day the opportunity
+   * runs — so every existing date rule, sort and card keeps working. What
+   * separates the two is `scheduleDates`. See `OpportunityScheduleDates`.
+   */
   startDate: string;
   endDate: string;
+  scheduleMode: ScheduleMode;
+  scheduleDates: string[];
   participantsNeeded: string;
   age: [number | null, number | null];
   startTime: string;
@@ -78,6 +89,8 @@ interface VolunteerFormValues {
   volunteerHoursPerDay: string;
   gender: string;
   location: string;
+  /** A shared maps URL — the quick path, and the one most organisers use. */
+  locationUrl: string;
   link: string;
   isPrivate?: string;
   description_ar: string;
@@ -101,6 +114,18 @@ const LocationMapPicker = dynamic(
   () => import("@/components/ui/LocationMapPicker"),
   { ssr: false }
 );
+
+/**
+ * Visible text inside a rich-text value. The editor never returns an empty
+ * string once it has been focused — it leaves `<p></p>` or `<p><br></p>`
+ * behind — so "is there a description?" has to be asked of the text, not of
+ * the markup.
+ */
+const richTextToPlain = (value?: string | null): string =>
+  (value || "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
 
 /**
  * Side effects that need Formik's bag. Kept out of the render prop so the hooks
@@ -265,6 +290,27 @@ export default function VolunteerForm({
   const [formKey, setFormKey] = useState(0);
   const [showOpportunitySection] = useState(!isVolunteer);
 
+  /*
+   * The title is asked for once, in Arabic. English is an optional extra the
+   * organizer opens only if they want a different wording — when they don't,
+   * the submit handler sends the Arabic title in both fields, because the API
+   * requires `title_en` and a record with an empty one renders as a blank
+   * heading on every English-language screen.
+   *
+   * `null` means "the organizer hasn't decided", which lets the panel follow
+   * the record: open when editing an opportunity that already carries a
+   * genuinely different English title, closed otherwise. Once they click
+   * either way, their choice wins. Resolved against `opportunityData` further
+   * down, where it is in scope.
+   */
+  const [englishTitleToggle, setEnglishTitleToggle] = useState<boolean | null>(
+    null
+  );
+  /** The description asks the same question, and answers it the same way. */
+  const [englishDescriptionToggle, setEnglishDescriptionToggle] = useState<
+    boolean | null
+  >(null);
+
   // Force Formik to remount when the language changes
   useEffect(() => {
     setFormKey((prevKey) => prevKey + 1);
@@ -281,6 +327,94 @@ export default function VolunteerForm({
   });
 
   const opportunityData = apiResponse?.data;
+
+  /*
+   * Only a *different* English title counts as one the organizer wrote. An
+   * opportunity created through this form without opening the English panel
+   * stores the Arabic title in both columns, so treating any non-empty
+   * `title_en` as deliberate would re-open the panel on every edit and show
+   * the Arabic text in a field labelled English.
+   */
+  const hasDistinctEnglishTitle = useMemo(() => {
+    const arabic = (opportunityData?.title_ar || "").trim();
+    const english = (opportunityData?.title_en || "").trim();
+    return english !== "" && english !== arabic;
+  }, [opportunityData?.title_ar, opportunityData?.title_en]);
+  const showEnglishTitle = englishTitleToggle ?? hasDistinctEnglishTitle;
+
+  const hasDistinctEnglishDescription = useMemo(() => {
+    const arabic = (opportunityData?.description_ar || "").trim();
+    const english = (opportunityData?.description_en || "").trim();
+    return richTextToPlain(english) !== "" && english !== arabic;
+  }, [opportunityData?.description_ar, opportunityData?.description_en]);
+  const showEnglishDescription =
+    englishDescriptionToggle ?? hasDistinctEnglishDescription;
+
+  /*
+   * `time_slots` is how the API records a non-consecutive schedule: one row
+   * per day the opportunity actually runs. Its presence is therefore the only
+   * reliable signal that the organiser chose scattered days — `start_date` and
+   * `end_date` look identical either way, since they are the first and last
+   * day in both modes.
+   */
+  const storedScheduleDates: string[] = useMemo(() => {
+    const slots = opportunityData?.time_slots;
+    if (!Array.isArray(slots) || slots.length === 0) {
+      return [
+        opportunityData?.start_date,
+        opportunityData?.end_date,
+        // A single-day opportunity stores the same date twice; dedupe so the
+        // range picker doesn't open with a phantom second selection.
+      ]
+        .filter((day: unknown): day is string => typeof day === "string" && !!day)
+        .map((day) => day.slice(0, 10))
+        .filter((day, index, all) => all.indexOf(day) === index);
+    }
+    return [
+      ...new Set(
+        slots
+          .map((slot: { date?: string }) => slot?.date?.slice(0, 10))
+          .filter((day: string | undefined): day is string => Boolean(day))
+      ),
+    ].sort();
+  }, [opportunityData?.time_slots, opportunityData?.start_date, opportunityData?.end_date]);
+
+  const storedScheduleMode: ScheduleMode = Array.isArray(
+    opportunityData?.time_slots
+  )
+    ? opportunityData.time_slots.length > 0
+      ? "scattered"
+      : "consecutive"
+    : "consecutive";
+
+  /*
+   * The map search and picker are the second way to answer "where", kept out
+   * of sight until asked for so the common case — paste a maps link — is a
+   * single field. Same tri-state as the English title: `null` means the
+   * organiser hasn't chosen, so an opportunity already pinned on the map opens
+   * with the picker showing rather than hiding the answer it already has.
+   */
+  const [mapPickerToggle, setMapPickerToggle] = useState<boolean | null>(null);
+  const hasStoredMapLocation = Boolean(
+    opportunityData?.latitude && opportunityData?.longitude
+  );
+  const showMapPicker = mapPickerToggle ?? hasStoredMapLocation;
+
+  /*
+   * Row 1 of the grid has two optional cells — the English title, and the
+   * public/private choice that only organizations see. CSS grid flows the next
+   * item into any gap they leave, so without this the due date would slide up
+   * into row 1 and every row below would be off by one. Widening the title
+   * absorbs whatever is missing and keeps the row exactly four columns.
+   *
+   * Written out as whole class names on purpose: Tailwind scans the source for
+   * literals, so an interpolated `lg:col-span-${n}` would never be generated.
+   */
+  const titleColSpanClass = [
+    "lg:col-span-1",
+    "lg:col-span-2",
+    "lg:col-span-3",
+  ][2 - (showEnglishTitle ? 1 : 0) - (showOpportunitySection ? 1 : 0)];
 
   // Refresh the form once opportunity data arrives
   useEffect(() => {
@@ -523,10 +657,22 @@ export default function VolunteerForm({
 
   const initialValues: VolunteerFormValues = {
     title_ar: opportunityData?.title_ar || "",
-    title_en: opportunityData?.title_en || "",
+    /*
+     * A mirrored English title is loaded as empty, not as the Arabic text it
+     * copies. Otherwise editing only the Arabic title on such a record would
+     * leave the previous wording sitting in `title_en` — visible to nobody on
+     * this screen, since the panel stays closed, but served to every
+     * English-language visitor afterwards.
+     */
+    title_en: hasDistinctEnglishTitle ? opportunityData?.title_en || "" : "",
     dueDate: opportunityData?.due_date || "",
-    startDate: opportunityData?.start_date || "",
-    endDate: opportunityData?.end_date || "",
+    // Derived from the same array the calendar writes, and in the same local
+    // midnight ISO form, so a record loaded for editing and one just picked
+    // behave identically — see `toFormDateValue`.
+    startDate: toFormDateValue(storedScheduleDates[0]),
+    endDate: toFormDateValue(storedScheduleDates[storedScheduleDates.length - 1]),
+    scheduleMode: storedScheduleMode,
+    scheduleDates: storedScheduleDates,
     participantsNeeded: opportunityData?.participants_needed?.toString() || "",
     age: [
       opportunityData?.from_age ? Number(opportunityData.from_age) : null,
@@ -539,9 +685,24 @@ export default function VolunteerForm({
       opportunityData?.volunteer_hours_per_day?.toString() || "",
     gender: opportunityData?.gender_display?.id || "",
     location: opportunityData?.map_desc || "",
+    /*
+     * The API resource falls `location_url` back to `link` (the WhatsApp
+     * number) when the column is empty, so an empty column arrives looking
+     * like a maps link. Reading it back verbatim would copy the WhatsApp URL
+     * into the location field on every edit, so the fallback is undone here.
+     */
+    locationUrl:
+      opportunityData?.location_url &&
+      opportunityData.location_url !== opportunityData?.link
+        ? opportunityData.location_url
+        : "",
     link: opportunityData?.link || "",
     description_ar: opportunityData?.description_ar || "",
-    description_en: opportunityData?.description_en || "",
+    // Mirrored English loads as empty, not as the Arabic it copies — same
+    // reasoning as `title_en` above.
+    description_en: hasDistinctEnglishDescription
+      ? opportunityData?.description_en || ""
+      : "",
     _interests: resolveInterestOptionIds(
       normalizeInterests(
         opportunityData?.interest_display,
@@ -584,35 +745,39 @@ export default function VolunteerForm({
     return !value || new Date(value) >= today;
   };
 
-  // Shared by both the Arabic and English description fields.
+  // The Arabic description — the one always on screen, and always required.
   const descriptionSchema = Yup.string()
     .concat(YupRequiredString)
     .test(
       "is-not-empty-html",
       i18n.t("COMMON.REQUIRED.FIELD"),
-      function (value) {
-        if (!value) return false;
-        // Strip markup and entities — an empty <p></p> is not real content
-        const textContent = value
-          .replace(/<[^>]*>/g, "")
-          .replace(/&nbsp;/g, " ")
-          .trim();
-        return textContent.length > 0;
-      }
+      (value) => richTextToPlain(value).length > 0
     )
     .test(
       "description-min-length",
       i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
-      function (value) {
-        if (!value) return true; // emptiness is the required rule's business
-        // Count visible text, not raw HTML — tags and entities are not content
-        const textContent = value
-          .replace(/<[^>]*>/g, "")
-          .replace(/&nbsp;/g, " ")
-          .trim();
-        return textContent.length >= 10;
+      (value) => {
+        const textContent = richTextToPlain(value);
+        // Emptiness is the required rule's business, not this one's.
+        return textContent.length === 0 || textContent.length >= 10;
       }
     );
+
+  /*
+   * The English description is optional, so it cannot reuse the rule above —
+   * that one is built on `YupRequiredString`. The length floor still applies
+   * to anything actually written, which is the part worth keeping: a
+   * two-word English description is worse than none, because the submit
+   * handler would otherwise have copied the full Arabic one across.
+   */
+  const optionalDescriptionSchema = Yup.string().test(
+    "description-min-length",
+    i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
+    (value) => {
+      const textContent = richTextToPlain(value);
+      return textContent.length === 0 || textContent.length >= 10;
+    }
+  );
 
   const validationSchema = Yup.object({
     /*
@@ -632,11 +797,43 @@ export default function VolunteerForm({
     title_ar: YupStringMaxLength(400)
       .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
       .concat(YupRequiredString),
-    title_en: YupStringMaxLength(400)
-      .min(2, () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"))
-      .concat(YupRequiredString),
+    /*
+     * Optional, and built from scratch rather than from `YupStringMaxLength` —
+     * that helper descends from `YupRequiredString`, so every rule composed
+     * out of it is required no matter what is chained on afterwards. The
+     * length and whitespace rules still apply to whatever is actually typed;
+     * `excludeEmptyString` keeps them off an untouched field.
+     */
+    title_en: Yup.string()
+      .max(
+        400,
+        () =>
+          `${i18n.t("COMMON.MUST.BE.ATMOST")}400${i18n.t("COMMON.CHARACTERS")}`
+      )
+      .matches(/^(?!\s)/, {
+        message: () => i18n.t("COMMON.NO.START.SPACE"),
+        excludeEmptyString: true,
+      })
+      .matches(/(?<!\s)$/, {
+        message: () => i18n.t("COMMON.NO.END.SPACE"),
+        excludeEmptyString: true,
+      })
+      .test(
+        "title-en-min-length",
+        () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"),
+        (value) => !value || value.trim().length >= 2
+      ),
+    /*
+     * Optional. Left empty, the opportunity keeps accepting volunteers until
+     * its last day — the backend's own fallback
+     * (`HasRegistrationWindow::registrationClosesAt()` uses `end_date` when
+     * `due_date` is null), so nothing has to be sent in its place.
+     *
+     * Both tests below already pass on an empty value, so dropping the
+     * required rule is all that is needed: a deadline that *is* given still has
+     * to be in the future and still has to fall before the first day.
+     */
     dueDate: Yup.string()
-      .concat(YupRequiredString)
       .test("due-date-in-future", i18n.t("COMMON.DATE_MUST_BE_FUTURE"), notInPast)
       .test(
         "due-date-before-start-date",
@@ -670,6 +867,15 @@ export default function VolunteerForm({
           return normalizeDate(value) >= normalizeDate(startDate);
         }
       ),
+    /*
+     * `startDate` / `endDate` already carry the future and ordering rules, and
+     * they are derived from this array, so all this has to catch is an empty
+     * calendar — which in scattered mode is otherwise invisible, since there
+     * is no separate end-date field left for the organiser to notice missing.
+     */
+    scheduleDates: Yup.array()
+      .of(Yup.string())
+      .min(1, () => i18n.t("COMMON.REQUIRED.FIELD")),
     participantsNeeded: YupNumberOnly,
     volunteerCategory: Yup.string().concat(YupRequiredString),
     // Only charity opportunities carry a beneficiaries count; the backend nulls
@@ -712,17 +918,46 @@ export default function VolunteerForm({
         }
       ),
     gender: Yup.string().concat(YupRequiredString),
-    location: YupRequiredString.test(
-      "has-coordinates",
-      t("COMMON.INVALID_ADDRESS"),
-      function (value) {
+    /*
+     * There are two ways to answer "where": paste a maps link, or pick the
+     * spot on the map. Either is enough, so **neither** field can be required
+     * on its own — the rule is "at least one", checked from both sides.
+     *
+     * Both use `.test` rather than `Yup.when`, which would make the two fields
+     * reference each other and throw a cyclic-dependency error at schema build
+     * time.
+     */
+    locationUrl: Yup.string()
+      .url(() => i18n.t("COMMON.INVALID_URL"))
+      .test(
+        "location-provided",
+        () => i18n.t("COMMON.LOCATION_REQUIRED"),
+        function (value) {
+          return Boolean(value?.trim() || this.parent.location?.trim());
+        }
+      ),
+    location: Yup.string()
+      /*
+       * The same "at least one" rule as above, repeated here on purpose: only
+       * one of the two fields is on screen at a time, and an error attached to
+       * the hidden one would never be seen. Whichever is visible shows it.
+       */
+      .test(
+        "location-provided",
+        () => i18n.t("COMMON.LOCATION_REQUIRED"),
+        function (value) {
+          return Boolean(value?.trim() || this.parent.locationUrl?.trim());
+        }
+      )
+      .test("has-coordinates", t("COMMON.INVALID_ADDRESS"), function (value) {
+        // Nothing to validate when the organiser answered with a link instead.
+        if (!value?.trim()) return true;
         const { latitude, longitude } = this.parent;
-        return (!!value && latitude !== undefined) || longitude !== undefined;
-      }
-    ),
+        return Boolean(latitude) || Boolean(longitude);
+      }),
     link: YupWhatsAppLink.concat(YupRequiredString),
     description_ar: descriptionSchema,
-    description_en: descriptionSchema,
+    description_en: optionalDescriptionSchema,
     _interests: Yup.array()
       .of(Yup.string())
       .min(1, i18n.t("COMMON.REQUIRED.FIELD")),
@@ -770,13 +1005,51 @@ export default function VolunteerForm({
 
       const formData = new FormData();
 
-      formData.append("title_ar", values.title_ar);
-      formData.append("title_en", values.title_en);
+      // The English title is optional in the form but required by the API, so
+      // an organizer who only wrote Arabic gets the Arabic title stored in
+      // both columns. Sending an empty `title_en` instead would 422, and
+      // sending a blank one would leave English-language screens headless.
+      const arabicTitle = values.title_ar.trim();
+      const englishTitle = values.title_en.trim() || arabicTitle;
+
+      formData.append("title_ar", arabicTitle);
+      formData.append("title_en", englishTitle);
+      // Same rule as the title: the API requires both, so an organiser who
+      // only wrote Arabic gets it stored in both columns rather than leaving
+      // English-language visitors with an empty description.
       formData.append("description_ar", values.description_ar);
-      formData.append("description_en", values.description_en);
+      formData.append(
+        "description_en",
+        richTextToPlain(values.description_en)
+          ? values.description_en
+          : values.description_ar
+      );
+      // Sent even when empty, on purpose: the key has to be present for an
+      // edit that *removes* a deadline to reach the server. An empty string
+      // nulls the column, which is what reopens registration to the end date.
       formData.append("due_date", values.dueDate);
       formData.append("start_date", formatDateToYYYYMMDD(values.startDate));
       formData.append("end_date", formatDateToYYYYMMDD(values.endDate));
+
+      /*
+       * `time_slots` is the API's per-day schedule: with rows present only the
+       * listed days count as running days, without them the whole
+       * start_date..end_date range does. So scattered days send one row per
+       * selected day, and consecutive days must actively send an empty value —
+       * omitting the key entirely leaves a previously scattered schedule in
+       * place, and the opportunity would keep running on days the organiser
+       * has just replaced with a range.
+       */
+      if (values.scheduleMode === "scattered") {
+        values.scheduleDates.forEach((day, index) => {
+          formData.append(`time_slots[${index}][date]`, day);
+          formData.append(`time_slots[${index}][start_time]`, values.startTime);
+          formData.append(`time_slots[${index}][end_time]`, values.endTime);
+        });
+      } else {
+        formData.append("time_slots", "");
+      }
+
       formData.append("participants_needed", values.participantsNeeded);
       formData.append(
         "from_age",
@@ -803,9 +1076,10 @@ export default function VolunteerForm({
           : "1"
       );
       formData.append("map_desc", values.location);
-      // No longer collected from the user — the map picker's lat/lng replaced
-      // it, so every save clears out whatever an older record had stored.
-      formData.append("location_url", "");
+      // Collected again: a pasted maps link is now the primary way to answer
+      // "where", with the picker as the alternative. Sent even when empty so
+      // an edit that swaps a link for a map pick clears the old one.
+      formData.append("location_url", values.locationUrl.trim());
       formData.append("volunteer_category", values.volunteerCategory);
       // Beneficiaries only exist for charity work — send the field only then, so
       // a category switch doesn't push a stale count the backend would null out.
@@ -1014,6 +1288,11 @@ export default function VolunteerForm({
     const specialFieldSelectors: Record<string, string> = {
       description_ar: ".descritpionitm-ar", // rich text editor
       description_en: ".descritpionitm-en",
+      // All three live in the one schedule field, which renders no input
+      // carrying their names.
+      startDate: "#scheduleDates",
+      endDate: "#scheduleDates",
+      scheduleDates: "#scheduleDates",
       _interests: ".TagsCheckbox",
       opportunity_images: ".uploaddocfiles",
       license_image: "input[type=file]",
@@ -1149,88 +1428,143 @@ export default function VolunteerForm({
                     selectedLanguage={selectedLanguage}
                     skipNextGeocodeRef={skipNextGeocodeRef}
                   />
-
-                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
-                    <Input
-                      name="title_ar"
-                      label={t("COMMON.ENTER_TITLE_AR")}
-                      type="text"
-                      maxLength={400}
-                      dir="rtl"
-                      onFocus={() => setFieldTouched("title_ar", true)}
-                    />
-                    <Input
-                      name="title_en"
-                      label={t("COMMON.ENTER_TITLE_EN")}
-                      type="text"
-                      maxLength={400}
-                      dir="ltr"
-                      onFocus={() => setFieldTouched("title_en", true)}
-                    />
-
-                    <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
-                      {showOpportunitySection && (
-                        <SelectInput
-                          name="isPrivate"
-                          label={t("COMMON.OPPORTUNITY.SHOULD.BE")}
-                          options={opportunityPrivacyOptions.map((option) => ({
-                            value: option.value,
-                            label:
-                              selectedLanguage === "ar"
-                                ? option.name_ar
-                                : option.name_en,
-                          }))}
-                          placeholder={t("COMMON.SELECT")}
-                        />
-                      )}
-                      <DatePickerInput
-                        name="dueDate"
-                        label={t("COMMON.DUE_DATE")}
-                        rmdpClassname="placeholder-primary-5"
-                        minDate={new Date()}
-                        showDueDate
+                  {/*
+                    * One grid for the whole header block rather than a stack
+                    * of independent flex rows. Three flex rows each divided
+                    * the width by however many fields they happened to hold,
+                    * so a 3-field row and a 5-field row produced completely
+                    * different column edges and the longer labels were
+                    * squeezed until they truncated. A fixed four-column grid
+                    * gives every field the same width on every row.
+                    *
+                    * The two pairs that read as one answer — age from/to and
+                    * time from/to — each occupy a single column, which is what
+                    * makes all three rows come out to exactly four columns.
+                    */}
+                  <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2 lg:grid-cols-4">
+                    {/* ---- Row 1: what it is ---- */}
+                    <div className={titleColSpanClass}>
+                      <Input
+                        name="title_ar"
+                        label={t("COMMON.ENTER_TITLE")}
+                        type="text"
+                        maxLength={400}
+                        dir="rtl"
+                        onFocus={() => setFieldTouched("title_ar", true)}
                       />
+                      {!showEnglishTitle && (
+                        <button
+                          type="button"
+                          className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                          onClick={() => setEnglishTitleToggle(true)}
+                        >
+                          <FaPlus className="h-3 w-3" aria-hidden="true" />
+                          {t("COMMON.ADD_ENGLISH_TITLE")}
+                        </button>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col xss:pt-0 miniscreen:flex-col miniscreen:gap-0">
+                    {showEnglishTitle && (
+                      <div>
+                        <Input
+                          name="title_en"
+                          label={t("COMMON.ENTER_TITLE_EN")}
+                          type="text"
+                          maxLength={400}
+                          dir="ltr"
+                          onFocus={() => setFieldTouched("title_en", true)}
+                        />
+                        <button
+                          type="button"
+                          className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                          onClick={() => {
+                            // Clear as well as close, so a value typed and
+                            // then dismissed can't be submitted invisibly.
+                            setFieldValue("title_en", "");
+                            setFieldTouched("title_en", false);
+                            setEnglishTitleToggle(false);
+                          }}
+                        >
+                          <FaMinus className="h-3 w-3" aria-hidden="true" />
+                          {t("COMMON.REMOVE_ENGLISH_TITLE")}
+                        </button>
+                      </div>
+                    )}
+
+                    {showOpportunitySection && (
+                      <SelectInput
+                        name="isPrivate"
+                        label={t("COMMON.OPPORTUNITY.SHOULD.BE")}
+                        options={opportunityPrivacyOptions.map((option) => ({
+                          value: option.value,
+                          label:
+                            selectedLanguage === "ar"
+                              ? option.name_ar
+                              : option.name_en,
+                        }))}
+                        placeholder={t("COMMON.SELECT")}
+                      />
+                    )}
+
+                    <SelectInput
+                      name="volunteerCategory"
+                      label={t("COMMON.VOLUNTEER_CATEGORY")}
+                      placeholder={t("COMMON.SELECT")}
+                      options={volunteerCategoryOptions.map((option) => ({
+                        value: option.value,
+                        label:
+                          selectedLanguage === "ar"
+                            ? option.name_ar
+                            : option.name_en,
+                      }))}
+                      onChange={(selectedOption) => {
+                        const next = selectedOption?.value || "";
+                        setFieldValue("volunteerCategory", next);
+                        // Leaving charity drops the count the backend would
+                        // null anyway, so the hidden field can't go stale.
+                        if (next !== VOLUNTEER_CATEGORY_WITH_BENEFICIARIES) {
+                          setFieldValue("beneficiariesCount", "");
+                        }
+                      }}
+                    />
+
+                    {/* ---- Row 2: when it runs ---- */}
                     <DatePickerInput
-                      name="startDate"
-                      label={t("COMMON.START_DATE")}
+                      name="dueDate"
+                      label={t("COMMON.DUE_DATE_OPTIONAL")}
                       rmdpClassname="placeholder-primary-5"
                       minDate={new Date()}
+                      showDueDate
+                      clearable
+                      showFormatHint={false}
                     />
-                    <DatePickerInput
-                      name="endDate"
-                      label={t("COMMON.END_DATE")}
-                      rmdpClassname="placeholder-primary-5"
-                      minDate={new Date()}
-                    />
-                    <Field name="startTime">
-                      {({ field }: FieldProps<string, VolunteerFormValues>) => (
-                        <TimepickerInput
-                          label={t("COMMON.START_TIME")}
-                          className="w-full"
-                          autoSetTime={autoSetTimeOnClick}
-                          {...field}
-                        />
-                      )}
-                    </Field>
-                    <Field name="endTime">
-                      {({ field }: FieldProps<string, VolunteerFormValues>) => (
-                        <TimepickerInput
-                          label={t("COMMON.END_TIME")}
-                          className="w-full"
-                          autoSetTime={autoSetTimeOnClick}
-                          {...field}
-                        />
-                      )}
-                    </Field>
-                  </div>
-
-                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col">
-                    <AgeRange name="age" label={t("COMMON.AGE")} />
-
+                    <OpportunityScheduleDates minDate={new Date()} />
+                    <div className="flex gap-2">
+                      <Field name="startTime">
+                        {({
+                          field,
+                        }: FieldProps<string, VolunteerFormValues>) => (
+                          <TimepickerInput
+                            label={t("COMMON.START_TIME")}
+                            className="w-full"
+                            autoSetTime={autoSetTimeOnClick}
+                            {...field}
+                          />
+                        )}
+                      </Field>
+                      <Field name="endTime">
+                        {({
+                          field,
+                        }: FieldProps<string, VolunteerFormValues>) => (
+                          <TimepickerInput
+                            label={t("COMMON.END_TIME")}
+                            className="w-full"
+                            autoSetTime={autoSetTimeOnClick}
+                            {...field}
+                          />
+                        )}
+                      </Field>
+                    </div>
                     <Input
                       name="participantsNeeded"
                       label={t("COMMON.PARTICIPANTS_NEEDED")}
@@ -1238,6 +1572,8 @@ export default function VolunteerForm({
                       onFocus={() => setFieldTouched("participantsNeeded", true)}
                     />
 
+                    {/* ---- Row 3: who it is for ---- */}
+                    <AgeRange name="age" label={t("COMMON.AGE")} />
                     <SelectInput
                       name="gender"
                       label={t("COMMON.GENDER")}
@@ -1253,71 +1589,95 @@ export default function VolunteerForm({
                       className="w-full"
                       onFocus={() => setFieldTouched("link", true)}
                     />
+                    {/*
+                      * Charity work is the only category the backend keeps a
+                      * beneficiaries count for — it nulls the column for every
+                      * other one — so the field appears with the category
+                      * rather than always, leaving the fourth column empty.
+                      */}
+                    {values.volunteerCategory ===
+                      VOLUNTEER_CATEGORY_WITH_BENEFICIARIES && (
+                      <Input
+                        name="beneficiariesCount"
+                        label={t("COMMON.BENEFICIARIES_COUNT")}
+                        type="text"
+                        onFocus={() =>
+                          setFieldTouched("beneficiariesCount", true)
+                        }
+                      />
+                    )}
                   </div>
 
-                  <Input
-                    name="location"
-                    label={t("COMMON.LOCATION")}
-                    onFocus={() => setFieldTouched("location", true)}
-                  />
-                  <LocationMapPicker
-                    latitude={values.latitude}
-                    longitude={values.longitude}
-                    onPick={async (lat, lng) => {
-                      setFieldValue("latitude", lat);
-                      setFieldValue("longitude", lng);
-                      setFieldTouched("location", true);
-                      // A map pick is always authoritative for the location
-                      // text — overwrite whatever was there (typed or a
-                      // previous pick), not just when the field was empty.
-                      const address = await fetchAddress(
-                        Number(lat),
-                        Number(lng),
-                        selectedLanguage
-                      );
-                      skipNextGeocodeRef.current = true;
-                      setFieldValue("location", address);
-                    }}
-                  />
-
-                  <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col">
-                    <div className="w-full md:w-1/2">
-                      <SelectInput
-                        name="volunteerCategory"
-                        label={t("COMMON.VOLUNTEER_CATEGORY")}
-                        placeholder={t("COMMON.SELECT")}
-                        options={volunteerCategoryOptions.map((option) => ({
-                          value: option.value,
-                          label:
-                            selectedLanguage === "ar"
-                              ? option.name_ar
-                              : option.name_en,
-                        }))}
-                        onChange={(selectedOption) => {
-                          const next = selectedOption?.value || "";
-                          setFieldValue("volunteerCategory", next);
-                          // Leaving charity drops the count the backend would
-                          // null anyway, so the hidden field can't go stale.
-                          if (next !== VOLUNTEER_CATEGORY_WITH_BENEFICIARIES) {
-                            setFieldValue("beneficiariesCount", "");
-                          }
+                  {/*
+                    * Two ways to answer one question, so only one is on screen
+                    * at a time. Switching clears the side being hidden: an
+                    * organiser who pins the map after pasting a link has
+                    * changed their answer, and leaving the link behind would
+                    * submit a location they can no longer see or correct.
+                    */}
+                  {showMapPicker ? (
+                    <>
+                      <Input
+                        name="location"
+                        label={t("COMMON.LOCATION")}
+                        onFocus={() => setFieldTouched("location", true)}
+                      />
+                      <LocationMapPicker
+                        latitude={values.latitude}
+                        longitude={values.longitude}
+                        onPick={async (lat, lng) => {
+                          setFieldValue("latitude", lat);
+                          setFieldValue("longitude", lng);
+                          setFieldTouched("location", true);
+                          // A map pick is always authoritative for the location
+                          // text — overwrite whatever was there (typed or a
+                          // previous pick), not just when the field was empty.
+                          const address = await fetchAddress(
+                            Number(lat),
+                            Number(lng),
+                            selectedLanguage
+                          );
+                          skipNextGeocodeRef.current = true;
+                          setFieldValue("location", address);
                         }}
                       />
-                    </div>
-                    <div className="w-full md:w-1/2">
-                      {values.volunteerCategory ===
-                        VOLUNTEER_CATEGORY_WITH_BENEFICIARIES && (
-                        <Input
-                          name="beneficiariesCount"
-                          label={t("COMMON.BENEFICIARIES_COUNT")}
-                          type="text"
-                          onFocus={() =>
-                            setFieldTouched("beneficiariesCount", true)
-                          }
-                        />
-                      )}
-                    </div>
-                  </div>
+                      <button
+                        type="button"
+                        className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                        onClick={() => {
+                          setFieldValue("location", "");
+                          setFieldValue("latitude", "");
+                          setFieldValue("longitude", "");
+                          setFieldTouched("location", false);
+                          setMapPickerToggle(false);
+                        }}
+                      >
+                        <FaLink className="h-3 w-3" aria-hidden="true" />
+                        {t("COMMON.USE_LOCATION_LINK")}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        name="locationUrl"
+                        label={t("COMMON.LOCATION_URL")}
+                        dir="ltr"
+                        onFocus={() => setFieldTouched("locationUrl", true)}
+                      />
+                      <button
+                        type="button"
+                        className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                        onClick={() => {
+                          setFieldValue("locationUrl", "");
+                          setFieldTouched("locationUrl", false);
+                          setMapPickerToggle(true);
+                        }}
+                      >
+                        <FaMapMarkerAlt className="h-3 w-3" aria-hidden="true" />
+                        {t("COMMON.SELECT_FROM_MAPS")}
+                      </button>
+                    </>
+                  )}
 
                   <div className="flex 2xl:gap-[143px] laptopitm:gap-[100px] lg:gap-[100px] miniscreen:gap-[85px] miniscreen7:gap-[95px] miniscreen6:gap-[120px] msscreen1:gap-[140px] justify-center mobilescreen:gap-1 mobilescreen:flex-col mb-4 mobilescreen:mb-4 checkbox-container">
                     <CheckBox
@@ -1363,24 +1723,59 @@ export default function VolunteerForm({
                   </div>
 
                   <div className="descritpionitm descritpionitm-ar">
+                    {/*
+                      * Labelled plainly, like the title: the "(Arabic)"
+                      * qualifier only earns its place once a second language
+                      * is on screen to distinguish it from.
+                      */}
                     <Field
                       name="description_ar"
-                      label={t("COMMON.DESCRIPTION_AR")}
-                      placeholder={t("COMMON.DESCRIPTION_AR")}
+                      label={t("COMMON.DESCRIPTION")}
+                      placeholder={t("COMMON.DESCRIPTION")}
                       component={RichTextEditor}
                       language="ar"
                     />
                   </div>
 
-                  <div className="descritpionitm descritpionitm-en">
-                    <Field
-                      name="description_en"
-                      label={t("COMMON.DESCRIPTION_EN")}
-                      placeholder={t("COMMON.DESCRIPTION_EN")}
-                      component={RichTextEditor}
-                      language="en"
-                    />
-                  </div>
+                  {!showEnglishDescription && (
+                    <button
+                      type="button"
+                      className="mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                      onClick={() => setEnglishDescriptionToggle(true)}
+                    >
+                      <FaPlus className="h-3 w-3" aria-hidden="true" />
+                      {t("COMMON.ADD_ENGLISH_DESCRIPTION")}
+                    </button>
+                  )}
+
+                  {showEnglishDescription && (
+                    <>
+                      <div className="descritpionitm descritpionitm-en">
+                        <Field
+                          name="description_en"
+                          label={t("COMMON.DESCRIPTION_EN")}
+                          placeholder={t("COMMON.DESCRIPTION_EN")}
+                          component={RichTextEditor}
+                          language="en"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                        onClick={() => {
+                          // Clear as well as close, so an editor left holding
+                          // `<p></p>` (or real text) can't be submitted from
+                          // behind a collapsed panel.
+                          setFieldValue("description_en", "");
+                          setFieldTouched("description_en", false);
+                          setEnglishDescriptionToggle(false);
+                        }}
+                      >
+                        <FaMinus className="h-3 w-3" aria-hidden="true" />
+                        {t("COMMON.REMOVE_ENGLISH_DESCRIPTION")}
+                      </button>
+                    </>
+                  )}
 
                   <TagsCheckbox
                     name="_interests"

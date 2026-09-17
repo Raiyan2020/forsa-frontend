@@ -66,10 +66,10 @@ export function OpportunityBadges({
         </div>
       )}
       {item.is_relief && (
-        <div className="w-8 h-8">
+        <div className="w-8 h-8 bg-primary-5 p-1 rounded-full flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/assets/voluneteerevent/relief.svg"
+            src="/assets/voluneteerevent/airplane_logo_vector.svg"
             alt={t("COMMON.RELIEF")}
             className="w-full h-full"
           />

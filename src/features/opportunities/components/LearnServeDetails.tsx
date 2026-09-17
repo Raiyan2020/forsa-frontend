@@ -1042,7 +1042,7 @@ export default function LearnServeDetails({
                     )}
                   </p>
                 </div>
-                <div className="flex items-center font-bold 2xl:text-xl lg:text-base text-base gap-2">
+                <div className="flex items-center gap-2 pb-2 font-bold mobilescreen:pb-1.5 2xl:text-xl lg:text-base text-base">
                   <img
                     className={`${selectedLanguage === "ar" ? "ml-3" : "mr-3"} w-5 h-5 object-contain`}
                     src="/assets/homepage/timeicn.svg"
@@ -1075,7 +1075,7 @@ export default function LearnServeDetails({
 
               {/* Sits with the dates it copies — Google Calendar, or an .ics
                   for Apple Calendar / Outlook. */}
-              <div className="pb-5 mobilescreen:pb-3.5">
+              <div className="flex">
                 <AddToCalendar
                   payload={{
                     title_en: opportunityData?.title_en,
