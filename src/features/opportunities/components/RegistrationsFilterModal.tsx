@@ -11,12 +11,12 @@ interface RegistrationsFilterModalProps {
   open: boolean;
   onClose: () => void;
   opportunityId: string | undefined;
-  currentFilters: { teams?: number[]; roles?: number[] };
-  onApply: (filters: { teams?: string[]; roles?: string[] }) => void;
+  currentFilters: { roles?: number[] };
+  onApply: (filters: { roles?: string[] }) => void;
   onClear: () => void;
 }
 
-/** Team/role filter modal for the registrations list, including its own Apply/Clear footer state. */
+/** Role filter modal for the registrations list, including its own Apply/Clear footer state. */
 export default function RegistrationsFilterModal({
   open,
   onClose,
@@ -71,7 +71,6 @@ export default function RegistrationsFilterModal({
         opportunityId={opportunityId || ""}
         onFilterChange={onApply}
         currentFilters={{
-          teams: currentFilters.teams ? currentFilters.teams.map(String) : undefined,
           roles: currentFilters.roles ? currentFilters.roles.map(String) : undefined,
         }}
         onDirtyChange={setIsFilterDirty}

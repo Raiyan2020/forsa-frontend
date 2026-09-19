@@ -1038,6 +1038,19 @@ export default function LearnServeDetails({
                   </Link>
 
                   <div className="w-full pt-5 text-center">
+                    {/*
+                      No per-opportunity WhatsApp here, deliberately.
+
+                      Volunteering has one — `link` on a volunteer opportunity
+                      IS its WhatsApp field. On a development opportunity the
+                      same column holds the ONLINE MEETING URL (see the
+                      «الرابط الإلكتروني» row below, which reveals it only to
+                      registered participants), so reusing it would label a Zoom
+                      link "contact on WhatsApp" and leak a gated link to
+                      everyone. `learn_serve_opportunities` has no other contact
+                      column — raised as BE-65. The organization's own WhatsApp,
+                      if it set one, is still in the row below.
+                    */}
                     {SOCIAL_LINKS.some(
                       ({ key }) => opportunityData?.created_by?.[key]
                     ) && (
@@ -1612,7 +1625,7 @@ export default function LearnServeDetails({
                           <img
                             src={image.image}
                             alt="Completed opportunity"
-                            className="aspect-[4/5] w-full rounded-lg object-cover"
+                            className="aspect-square w-full rounded-lg object-cover"
                           />
                         </a>
                         <div

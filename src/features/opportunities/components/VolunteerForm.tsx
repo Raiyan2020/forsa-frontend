@@ -829,16 +829,17 @@ export default function VolunteerForm({
         (value) => !value || value.trim().length >= 2
       ),
     /*
-     * Optional. Left empty, the opportunity keeps accepting volunteers until
-     * its last day — the backend's own fallback
-     * (`HasRegistrationWindow::registrationClosesAt()` uses `end_date` when
-     * `due_date` is null), so nothing has to be sent in its place.
+     * Required. It was briefly optional — an empty deadline fell back to
+     * `end_date` through `HasRegistrationWindow::registrationClosesAt()` — and
+     * the client has reverted that: every volunteer opportunity states its own
+     * registration deadline again.
      *
-     * Both tests below already pass on an empty value, so dropping the
-     * required rule is all that is needed: a deadline that *is* given still has
-     * to be in the future and still has to fall before the first day.
+     * The two tests below are unchanged and still pass vacuously on an empty
+     * value; `YupRequiredString` is what now stops it being empty in the first
+     * place, so the ordering between them does not matter.
      */
     dueDate: Yup.string()
+      .concat(YupRequiredString)
       .test("due-date-in-future", i18n.t("COMMON.DATE_MUST_BE_FUTURE"), notInPast)
       .test(
         "due-date-before-start-date",
@@ -1029,10 +1030,7 @@ export default function VolunteerForm({
           ? values.description_en
           : values.description_ar
       );
-      // Sent even when empty, on purpose: the key has to be present for an
-      // edit that *removes* a deadline to reach the server. An empty string
-      // nulls the column, which is what reopens registration to the end date.
-      formData.append("due_date", values.dueDate);
+      formData.append("due_date", formatDateToYYYYMMDD(values.dueDate));
       formData.append("start_date", formatDateToYYYYMMDD(values.startDate));
       formData.append("end_date", formatDateToYYYYMMDD(values.endDate));
 
@@ -1537,11 +1535,10 @@ export default function VolunteerForm({
                     {/* ---- Row 2: when it runs ---- */}
                     <DatePickerInput
                       name="dueDate"
-                      label={t("COMMON.DUE_DATE_OPTIONAL")}
+                      label={t("COMMON.DUE_DATE")}
                       rmdpClassname="placeholder-primary-5"
                       minDate={new Date()}
                       showDueDate
-                      clearable
                       showFormatHint={false}
                     />
                     <OpportunityScheduleDates minDate={new Date()} />

@@ -1339,5 +1339,10 @@
   "COMMON.TOAST.CHECK_OUT_RECORDED": "Departure recorded — your hours have been calculated",
   "COMMON.TOAST.ATTENDANCE_RECORDED": "Attendance recorded successfully",
   "COMMON.TOAST.SELF_SCAN_FAILED": "Could not record attendance",
-  "COMMON.TOAST.ATTENDANCE_QR_FAILED": "Could not load the attendance code"
+  "COMMON.TOAST.ATTENDANCE_QR_FAILED": "Could not load the attendance code",
+  "COMMON.CONTACT_VIA_WHATSAPP": "Contact on WhatsApp",
+  "COMMON.CHECK_IN_WINDOW_UNTIL": "Attendance can be recorded until {{date}}",
+  "COMMON.CHECK_IN_WINDOW_REMAINING": "({{time}} left)",
+  "COMMON.ADD_ROLE": "Add role",
+  "COMMON.SHEET": "Sheet"
 }

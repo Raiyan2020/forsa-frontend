@@ -14,6 +14,7 @@ import {
   downloadVolunteerRegistrations,
   getVolunteerRegistrations,
 } from "@/features/opportunities/services/registrations";
+import { sendVolunteerOpportunityCertificates } from "@/features/opportunities/services/opportunities";
 import { getCheckInWindow } from "@/features/opportunities/checkInWindow";
 import { useTeamsAndRoles } from "@/features/opportunities/hooks/useTeamsAndRoles";
 import { useVolunteerAttendance } from "@/features/opportunities/hooks/useVolunteerAttendance";
@@ -23,7 +24,6 @@ import { useRoleModalStore } from "@/store/roleModalStore";
 import AddVolunteersModal from "./AddVolunteersModal";
 import AttendanceUndoModal from "./AttendanceUndoModal";
 import RegistrationsFilterModal from "./RegistrationsFilterModal";
-import TeamModal from "./TeamModal";
 import UnregisterVolunteerModal from "./UnregisterVolunteerModal";
 import VolunteerListToolbar from "./VolunteerListToolbar";
 import VolunteerRegistrationsTable from "./VolunteerRegistrationsTable";
@@ -88,14 +88,13 @@ export default function VolunteerList() {
   const participants_needed = navState?.participants_needed;
 
   const [open, setOpen] = useState(false);
-  const [openteam, setOpenteam] = useState(false);
   const [page, setPage] = useState(1);
   const [showMismatchModal, setShowMismatchModal] = useState(false);
   const [roleModalRef, setRoleModalRef] = useState<{
     checkParticipantsMismatch: () => boolean;
   } | null>(null);
 
-  const [filters, setFilters] = useState<{ teams?: number[]; roles?: number[] }>(
+  const [filters, setFilters] = useState<{ roles?: number[] }>(
     {}
   );
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,14 +140,13 @@ export default function VolunteerList() {
     setAllRegistrations([]);
     setHasMoreRegistrations(true);
     mergedRegistrationPagesRef.current = new Set();
-  }, [debouncedSearch, filters.teams, filters.roles]);
+  }, [debouncedSearch, filters.roles]);
 
   const registrationsQuery = useQuery({
     queryKey: [
       "volunteer-registrations",
       opportunityId,
       page,
-      filters.teams,
       filters.roles,
       debouncedSearch,
     ],
@@ -157,7 +155,6 @@ export default function VolunteerList() {
         opportunity_id: opportunityId,
         page,
         limit: 10,
-        teams: filters.teams,
         roles: filters.roles,
         search: debouncedSearch,
       }),
@@ -261,7 +258,6 @@ export default function VolunteerList() {
     try {
       const response = await downloadMutation.mutateAsync({
         opportunity_id: opportunityId,
-        teams: filters.teams,
         roles: filters.roles,
         search: debouncedSearch,
         mark_attendance: manual_tracking ? true : undefined,
@@ -294,11 +290,10 @@ export default function VolunteerList() {
   };
 
   const handleFilterChange = (newFilters: {
-    teams?: string[];
+
     roles?: string[];
   }) => {
     setFilters({
-      teams: newFilters.teams ? newFilters.teams.map(Number) : undefined,
       roles: newFilters.roles ? newFilters.roles.map(Number) : undefined,
     });
     setPage(1);
@@ -313,6 +308,34 @@ export default function VolunteerList() {
       return;
     }
     closeRoleModal();
+  };
+
+  /**
+   * Moved onto this screen from the opportunity detail page, per the mockup —
+   * this is where an organizer is already looking at who attended, so it is
+   * where issuing their certificates belongs.
+   *
+   * `certificates_sent: 0` is a normal answer, not a failure: it means nobody
+   * new became eligible since the automatic pass at completion.
+   */
+  const sendCertificatesMutation = useMutation({
+    mutationFn: () => sendVolunteerOpportunityCertificates(opportunityId || ""),
+  });
+
+  const handleSendCertificates = async () => {
+    if (!opportunityId) return;
+    try {
+      const response = await sendCertificatesMutation.mutateAsync();
+      const sent = response?.data?.certificates_sent ?? 0;
+      if (sent > 0) {
+        toast.success(t("COMMON.TOAST.CERTIFICATES_SENT", { count: sent }));
+      } else {
+        toast.info(t("COMMON.TOAST.NO_CERTIFICATES_TO_SEND"));
+      }
+    } catch (error) {
+      console.error("Send certificates failed:", error);
+      toast.error(t("COMMON.TOAST.CERTIFICATES_SEND_FAILED"));
+    }
   };
 
   const registeredCount =
@@ -331,7 +354,7 @@ export default function VolunteerList() {
         opportunityId={opportunityId}
         currentFilters={filters}
         onApply={handleFilterChange}
-        onClear={() => setFilters({ teams: [], roles: [] })}
+        onClear={() => setFilters({ roles: [] })}
       />
 
       <Modal
@@ -357,18 +380,6 @@ export default function VolunteerList() {
         isConfirming={attendance.isUndoingAttendance}
       />
 
-      <Modal
-        open={openteam}
-        onClose={() => setOpenteam(false)}
-        title={t("COMMON.TEAM")}
-        size="md"
-      >
-        <TeamModal
-          opportunityId={opportunityId || ""}
-          dropdownRefetch={teamsAndRoles.teamsRefetch}
-        />
-      </Modal>
-
       <AddVolunteersModal
         open={showVolunteersModal}
         onClose={() => setShowVolunteersModal(false)}
@@ -393,10 +404,17 @@ export default function VolunteerList() {
             selectedDate={attendance.selectedDate}
             effectiveEndDate={attendance.effectiveEndDate}
             onDateChange={(date) => attendance.setSelectedDate(date)}
-            onOpenTeamModal={() => setOpenteam(true)}
             onOpenRoleModal={openRoleModal}
             onOpenFilterModal={() => setOpen(true)}
             onSearchChange={(value) => setSearchQuery(value)}
+            onOpenAddVolunteer={() => setShowVolunteersModal(true)}
+            addVolunteerDisabled={
+              isParticipantsFull || opportunity_status === "completed"
+            }
+            onSendCertificates={handleSendCertificates}
+            sendCertificatesDisabled={sendCertificatesMutation.isPending}
+            onDownloadSheet={handleDownload}
+            downloadDisabled={allRegistrations.length === 0}
             checkInWindow={checkInWindow}
           />
 
@@ -419,14 +437,11 @@ export default function VolunteerList() {
               onAttendanceCheckboxChange={(uuid) =>
                 attendance.handleAttendanceCheckboxChange(uuid, opportunity_end_time)
               }
-              teamOptions={teamsAndRoles.teamOptions}
               roleOptions={teamsAndRoles.roleOptions}
-              teamsLoading={teamsAndRoles.teamsLoading}
               rolesLoading={teamsAndRoles.rolesLoading}
               updatingId={teamsAndRoles.updatingId}
               updating={teamsAndRoles.updating}
               onUpdate={teamsAndRoles.handleUpdate}
-              onTeamMenuScroll={teamsAndRoles.handleTeamMenuScroll}
               onRoleMenuScroll={teamsAndRoles.handleRoleMenuScroll}
               editingHoursKey={attendance.editingHoursKey}
               setEditingHoursKey={attendance.setEditingHoursKey}
@@ -482,16 +497,6 @@ export default function VolunteerList() {
                 {t("COMMON.ATTENDED")}
               </Button>
             )}
-            <Button
-              variant="primary"
-              size="medium"
-              className="!w-[255px] !h-[60px]"
-              onClick={handleDownload}
-              disabled={allRegistrations.length === 0}
-            >
-              <img src="/assets/voluneteerevent/downloadsheet.svg" alt="" />{" "}
-              {t("COMMON.DOWNLOAD_SHEET")}
-            </Button>
           </div>
         </div>
 

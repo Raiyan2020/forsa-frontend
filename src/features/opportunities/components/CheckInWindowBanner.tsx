@@ -45,12 +45,24 @@ export default function CheckInWindowBanner({
       className={`rounded-lg border border-primary-5 bg-primary-5/5 px-4 py-3 text-secondary-100 text-sm ${className}`}
       role="status"
     >
+      {/*
+        The deadline leads; the countdown is secondary.
+
+        It used to read «تُغلق بعد ٦ أيام» — the time left from *today*, which
+        the client read as "the window is 6 days long" and reported as a bug
+        against the agreed 3 days. It is not: the backend closes attendance at
+        `end_date + 72h` (`preparation_validity_hours`, verified), and the 6 was
+        simply today-to-deadline while the opportunity was still running. Naming
+        the date first removes the ambiguity without hardcoding "3", which is an
+        admin-configurable setting we must not restate in the UI.
+      */}
       <span className="font-semibold">
-        {t("COMMON.CHECK_IN_WINDOW_CLOSES_IN", { time: countdown })}
+        {t("COMMON.CHECK_IN_WINDOW_UNTIL", {
+          date: checkInWindow.endsAt.format("DD MMM YYYY, hh:mm A"),
+        })}
       </span>{" "}
       <span className="text-secondary-102">
-        {/* Hour-precise, because the deadline is a timestamp rather than a date */}
-        {checkInWindow.endsAt.format("DD MMM YYYY, hh:mm A")}
+        {t("COMMON.CHECK_IN_WINDOW_REMAINING", { time: countdown })}
       </span>
       {checkInWindow.wasReopened && (
         <span className="block pt-1 text-secondary-102">

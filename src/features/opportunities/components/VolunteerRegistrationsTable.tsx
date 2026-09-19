@@ -37,9 +37,7 @@ interface VolunteerRegistrationsTableProps {
   selectAllAttendance: boolean;
   onSelectAllAttendanceChange: () => void;
   onAttendanceCheckboxChange: (volunteerUuid: string) => void;
-  teamOptions: SelectOption[];
   roleOptions: SelectOption[];
-  teamsLoading: boolean;
   rolesLoading: boolean;
   updatingId: string | null;
   updating: "team" | "role";
@@ -48,7 +46,6 @@ interface VolunteerRegistrationsTableProps {
     type: "team" | "role",
     value: string | undefined
   ) => Promise<void>;
-  onTeamMenuScroll: () => void;
   onRoleMenuScroll: () => void;
   editingHoursKey: string | null;
   setEditingHoursKey: (key: string | null) => void;
@@ -73,7 +70,7 @@ interface VolunteerRegistrationsTableProps {
 }
 
 /**
- * The registrations table itself: attendance checkboxes, team/role editing,
+ * The registrations table itself: attendance checkboxes, role editing,
  * inline attendance-hours editing, and the row-level unregister action.
  */
 export default function VolunteerRegistrationsTable({
@@ -90,14 +87,11 @@ export default function VolunteerRegistrationsTable({
   selectAllAttendance,
   onSelectAllAttendanceChange,
   onAttendanceCheckboxChange,
-  teamOptions,
   roleOptions,
-  teamsLoading,
   rolesLoading,
   updatingId,
   updating,
   onUpdate,
-  onTeamMenuScroll,
   onRoleMenuScroll,
   editingHoursKey,
   setEditingHoursKey,
@@ -179,7 +173,6 @@ export default function VolunteerRegistrationsTable({
           },
         ]
       : []),
-    { label: t("COMMON.TEAM"), key: "team", type: "dropdown" },
     { label: t("COMMON.ROLE"), key: "role", type: "role" },
     // Logged hours and the undo affordance only make sense where check-in
     // happens at all — workshops and consultations skip both.
@@ -258,20 +251,6 @@ export default function VolunteerRegistrationsTable({
                     )}
                   </div>
                 </div>
-              );
-            }
-
-            if (column.type === "dropdown") {
-              return (
-                <RegistrationSelectCell
-                  options={teamOptions}
-                  value={String(rowData[column.key]?.id || "")}
-                  onChange={(value) => onUpdate(rowData.id, "team", value)}
-                  onMenuScrollToBottom={onTeamMenuScroll}
-                  isLoading={teamsLoading}
-                  isDisabled={false}
-                  placeholder={t("COMMON.TEAM")}
-                />
               );
             }
 

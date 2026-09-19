@@ -1337,5 +1337,10 @@
   "COMMON.TOAST.CHECK_OUT_RECORDED": "تم تسجيل الخروج — تم احتساب ساعاتك",
   "COMMON.TOAST.ATTENDANCE_RECORDED": "تم تسجيل الحضور بنجاح",
   "COMMON.TOAST.SELF_SCAN_FAILED": "تعذّر تسجيل الحضور",
-  "COMMON.TOAST.ATTENDANCE_QR_FAILED": "تعذّر تحميل رمز الحضور"
+  "COMMON.TOAST.ATTENDANCE_QR_FAILED": "تعذّر تحميل رمز الحضور",
+  "COMMON.CONTACT_VIA_WHATSAPP": "تواصل عبر واتساب",
+  "COMMON.CHECK_IN_WINDOW_UNTIL": "يمكن تسجيل الحضور حتى {{date}}",
+  "COMMON.CHECK_IN_WINDOW_REMAINING": "(متبقٍ {{time}})",
+  "COMMON.ADD_ROLE": "إضافة دور",
+  "COMMON.SHEET": "الجدول"
 }

@@ -7,22 +7,14 @@ import { useTranslation } from "react-i18next";
 import Select from "react-select";
 
 import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
-import { getTeams } from "@/features/opportunities/services/registrations";
 import { useLanguageStore } from "@/store/languageStore";
 
 interface VolunteerFilterModalProps {
   opportunityId: string;
-  onFilterChange: (filters: { teams?: string[]; roles?: string[] }) => void;
-  currentFilters: { teams?: string[]; roles?: string[] };
+  onFilterChange: (filters: { roles?: string[] }) => void;
+  currentFilters: { roles?: string[] };
   onDirtyChange?: (dirty: boolean) => void;
   onEmptyChange?: (isEmpty: boolean) => void;
-}
-
-interface Team {
-  id: string;
-  team_name_en: string;
-  team_name_ar: string;
-  [key: string]: string | number;
 }
 
 interface Role {
@@ -38,7 +30,6 @@ interface SelectOption {
 }
 
 interface FormValues {
-  teams: number[];
   roles: number[];
 }
 
@@ -61,7 +52,7 @@ function DirtyReporter({
   }, [dirty, onDirtyChange]);
 
   useEffect(() => {
-    onEmptyChange?.(values.teams.length === 0 && values.roles.length === 0);
+    onEmptyChange?.(values.roles.length === 0);
   }, [values, onEmptyChange]);
 
   return null;
@@ -77,17 +68,8 @@ export default function VolunteerFilterModal({
   const { t } = useTranslation();
   const selectedLanguage = useLanguageStore((s) => s.language);
 
-  const [teamPage, setTeamPage] = useState(1);
   const [rolePage, setRolePage] = useState(1);
-  const [teamsList, setTeamsList] = useState<Team[]>([]);
   const [rolesList, setRolesList] = useState<Role[]>([]);
-
-  const { data: teamsData, isLoading: teamsLoading } = useQuery({
-    queryKey: ["teams", opportunityId, teamPage],
-    queryFn: () =>
-      getTeams({ opportunity_id: opportunityId, page: teamPage, limit: 10 }),
-    enabled: Boolean(opportunityId),
-  });
 
   const { data: rolesData, isLoading: rolesLoading } = useQuery({
     queryKey: ["opportunity-roles", opportunityId, rolePage],
@@ -102,16 +84,6 @@ export default function VolunteerFilterModal({
 
   // Options accumulate across pages as the menus are scrolled
   useEffect(() => {
-    if (!teamsData?.data) return;
-    setTeamsList((previous) => {
-      const fresh = (teamsData.data as Team[]).filter(
-        (team) => !previous.some((existing) => existing.id === team.id)
-      );
-      return fresh.length ? [...previous, ...fresh] : previous;
-    });
-  }, [teamsData]);
-
-  useEffect(() => {
     if (!rolesData?.data) return;
     setRolesList((previous) => {
       const fresh = (rolesData.data as Role[]).filter(
@@ -121,18 +93,9 @@ export default function VolunteerFilterModal({
     });
   }, [rolesData]);
 
-  const handleTeamMenuScroll = () => {
-    if (!teamsLoading) setTeamPage((previous) => previous + 1);
-  };
-
   const handleRoleMenuScroll = () => {
     if (!rolesLoading) setRolePage((previous) => previous + 1);
   };
-
-  const teamOptions: SelectOption[] = teamsList.map((team) => ({
-    label: String(team[`team_name_${selectedLanguage}`]),
-    value: String(team.id),
-  }));
 
   const roleOptions: SelectOption[] = rolesList.map((role) => ({
     label: String(role[`role_name_${selectedLanguage}`]),
@@ -151,12 +114,10 @@ export default function VolunteerFilterModal({
   return (
     <Formik<FormValues>
       initialValues={{
-        teams: currentFilters.teams ? currentFilters.teams.map(Number) : [],
         roles: currentFilters.roles ? currentFilters.roles.map(Number) : [],
       }}
       onSubmit={(values) => {
         onFilterChange({
-          teams: values.teams.length > 0 ? values.teams.map(String) : undefined,
           roles: values.roles.length > 0 ? values.roles.map(String) : undefined,
         });
       }}
@@ -165,30 +126,9 @@ export default function VolunteerFilterModal({
         <div className="md:w-[100%] rounded-lg bg-white pb-[20px] xss:pb-[30px] filtermodal">
           <Form>
             <DirtyReporter onDirtyChange={onDirtyChange} onEmptyChange={onEmptyChange} />
-            <div className="grid grid-cols-2 xss:grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 relative selectfiled">
-              <div>
-                <Select<SelectOption, true>
-                  className="w-full"
-                  options={teamOptions}
-                  value={teamOptions.filter((option) =>
-                    values.teams.includes(Number(option.value))
-                  )}
-                  onChange={(selectedOptions) =>
-                    setFieldValue(
-                      "teams",
-                      selectedOptions
-                        ? selectedOptions.map((option) => Number(option.value))
-                        : []
-                    )
-                  }
-                  onMenuScrollToBottom={handleTeamMenuScroll}
-                  isLoading={teamsLoading}
-                  isDisabled={teamsLoading}
-                  placeholder={t("COMMON.TEAM.NAME")}
-                  isMulti
-                  styles={customStyles}
-                />
-              </div>
+            {/* Single column now that teams are gone — one select in a
+                two-column grid left a conspicuous empty half. */}
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 relative selectfiled">
               <div>
                 <Select<SelectOption, true>
                   className="w-full"

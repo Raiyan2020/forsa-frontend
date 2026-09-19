@@ -1127,6 +1127,39 @@ export default function VolunteerEvent({
                   </Link>
 
                   <div className="w-full pt-8 text-center">
+                    {/*
+                      BE — direct contact for THIS opportunity.
+
+                      `link` is the opportunity's own WhatsApp field (labelled
+                      «رابط واتساب» on the form, required, and validated against
+                      the real WhatsApp domains by `YupWhatsAppLink`) — not the
+                      organization's profile WhatsApp, which is the icon in the
+                      row below. Separating them is the point: a volunteer
+                      asking about one opportunity should reach whoever is
+                      running it, not the org's general line.
+
+                      Labelled rather than a sixth identical icon, since an
+                      unlabelled WhatsApp glyph next to the profile's WhatsApp
+                      glyph tells nobody which is which. Hidden from the
+                      creator, who would be messaging themselves.
+                    */}
+                    {!isCreator && opportunityData?.link ? (
+                      <a
+                        href={opportunityData.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mx-auto mb-4 flex w-fit items-center gap-2 rounded-[20px] bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-95"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/assets/profile/whatsapp.svg"
+                          alt=""
+                          className="h-5 w-5 brightness-0 invert"
+                        />
+                        {t("COMMON.CONTACT_VIA_WHATSAPP")}
+                      </a>
+                    ) : null}
+
                     {SOCIAL_LINKS.some(
                       ({ key }) => opportunityData?.created_by?.[key]
                     ) && (
@@ -2075,7 +2108,7 @@ export default function VolunteerEvent({
                           <img
                             src={image.image}
                             alt="Completed opportunity"
-                            className="aspect-[4/5] w-full rounded-lg object-cover"
+                            className="aspect-square w-full rounded-lg object-cover"
                           />
                         </a>
                         <div
