@@ -43,6 +43,18 @@ export interface CheckInWindow {
   qrEnabled: boolean;
   /** Marking someone present by hand is offered for this opportunity. */
   manualEnabled: boolean;
+  /**
+   * How many days the window runs for, measured from the end of the
+   * opportunity's last day to `endsAt` — i.e. the configured length, derived
+   * from the two dates the payload already carries rather than restated as a
+   * constant. Null when either date is missing, or when an admin reopened the
+   * window (the extension is not the configured length).
+   *
+   * It exists because the countdown alone misleads: an organizer looking at a
+   * still-running opportunity sees "2 months left" and reads that as the
+   * window being two months long. It is not — it is today-to-deadline.
+   */
+  windowDays: number | null;
 }
 
 /** Legacy fallback matching the backend's current default of 72 hours. */
@@ -65,6 +77,7 @@ export function getCheckInWindow(
       requiresCheckIn,
       qrEnabled: false,
       manualEnabled: false,
+      windowDays: null,
     };
   }
 
@@ -97,6 +110,18 @@ export function getCheckInWindow(
 
   const isOpen = requiresCheckIn && hasStarted && !isClosed;
 
+  // Rounded, because the backend's 72 hours are added to the *end of* the last
+  // day: 31 Oct 23:59:59 + 72h lands on 3 Nov 23:59:59, which is 3 days to the
+  // second but 2.9999… as a raw diff.
+  const windowDays =
+    !wasReopened && endsAt && item.end_date && moment(item.end_date).isValid()
+      ? Math.round(
+          moment
+            .duration(endsAt.diff(moment(item.end_date).endOf("day")))
+            .asDays()
+        )
+      : null;
+
   return {
     endsAt,
     isClosed,
@@ -109,6 +134,7 @@ export function getCheckInWindow(
     manualEnabled:
       requiresCheckIn &&
       (item.manual_attendance_enabled ?? item.manual_tracking ?? false),
+    windowDays: windowDays !== null && windowDays > 0 ? windowDays : null,
   };
 }
 

@@ -615,6 +615,7 @@
   "COMMON.GET_IN_TOUCH": "Get in touch",
   "COMMON.MESSAGE": "Message",
   "COMMON.REGISTERED_LIST": "Registered List",
+  "COMMON.PARTICIPANTS_LIST": "Participants list",
   "COMMON.SELECT_ALL": "Select all",
   "COMMON.ATTENDED": "Attended",
   "COMMON.ATTENDED--": "Attended",
@@ -1353,6 +1354,7 @@
   "COMMON.CONTACT_VIA_WHATSAPP": "Contact on WhatsApp",
   "COMMON.CHECK_IN_WINDOW_UNTIL": "Attendance can be recorded until {{date}}",
   "COMMON.CHECK_IN_WINDOW_REMAINING": "({{time}} left)",
+  "COMMON.CHECK_IN_WINDOW_LENGTH": "The check-in window closes {{days}} days after the opportunity ends",
   "COMMON.ADD_ROLE": "Add role",
   "COMMON.SHEET": "Sheet"
 }

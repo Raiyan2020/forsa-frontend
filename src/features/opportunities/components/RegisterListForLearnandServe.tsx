@@ -580,23 +580,38 @@ export default function RegisterListForLearnandServe() {
           />
         </div>
 
-        {/* Attendance Recording Information — hidden entirely for the types
-            that need no check-in (Workshop, Consultation). */}
-        {checkInWindow.requiresCheckIn && (
-          <>
-            <CheckInWindowBanner
-              window={checkInWindow}
-              className="mb-6 max-w-2xl mx-auto"
-            />
-            <div className="flex justify-center mb-6">
-              <div className="mx-auto px-4 md:px-6 lg:px-8">
-                <p className="text-center mobilescreen:text-[18px] mediumscreen3:text-[18px] text-[24px] text-[#181822CC]/70 leading-relaxed mb-4">
-                  {t("COMMON.ATTENDANCE_RECORDING_INFO")}
-                </p>
-              </div>
-            </div>
-          </>
-        )}
+        {/*
+          Attendance information — hidden entirely for the types that need no
+          check-in (Workshop, Consultation).
+
+          The "70% qualifies them for a certificate" sentence now sits *inside*
+          the banner rather than as a paragraph under it, at the client's
+          request: it says what recording attendance means, which belongs with
+          the deadline for recording it.
+        */}
+        <CheckInWindowBanner
+          window={checkInWindow}
+          className="mb-6 max-w-2xl mx-auto text-center"
+          note={t("COMMON.ATTENDANCE_RECORDING_INFO")}
+        />
+
+        {/* Export sits above the table, where the organizer is looking when
+            they want it — it used to be at the very bottom of the page. */}
+        {/* `justify-end` rather than a hardcoded side: the mockup puts it at
+            the far left, which in this RTL page is the end of the row — and
+            stays the correct corner when the page is switched to English. */}
+        <div className="mb-6 flex justify-end">
+          <Button
+            variant="primary"
+            size="medium"
+            className="gap-2"
+            onClick={handleDownloadSheet}
+            disabled={allRegisteredUsers.length === 0}
+          >
+            <Download className="h-5 w-5" />
+            {t("COMMON.SHEET")}
+          </Button>
+        </div>
 
         <div className="w-full">
           {showInitialLoader ? (
@@ -813,16 +828,6 @@ export default function RegisterListForLearnandServe() {
               {t("COMMON.ATTENDED")}
             </Button>
           )}
-          <Button
-            variant="primary"
-            size="medium"
-            className="!w-[255px] !h-[60px]"
-            onClick={handleDownloadSheet}
-            disabled={allRegisteredUsers.length === 0}
-          >
-            <Download className="h-5 w-5 mr-2" />
-            {t("COMMON.DOWNLOAD_SHEET")}
-          </Button>
         </div>
       </div>
 

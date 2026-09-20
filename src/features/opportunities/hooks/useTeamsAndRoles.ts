@@ -5,42 +5,41 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { getTeams, updateVolunteerRegistration } from "@/features/opportunities/services/registrations";
+import { updateVolunteerRegistration } from "@/features/opportunities/services/registrations";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
 import { useLanguageStore } from "@/store/languageStore";
-import { Role, SelectOption, Team } from "../components/volunteerListHelpers";
+import { Role, SelectOption } from "../components/volunteerListHelpers";
 
 interface UseTeamsAndRolesArgs {
   opportunityId: string | undefined;
-  /** Called after a registration's team/role is successfully changed. */
+  /** Called after a registration's role is successfully changed. */
   onUpdated: () => void | Promise<void>;
 }
 
 /**
- * Team and role dropdowns (and their menus' own pagination), plus the
- * registration PATCH that assigns a row to one of them.
+ * The role dropdown (and its menu's own pagination), plus the registration
+ * PATCH that assigns a row to one.
+ *
+ * Teams are gone — the client dropped them from this screen entirely and roles
+ * are the only grouping now. The hook kept its name because it is imported
+ * under it, but it no longer fetches `/teams/`: that request ran on every load
+ * of the volunteers list and nothing consumed its result. The `"team" | "role"`
+ * union on `handleUpdate` survives because the API still accepts `team` on the
+ * same PATCH and the mobile app and admin dashboard may still send it — we just
+ * never do.
  */
 export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesArgs) {
   const { t } = useTranslation();
   const selectedLanguage = useLanguageStore((s) => s.language);
 
-  const [teamPage, setTeamPage] = useState(1);
   const [rolePage, setRolePage] = useState(1);
-  const [teamsList, setTeamsList] = useState<Team[]>([]);
   const [rolesList, setRolesList] = useState<Role[]>([]);
-  const [updating, setUpdating] = useState<"team" | "role">("team");
+  const [updating, setUpdating] = useState<"team" | "role">("role");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const updateRegistrationMutation = useMutation({
     mutationFn: updateVolunteerRegistration,
-  });
-
-  const teamsQuery = useQuery({
-    queryKey: ["teams", opportunityId, teamPage],
-    queryFn: () =>
-      getTeams({ opportunity_id: opportunityId, page: teamPage, limit: 10 }),
-    enabled: Boolean(opportunityId),
   });
 
   const rolesQuery = useQuery({
@@ -54,20 +53,8 @@ export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesA
     enabled: Boolean(opportunityId),
   });
 
-  const teamsData = teamsQuery.data;
   const rolesData = rolesQuery.data;
-  const teamsLoading = teamsQuery.isLoading;
   const rolesLoading = rolesQuery.isLoading;
-
-  useEffect(() => {
-    if (!teamsData?.data) return;
-    setTeamsList((previous) => {
-      const fresh = (teamsData.data as Team[]).filter(
-        (team) => !previous.some((existing) => existing.id === team.id)
-      );
-      return fresh.length ? [...previous, ...fresh] : previous;
-    });
-  }, [teamsData]);
 
   useEffect(() => {
     if (!rolesData?.data) return;
@@ -79,15 +66,6 @@ export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesA
     });
   }, [rolesData]);
 
-  const handleTeamMenuScroll = () => {
-    if (
-      !teamsLoading &&
-      (teamsData?.meta?.pagination?.total_pages ?? 0) > teamPage
-    ) {
-      setTeamPage((previous) => previous + 1);
-    }
-  };
-
   const handleRoleMenuScroll = () => {
     if (
       !rolesLoading &&
@@ -97,22 +75,11 @@ export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesA
     }
   };
 
-  const teamsRefetch = async () => {
-    setTeamsList([]);
-    setTeamPage(1);
-    await teamsQuery.refetch();
-  };
-
   const rolesRefetch = async () => {
     setRolesList([]);
     setRolePage(1);
     await rolesQuery.refetch();
   };
-
-  const teamOptions: SelectOption[] = teamsList.map((team) => ({
-    label: String(team[`team_name_${selectedLanguage}`]),
-    value: String(team.id),
-  }));
 
   const roleOptions: SelectOption[] = [
     { label: t("COMMON.NOT_SELECTED"), value: "" },
@@ -155,17 +122,12 @@ export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesA
   };
 
   return {
-    teamsList,
     rolesList,
-    teamOptions,
     roleOptions,
-    teamsLoading,
     rolesLoading,
     updating,
     updatingId,
-    handleTeamMenuScroll,
     handleRoleMenuScroll,
-    teamsRefetch,
     rolesRefetch,
     handleUpdate,
   };

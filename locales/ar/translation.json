@@ -613,6 +613,7 @@
   "COMMON.GET_IN_TOUCH": "تواصل معنا",
   "COMMON.MESSAGE": "الرسالة",
   "COMMON.REGISTERED_LIST": "قائمة المسجلين",
+  "COMMON.PARTICIPANTS_LIST": "قائمة المشاركين",
   "COMMON.SELECT_ALL": "تحديد الكل",
   "COMMON.ATTENDED": "حضر",
   "COMMON.ATTENDED--": "تم الحضور",
@@ -1351,6 +1352,7 @@
   "COMMON.CONTACT_VIA_WHATSAPP": "تواصل عبر واتساب",
   "COMMON.CHECK_IN_WINDOW_UNTIL": "يمكن تسجيل الحضور حتى {{date}}",
   "COMMON.CHECK_IN_WINDOW_REMAINING": "(متبقٍ {{time}})",
+  "COMMON.CHECK_IN_WINDOW_LENGTH": "نافذة التحضير تُغلق بعد {{days}} أيام من انتهاء الفرصة",
   "COMMON.ADD_ROLE": "إضافة دور",
   "COMMON.SHEET": "الجدول"
 }

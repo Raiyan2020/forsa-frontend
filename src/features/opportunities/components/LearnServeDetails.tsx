@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
-import { Lock, LockOpen, Pencil, RotateCcw } from "lucide-react";
+import { Lock, LockOpen, Pencil, QrCode, RotateCcw, Trash2 } from "lucide-react";
 import ManageActionIcon from "@/components/ui/ManageActionIcon";
 import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import AttendanceQrModal from "@/features/opportunities/components/AttendanceQrModal";
@@ -21,6 +21,7 @@ import { FiDownload } from "react-icons/fi";
 import { MdDelete } from "react-icons/md";
 import { Fancybox as NativeFancybox } from "@fancyapps/ui";
 
+import DeleteOpportunityModal from "@/features/opportunities/components/DeleteOpportunityModal";
 import AddToCalendar from "@/components/shared/AddToCalendar";
 import Title from "@/components/shared/Title";
 import { Button } from "@/components/ui/Button";
@@ -239,6 +240,7 @@ export default function LearnServeDetails({
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [showCloseRegistration, setShowCloseRegistration] = useState(false);
   const [showReopenRegistration, setShowReopenRegistration] = useState(false);
+  const [showDeleteOpportunity, setShowDeleteOpportunity] = useState(false);
   const [showPrimaryActionConfirm, setShowPrimaryActionConfirm] =
     useState(false);
   const [showAttendanceQr, setShowAttendanceQr] = useState(false);
@@ -684,6 +686,16 @@ export default function LearnServeDetails({
    */
   const canIssueAttendanceCode = isCreator;
 
+  /*
+   * Same rule as volunteering: a deletion request is a request to the admin,
+   * and it stops being one once the opportunity is under way — there are
+   * registrations and attendance hanging off it by then.
+   */
+  const canRequestDeletion =
+    isCreator &&
+    opportunityData?.opportunity_status !== "completed" &&
+    opportunityData?.opportunity_status !== "inprogress";
+
   /**
    * The participant's scan: one, ever. `is_attended` going true is the whole
    * state machine — there is no check-out on this side.
@@ -841,6 +853,15 @@ export default function LearnServeDetails({
               icon={<Lock className="h-5 w-5" />}
               disabled
               accent
+            />
+          )}
+
+          {canRequestDeletion && (
+            <ManageActionIcon
+              label={t("COMMON.DELETE_OPPORTUNITY")}
+              icon={<Trash2 className="h-5 w-5" />}
+              onClick={() => setShowDeleteOpportunity(true)}
+              danger
             />
           )}
         </div>
@@ -1128,28 +1149,32 @@ export default function LearnServeDetails({
 
             {isCreator && (
               <div className="w-[100%] flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] msscreen1:bottom-[70px] mdscreen:bottom-[75px] bottom-[50px] pt-[50px] lg:bottom-[100px] px-5 2xl:pb-[70px] lg:pb-[40px] pb-[40px]">
-                <Button
-                  variant="primary"
-                  size="medium"
-                  onClick={goToRegisteredList}
-                  className="xs4:w-[125px] 2xl:!text-lg xss:w-auto laptop:!w-full text-sm px-1 font-bold text-primary-5 border-b border-primary-5 xsmall:text-xs !rounded-[20px] md:h-[60px]"
-                >
-                  <span className="xl:w-[140px] 2xl:w-[200px] lg:w-[95px] xsl:w-[150px] xss:w-[90px] smallscreen1:w-full smallscreen1:text-sm">
-                    {t("COMMON.REGISTERED_LIST")}
-                  </span>
-                </Button>
-                {canIssueAttendanceCode && (
+                {/*
+                  The client asked for the self check-in QR as an icon *beside*
+                  the list rather than a second full-width button under it: the
+                  list is the destination, the QR is a tool for the same people.
+                  Same code and modal as volunteering — only the affordance
+                  changed.
+                */}
+                <div className="flex items-center gap-3">
                   <Button
                     variant="primary"
                     size="medium"
-                    onClick={handleIssueAttendanceCode}
-                    className="mt-3 xs4:w-[125px] 2xl:!text-lg xss:w-auto laptop:!w-full text-sm px-1 font-bold text-primary-5 border-b border-primary-5 xsmall:text-xs !rounded-[20px] md:h-[60px]"
+                    onClick={goToRegisteredList}
+                    className="xs4:w-[125px] 2xl:!text-lg xss:w-auto laptop:!w-full text-sm px-1 font-bold text-primary-5 border-b border-primary-5 xsmall:text-xs !rounded-[20px] md:h-[60px]"
                   >
                     <span className="xl:w-[140px] 2xl:w-[200px] lg:w-[95px] xsl:w-[150px] xss:w-[90px] smallscreen1:w-full smallscreen1:text-sm">
-                      {t("COMMON.ATTENDANCE_QR")}
+                      {t("COMMON.PARTICIPANTS_LIST")}
                     </span>
                   </Button>
-                )}
+                  {canIssueAttendanceCode && (
+                    <ManageActionIcon
+                      label={t("COMMON.ATTENDANCE_QR")}
+                      icon={<QrCode className="h-5 w-5" />}
+                      onClick={handleIssueAttendanceCode}
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -1772,6 +1797,25 @@ export default function LearnServeDetails({
             {t("COMMON.CANCEL")}
           </Button>
         </div>
+      </Modal>
+
+      {/* The confirm lives in the shared modal, which owns the reason field and
+          the request call — same component the volunteer page uses, with the
+          `learnserve` type the deletion endpoint expects. */}
+      <Modal
+        open={showDeleteOpportunity}
+        onClose={() => setShowDeleteOpportunity(false)}
+        title={t("COMMON.DELETE_OPPORTUNITY")}
+        size="small"
+      >
+        <DeleteOpportunityModal
+          opportunityId={id}
+          type="learnserve"
+          setOpenModal={() => setShowDeleteOpportunity(false)}
+          refetch={() => {
+            void refetch();
+          }}
+        />
       </Modal>
 
       <Modal

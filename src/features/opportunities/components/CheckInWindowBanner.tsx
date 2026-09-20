@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import moment from "moment";
 import { useTranslation } from "react-i18next";
 
@@ -17,9 +18,17 @@ import { getCheckInCountdown } from "@/features/opportunities/checkInWindow";
 export default function CheckInWindowBanner({
   window: checkInWindow,
   className = "",
+  note,
 }: {
   window: CheckInWindow;
   className?: string;
+  /**
+   * Rendered inside the frame, under the deadline. The participants list puts
+   * the "70% qualifies them for a certificate" sentence here: it explains what
+   * recording attendance *means*, so it belongs with the deadline for doing it
+   * rather than as a loose paragraph underneath.
+   */
+  note?: ReactNode;
 }) {
   const { t } = useTranslation();
 
@@ -28,10 +37,17 @@ export default function CheckInWindowBanner({
   if (checkInWindow.isClosed) {
     return (
       <div
-        className={`rounded-lg border border-[#D32F2F] bg-[#D32F2F]/10 px-4 py-3 text-[#D32F2F] text-sm font-semibold ${className}`}
+        className={`rounded-lg border border-[#D32F2F] bg-[#D32F2F]/10 px-4 py-3 text-[#D32F2F] text-sm ${className}`}
         role="status"
       >
-        {t("COMMON.CHECK_IN_WINDOW_CLOSED")}
+        <span className="font-semibold">
+          {t("COMMON.CHECK_IN_WINDOW_CLOSED")}
+        </span>
+        {note ? (
+          <span className="block pt-2 font-normal text-secondary-102">
+            {note}
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -64,11 +80,36 @@ export default function CheckInWindowBanner({
       <span className="text-secondary-102">
         {t("COMMON.CHECK_IN_WINDOW_REMAINING", { time: countdown })}
       </span>
+      {/*
+        The window's own length, said out loud. The countdown above is
+        today-to-deadline, and the client twice read it as the length itself —
+        "2 months left" on an opportunity that has not ended yet looks like a
+        two-month window when the real one is three days after it finishes.
+
+        Derived from the payload's own two dates, never hardcoded: the length
+        is `config.preparation_validity_hours`, which an admin can change, and
+        a "3 days" written into the copy would go stale silently the moment
+        they did.
+      */}
+      {checkInWindow.windowDays !== null && (
+        <span className="block pt-1 text-secondary-102">
+          {/* `days`, not `count`: i18next treats `count` as a plural selector
+              and would look for suffixed keys that do not exist — Arabic has
+              six plural categories, so that misbehaves rather than falling
+              back cleanly. */}
+          {t("COMMON.CHECK_IN_WINDOW_LENGTH", {
+            days: checkInWindow.windowDays,
+          })}
+        </span>
+      )}
       {checkInWindow.wasReopened && (
         <span className="block pt-1 text-secondary-102">
           {t("COMMON.CHECK_IN_WINDOW_REOPENED")}
         </span>
       )}
+      {note ? (
+        <span className="block pt-2 text-secondary-102">{note}</span>
+      ) : null}
     </div>
   );
 }
