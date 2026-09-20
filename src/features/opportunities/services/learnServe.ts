@@ -37,19 +37,15 @@ export const closeLearnServeOpportunityRegistration = (id: string) =>
 /**
  * Creator-only: undo an earlier close-registration.
  *
- * Volunteering has a dedicated `POST .../reopen-registration/` route; learn &
- * serve has only the close half (BE-63 asks for the symmetric one). Until it
- * lands, the flag is cleared through the ordinary update endpoint, which
- * already validates `is_registration_closed` as a boolean and is a partial
- * update — a payload carrying nothing else leaves every other column alone.
- * The notification behaviour is identical either way: both paths run
- * OpportunityChangeNotifier over a snapshot that includes this column.
+ * BE-63 shipped the route, so this no longer goes through the partial-update
+ * endpoint. Both halves now refuse with a 422 once the publisher's window has
+ * passed — a day before `end_date`, the same cutoff `canToggleRegistration()`
+ * hides the button on.
  */
-export const reopenLearnServeOpportunityRegistration = (id: string) => {
-  const data = new FormData();
-  data.append("is_registration_closed", "0");
-  return updateLearnServeOpportunity({ id, data });
-};
+export const reopenLearnServeOpportunityRegistration = (id: string) =>
+  apiClient
+    .post(`/learn-serve-opportunities/${id}/reopen-registration/`)
+    .then((r) => r.data);
 
 export const deleteLearnServeRegistrationByOpportunity = ({ opportunity_id, user_id }: { opportunity_id: string | number; user_id: string | number }) =>
   apiClient.delete(`/learnserve/${opportunity_id}/unregister/${user_id}/`).then((r) => r.data);

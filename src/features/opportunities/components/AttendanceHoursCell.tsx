@@ -54,8 +54,10 @@ export default function AttendanceHoursCell({
   const record = resolveAttendanceRecord(rowData, apiDate);
   const key = `${rowData.volunteer_uuid}|${apiDate}`;
 
-  // No id means no way to address the record — show the hours read-only
-  // until the API sends attendance ids.
+  // No id means no way to address the record — show the hours read-only.
+  // BE-67.2 makes this the rare case rather than the norm: `attendances[]` now
+  // carries the id for every attended date, so this only trips on a row whose
+  // check-in the list has not refetched yet.
   if (!record) {
     return (
       <span className="text-secondary-102">{rowData.total_hours ?? "-"}</span>

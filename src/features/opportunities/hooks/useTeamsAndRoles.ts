@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { getTeams, updateVolunteerRegistration } from "@/features/opportunities/services/registrations";
+import { getApiErrorMessages } from "@/lib/api/errors";
 import { getRolesOfOpportunity } from "@/features/opportunities/services/roles";
 import { useLanguageStore } from "@/store/languageStore";
 import { Role, SelectOption, Team } from "../components/volunteerListHelpers";
@@ -135,12 +136,18 @@ export function useTeamsAndRoles({ opportunityId, onUpdated }: UseTeamsAndRolesA
       });
       await onUpdated();
       toast.success(t("COMMON.UPDATE_SUCCESS"));
-    } catch (error: any) {
-      const errors = error?.response?.data?.errors;
-      if (errors) {
-        Object.keys(errors).forEach((key) => {
-          toast.error(errors[key][selectedLanguage] || t("COMMON.UPDATE_FAILED"));
-        });
+    } catch (error: unknown) {
+      // BE-67.5 returns the role-capacity refusal as a 422 with a `role` field
+      // error under `response_status.validation_errors`. Reading
+      // `data.errors[field][lang]` — the older envelope — missed it entirely and
+      // failed silently, so the organizer saw the dropdown snap back with no
+      // explanation. `getApiErrorMessages` reads both shapes and the backend
+      // has already localized the text from the language header.
+      const messages = getApiErrorMessages(error, selectedLanguage);
+      if (messages.length > 0) {
+        messages.forEach((message) => toast.error(message));
+      } else {
+        toast.error(t("COMMON.UPDATE_FAILED"));
       }
     } finally {
       setUpdatingId(null);

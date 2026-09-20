@@ -97,6 +97,12 @@ export interface LearnServeOpportunityData {
   latitude?: number | string;
   longitude?: number | string;
   link?: string;
+  /**
+   * BE-65 — the opportunity's own WhatsApp contact, ungated. Distinct from
+   * `link`, which on this model is the online meeting URL and is revealed only
+   * to registered participants.
+   */
+  whatsapp_link?: string | null;
   from_age?: number;
   to_age?: number;
   participants_needed?: number;
@@ -1039,18 +1045,38 @@ export default function LearnServeDetails({
 
                   <div className="w-full pt-5 text-center">
                     {/*
-                      No per-opportunity WhatsApp here, deliberately.
+                      BE-65 — direct contact for THIS opportunity.
 
-                      Volunteering has one — `link` on a volunteer opportunity
-                      IS its WhatsApp field. On a development opportunity the
-                      same column holds the ONLINE MEETING URL (see the
-                      «الرابط الإلكتروني» row below, which reveals it only to
-                      registered participants), so reusing it would label a Zoom
-                      link "contact on WhatsApp" and leak a gated link to
-                      everyone. `learn_serve_opportunities` has no other contact
-                      column — raised as BE-65. The organization's own WhatsApp,
-                      if it set one, is still in the row below.
+                      Deliberately `whatsapp_link`, never `link`: on a
+                      development opportunity `link` is the ONLINE MEETING URL
+                      (the «الرابط الإلكتروني» row below reveals it to
+                      registered participants only), so reusing it would label a
+                      Zoom link "contact on WhatsApp" and leak a gated link to
+                      every anonymous visitor. `whatsapp_link` is the separate,
+                      ungated column added for exactly this.
+
+                      Labelled rather than a sixth identical icon, since an
+                      unlabelled WhatsApp glyph beside the profile's WhatsApp
+                      glyph tells nobody which is which. Hidden from the
+                      creator, who would be messaging themselves.
                     */}
+                    {!isCreator && opportunityData?.whatsapp_link ? (
+                      <a
+                        href={opportunityData.whatsapp_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mx-auto mb-4 flex w-fit items-center gap-2 rounded-[20px] bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-95"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/assets/profile/whatsapp.svg"
+                          alt=""
+                          className="h-5 w-5 brightness-0 invert"
+                        />
+                        {t("COMMON.CONTACT_VIA_WHATSAPP")}
+                      </a>
+                    ) : null}
+
                     {SOCIAL_LINKS.some(
                       ({ key }) => opportunityData?.created_by?.[key]
                     ) && (

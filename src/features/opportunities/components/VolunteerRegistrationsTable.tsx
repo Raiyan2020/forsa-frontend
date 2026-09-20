@@ -238,7 +238,7 @@ export default function VolunteerRegistrationsTable({
                     <span
                       className="cursor-pointer text-primary-5"
                       onClick={() =>
-                        goToProfile(router, user, rowData.user )
+                        goToProfile(router, user, rowData.user_id)
                       }
                     >
                       {rowData.full_name}
@@ -366,11 +366,11 @@ export default function VolunteerRegistrationsTable({
             }
 
             if (column.type === "actions") {
-              // The registrations endpoint returns `user` as a plain id number
-              // (see docs/VOLUNTEER_REGISTRATIONS_DOWNLOAD_BUG.md), not a nested
-              // object — reading `user.id` off it yields NaN, which is falsy and
-              // made the unregister modal's Confirm silently do nothing. Tolerate
-              // both shapes (and a possible `user_id` field) so the id resolves.
+              // `user` was a bare id number until BE-67.1 nested it, which is
+              // why both shapes are tolerated: reading `user.id` off the old
+              // scalar yielded NaN and made the unregister modal's Confirm
+              // silently do nothing. `user_id` is sent either way and is read
+              // first, so this survives whichever shape the API is serving.
               const userId = Number(
                 rowData.user_id ??
                   (rowData.user != null && typeof rowData.user === "object"

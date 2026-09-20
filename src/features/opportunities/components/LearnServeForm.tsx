@@ -46,7 +46,7 @@ import i18n from "@/lib/i18n/config";
 import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/helpers";
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
-import { YupFlexibleUrl, YupOptionalUrl, YupNumberOnly, YupRequiredString, YupStringMaxLength } from "@/features/shared/schemas";
+import { YupFlexibleUrl, YupOptionalUrl, YupNumberOnly, YupRequiredString, YupStringMaxLength, YupWhatsAppLink } from "@/features/shared/schemas";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";
@@ -88,6 +88,7 @@ interface LearnServeFormValues {
   latitude: string;
   longitude: string;
   meetingLink: string;
+  whatsappLink: string;
   opportunity_images: File[];
   _interests: string[];
   sponsors: { sponsorId: string; position: number }[];
@@ -757,6 +758,7 @@ export default function LearnServeForm({
     latitude: opportunityData?.latitude?.toString() || "",
     longitude: opportunityData?.longitude?.toString() || "",
     meetingLink: opportunityData?.link || "",
+    whatsappLink: opportunityData?.whatsapp_link || "",
     gender: opportunityData?.gender_display?.id || "",
     is_kuwaitis: opportunityData?.is_kuwaitis === true,
     is_paid: opportunityData?.is_paid === true,
@@ -934,6 +936,11 @@ export default function LearnServeForm({
               ? schema.concat(YupFlexibleUrl)
               : schema
         ),
+        // BE-65 — optional here, unlike volunteering where the contact is
+        // required. Validated against the real WhatsApp domains so a meeting
+        // URL cannot be pasted into the contact field by mistake; the API only
+        // checks it is a URL.
+        whatsappLink: YupWhatsAppLink,
         participantsNeeded: YupNumberOnly,
         gender: Yup.string().concat(YupRequiredString),
         age: Yup.array()
@@ -1090,6 +1097,12 @@ export default function LearnServeForm({
       const sponsorIds = values.sponsors
         .map((sponsor) => sponsor.sponsorId)
         .filter(Boolean);
+
+      // BE-65 — the contact belongs to the opportunity, not to its format, so
+      // it is sent for in-person and online alike. Empty clears the column:
+      // ConvertEmptyStringsToNull turns "" into null server-side, which is what
+      // `['nullable', 'url']` expects.
+      formData.append("whatsapp_link", values.whatsappLink || "");
 
       if (values.learnServeFormat === onlineFormatId) {
         formData.append("link", values.meetingLink || "");
@@ -1776,6 +1789,19 @@ export default function LearnServeForm({
                             label={t("COMMON.MEETING.LINK")}
                             type="text"
                             disabled={isInPerson}
+                          />
+                          {/*
+                            BE-65 — the opportunity's own WhatsApp contact, and
+                            not the same thing as the meeting link beside it:
+                            this one is shown to everyone, while the meeting
+                            link is revealed only to registered participants.
+                            Optional, and never disabled — an in-person
+                            opportunity wants a contact just as much.
+                          */}
+                          <Input
+                            name="whatsappLink"
+                            label={t("COMMON.WHATSAPP_LINK")}
+                            type="text"
                           />
                         </div>
                       </div>

@@ -32,14 +32,14 @@ export interface VolunteerListState {
 
 /**
  * Hours and undo act on an *attendance record*, not a registration, so they
- * need that record's id. The registrations payload only reports which dates a
- * volunteer attended (`date_wise_attended`), so we read an id from whichever
- * richer shape the backend happens to send and fall back to the ids returned by
- * our own manual check-ins.
+ * need that record's id.
  *
- * TODO(backend): have `GET /volunteer-opportunity-registrations/` return the
- * attendance id and logged hours per date. Until it does, editing hours and
- * undoing a check-in only work for rows checked in during this session.
+ * BE-67.2 landed: `GET /volunteer-opportunity-registrations/` now returns an
+ * `attendances[]` array carrying `{ id, attended_date, total_hours,
+ * checked_in_at, checked_out_at }` per attended date, so both actions survive a
+ * page refresh. The session-memory shapes below are kept because a manual
+ * check-in answers with its own record before the list refetches, and because
+ * `date_wise_attended` is still the array the attendance checkbox reads.
  */
 export interface AttendanceRecordRef {
   id: string | number;
@@ -58,9 +58,13 @@ export interface AttendanceBearingRow {
 
 export interface AttendanceEntry {
   id?: string | number | null;
+  /** BE-67.2 spells it `attended_date`; our own check-in results use the others. */
+  attended_date?: string | null;
   attendance_date?: string | null;
   date?: string | null;
   total_hours?: number | null;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
 }
 
 /** One volunteer's outcome from a fanned-out manual check-in. */
@@ -96,7 +100,10 @@ export function readAttendanceRecord(
   const perDate = row?.date_wise_attendance ?? row?.attendances;
   if (Array.isArray(perDate)) {
     const match = perDate.find(
-      (entry) => entry?.attendance_date === apiDate || entry?.date === apiDate
+      (entry) =>
+        entry?.attended_date === apiDate ||
+        entry?.attendance_date === apiDate ||
+        entry?.date === apiDate
     );
     if (match?.id != null) {
       return { id: match.id, total_hours: match.total_hours ?? null };
@@ -107,7 +114,7 @@ export function readAttendanceRecord(
   const single = row?.attendance;
   if (
     single?.id != null &&
-    (single.attendance_date ?? single.date) === apiDate
+    (single.attended_date ?? single.attendance_date ?? single.date) === apiDate
   ) {
     return { id: single.id, total_hours: single.total_hours ?? null };
   }

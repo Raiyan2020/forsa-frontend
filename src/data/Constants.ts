@@ -184,6 +184,9 @@ export const volunteerCategoryOptions = [
   { value: "environmental", name_en: "Environmental", name_ar: "بيئي" },
   { value: "charity", name_en: "Charity", name_ar: "خيري" },
   { value: "organizational", name_en: "Organizational", name_ar: "تنظيمي" },
+  { value: "educational", name_en: "Educational", name_ar: "تعليمي" },
+  // Added by the client in the 2026-09 review («إضافة نوع فرصة جديد: إداري»).
+  { value: "administrative", name_en: "Administrative", name_ar: "إداري" },
 ];
 
 /**
