@@ -26,6 +26,7 @@ import AttendanceUndoModal from "./AttendanceUndoModal";
 import RegistrationsFilterModal from "./RegistrationsFilterModal";
 import UnregisterVolunteerModal from "./UnregisterVolunteerModal";
 import VolunteerListToolbar from "./VolunteerListToolbar";
+import AttendancePermissionModal from "./AttendancePermissionModal";
 import VolunteerRegistrationsTable from "./VolunteerRegistrationsTable";
 import VolunteerRoleModal from "./VolunteerRoleModal";
 import { type VolunteerListState, toApiDate } from "./volunteerListHelpers";
@@ -48,6 +49,15 @@ export default function VolunteerList() {
 
   const opportunityId = navState?.id;
   const opportunity_status = navState?.opportunity_status;
+  /*
+   * BE-69 — a volunteer granted «إذن تحضير» reaches this screen too, and does
+   * the same work on it. Granting the permission on is the one thing that
+   * stays with the organizer, so the button is gated on `is_creator` rather
+   * than on `can_manage_attendance`.
+   */
+  const isCreator = navState?.is_creator === true;
+  const [showAttendancePermission, setShowAttendancePermission] =
+    useState(false);
 
   /**
    * The backend owns the check-in deadline (72h by default, admin-adjustable),
@@ -415,8 +425,19 @@ export default function VolunteerList() {
             sendCertificatesDisabled={sendCertificatesMutation.isPending}
             onDownloadSheet={handleDownload}
             downloadDisabled={allRegistrations.length === 0}
+            onOpenAttendancePermission={
+              isCreator ? () => setShowAttendancePermission(true) : undefined
+            }
             checkInWindow={checkInWindow}
           />
+
+          {/* Mounted only while open so it reopens in its initial state. */}
+          {showAttendancePermission && (
+            <AttendancePermissionModal
+              onClose={() => setShowAttendancePermission(false)}
+              opportunityId={opportunityId}
+            />
+          )}
 
           <div className="selectfiled voulnteerlist relative">
             <VolunteerRegistrationsTable

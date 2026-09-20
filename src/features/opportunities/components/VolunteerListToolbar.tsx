@@ -26,6 +26,8 @@ interface VolunteerListToolbarProps {
   sendCertificatesDisabled?: boolean;
   onDownloadSheet: () => void;
   downloadDisabled?: boolean;
+  /** Organizer-only: «إذن تحضير» is theirs to grant, not a holder's to pass on. */
+  onOpenAttendancePermission?: () => void;
   checkInWindow: CheckInWindow;
 }
 
@@ -57,6 +59,7 @@ export default function VolunteerListToolbar({
   sendCertificatesDisabled = false,
   onDownloadSheet,
   downloadDisabled = false,
+  onOpenAttendancePermission,
   checkInWindow,
 }: VolunteerListToolbarProps) {
   const { t } = useTranslation();
@@ -73,11 +76,11 @@ export default function VolunteerListToolbar({
           Wraps rather than scrolling: four medium buttons do not fit one phone
           row, and an organizer needs all of them reachable.
 
-          «إذن تحضير» is deliberately absent — it is not the existing
-          `/scan-permission` screen renamed, it is a new permission that lets a
-          volunteer add volunteers and set their hours, and no endpoint exists
-          for it yet (BE-67). Shipping a dead button would be worse than
-          shipping three live ones.
+          «إذن تحضير» is the fourth. It is *not* the `/scan-permission` screen
+          renamed — that one delegates QR scanning and retires with BE-61 Part
+          C. This grants a volunteer the ability to add volunteers and record
+          their hours (BE-69). Shown to the organizer only: a holder can use
+          the permission, but only its owner hands it out.
         */}
         <div className="flex flex-wrap justify-center gap-4 extrasmall:gap-2">
           <Button
@@ -106,6 +109,16 @@ export default function VolunteerListToolbar({
           >
             {t("COMMON.ADD_VOLUNTEER")}
           </Button>
+          {onOpenAttendancePermission && (
+            <Button
+              onClick={onOpenAttendancePermission}
+              variant="primary"
+              size="medium"
+              className="extrasmall:!w-[115px]"
+            >
+              {t("COMMON.ATTENDANCE_PERMISSION")}
+            </Button>
+          )}
         </div>
       </div>
 

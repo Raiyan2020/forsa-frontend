@@ -28,6 +28,14 @@ export interface VolunteerListState {
   preparation_valid_until_at?: string | null;
   is_preparation_window_closed?: boolean;
   preparation_reopened_until?: string | null;
+  /*
+   * BE-69 — this screen is reachable by two kinds of viewer now: the organizer,
+   * and a volunteer granted «إذن تحضير». Both manage attendance; only the
+   * organizer hands the permission out, so the two are carried separately
+   * rather than collapsed into one "can manage" flag.
+   */
+  is_creator?: boolean;
+  can_manage_attendance?: boolean;
 }
 
 /**

@@ -48,6 +48,46 @@ export const bulkUpdateScanPermissions = (data: {
 }): Promise<ApiResponse<ScanPermissionBulkUpdateEntry[]>> =>
   apiClient.post("/scan-permissions/bulk-update/", data).then((r) => r.data);
 
+// ─── Attendance permission — «إذن تحضير» (BE-69) ─────────────────────────────
+
+/**
+ * A separate grant from `/scan-permissions/`, and deliberately so: that one
+ * delegates **QR scanning** and is retiring with BE-61 Part C. This one lets a
+ * volunteer add other volunteers to the opportunity and record their hours,
+ * which is what the client asked for — «إذن يعطى لمتطوع لاضافه متطوعين في
+ * الفرصه وتحديد عدد ساعات التطوع وليس التحضير باستخدام الـ QR».
+ *
+ * Volunteer opportunities only; there is no event equivalent.
+ */
+export const getAttendancePermissionsList = (params: {
+  opportunity_id: string | number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) => apiClient.get("/attendance-permissions/list/", { params }).then((r) => r.data);
+
+/**
+ * One entry per requested user, in request order. The backend `updateOrCreate`s
+ * on (user_id, opportunity_id), so repeating a call updates the same row and
+ * `attendance_permission_id` stays stable. Revoking is the same call with
+ * `is_allowed: false` — there is no delete route.
+ */
+export interface AttendancePermissionBulkUpdateEntry {
+  user_id: number;
+  /** The persisted value — trust this over what was sent. */
+  is_allowed: boolean;
+  attendance_permission_id: number;
+}
+
+export const bulkUpdateAttendancePermissions = (data: {
+  opportunity_id: string | number;
+  user_ids: number[];
+  is_allowed: boolean;
+}): Promise<ApiResponse<AttendancePermissionBulkUpdateEntry[]>> =>
+  apiClient
+    .post("/attendance-permissions/bulk-update/", data)
+    .then((r) => r.data);
+
 // ─── Attendance (QR scan + manual) ───────────────────────────────────────────
 
 export const markVolunteerAttendance = (data: {

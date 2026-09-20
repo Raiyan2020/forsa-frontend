@@ -15,12 +15,11 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { FaMinus, FaPlus } from "react-icons/fa";
+import { FaLink, FaMapMarkerAlt, FaMinus, FaPlus } from "react-icons/fa";
 import * as Yup from "yup";
 
 import AgeRange from "@/components/ui/AgeRange";
 import { Button } from "@/components/ui/Button";
-import CheckBox from "@/components/ui/CheckBox";
 import DatePickerInput from "@/components/ui/DateField";
 import DisabledButtonWithTooltip from "@/components/ui/DisabledButtonWithTooltip";
 import Input from "@/components/ui/Input";
@@ -61,6 +60,27 @@ import UpdateLearnServeConfirmModal from "./UpdateLearnServeConfirmModal";
 const OPPORTUNITY_ID_KEY = "learnServe_opportunityId";
 const OPPORTUNITY_DETAILS_KEY = "learnServe_opportunityDetails";
 
+/**
+ * A rich-text editor never reports an empty string once it has been focused —
+ * it leaves `<p></p>` or `<p><br></p>` behind — so "is there a description?"
+ * has to be asked of the text, not of the markup. Same helper as
+ * `VolunteerForm`, which asks the same question.
+ */
+const richTextToPlain = (value?: string | null): string =>
+  (value || "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+
+/**
+ * The platform's cut of a paid opportunity, shown to the publisher before they
+ * set a price. The backend computes `payout_after_fee` from
+ * `config.platform_fee_percentage` (defaulting to 7), but does not expose the
+ * percentage on any endpoint — so this is the documented default, not a reading
+ * of what is live. Raised as BE-71; when the value is exposed, read it here.
+ */
+const PLATFORM_FEE_PERCENT = 7;
+
 /** Payload a learn & serve card stashes before pushing to /learn-and-share-form. */
 export interface LearnServeFormNavState {
   id?: string;
@@ -95,8 +115,15 @@ interface LearnServeFormValues {
   primary_language: string;
   license_image?: File | string;
   gender: string;
-  is_kuwaitis: boolean;
-  is_paid: boolean;
+  /*
+   * Both are `"true"` / `"false"` strings rather than booleans: they are
+   * rendered as `SelectInput`, which binds through Formik by name and matches
+   * the field value against its option values. Converted back at submit.
+   */
+  is_kuwaitis: string;
+  is_paid: string;
+  /** Kept as a string: it is a text input, and "" is how "not answered" reads. */
+  price: string;
 }
 
 interface LearnServeFormProps {
@@ -381,6 +408,51 @@ export default function LearnServeForm({
   });
 
   const opportunityData = apiResponse?.data;
+
+  /*
+   * The English title, the English description and the map picker are each a
+   * second way to answer a question the form already asks once. They stay off
+   * screen until asked for, exactly as on `VolunteerForm`.
+   *
+   * `null` means "the organizer hasn't decided", which lets each panel follow
+   * the record — open when editing an opportunity that already carries the
+   * second answer, closed otherwise. Once they click either way, their choice
+   * wins.
+   */
+  const [englishTitleToggle, setEnglishTitleToggle] = useState<boolean | null>(
+    null
+  );
+  const [englishDescriptionToggle, setEnglishDescriptionToggle] = useState<
+    boolean | null
+  >(null);
+  const [mapPickerToggle, setMapPickerToggle] = useState<boolean | null>(null);
+
+  /*
+   * Only a *different* English title counts as one the organizer wrote. An
+   * opportunity created without opening the English panel stores the Arabic
+   * title in both columns, so treating any non-empty `title_en` as deliberate
+   * would re-open the panel on every edit and show Arabic text in a field
+   * labelled English.
+   */
+  const hasDistinctEnglishTitle = useMemo(() => {
+    const arabic = (opportunityData?.title_ar || "").trim();
+    const english = (opportunityData?.title_en || "").trim();
+    return english !== "" && english !== arabic;
+  }, [opportunityData?.title_ar, opportunityData?.title_en]);
+  const showEnglishTitle = englishTitleToggle ?? hasDistinctEnglishTitle;
+
+  const hasDistinctEnglishDescription = useMemo(() => {
+    const arabic = (opportunityData?.description_ar || "").trim();
+    const english = (opportunityData?.description_en || "").trim();
+    return richTextToPlain(english) !== "" && english !== arabic;
+  }, [opportunityData?.description_ar, opportunityData?.description_en]);
+  const showEnglishDescription =
+    englishDescriptionToggle ?? hasDistinctEnglishDescription;
+
+  const hasStoredMapLocation = Boolean(
+    opportunityData?.latitude && opportunityData?.longitude
+  );
+  const showMapPicker = mapPickerToggle ?? hasStoredMapLocation;
 
   // Refresh the form once opportunity data arrives
   useEffect(() => {
@@ -737,9 +809,18 @@ export default function LearnServeForm({
 
   const initialValues: LearnServeFormValues = {
     title_ar: opportunityData?.title_ar || "",
-    title_en: opportunityData?.title_en || "",
+    /*
+     * Only a title the organizer actually wrote in English is loaded. An
+     * opportunity created without opening the English panel stores the Arabic
+     * title in both columns, so prefilling from it would put Arabic text in a
+     * field labelled English the moment the panel is opened. Same reasoning
+     * for the description.
+     */
+    title_en: hasDistinctEnglishTitle ? opportunityData?.title_en || "" : "",
     description_ar: opportunityData?.description_ar || "",
-    description_en: opportunityData?.description_en || "",
+    description_en: hasDistinctEnglishDescription
+      ? opportunityData?.description_en || ""
+      : "",
     dueDate: opportunityData?.due_date || "",
     startDate: opportunityData?.start_date || "",
     endDate: opportunityData?.end_date || "",
@@ -760,8 +841,12 @@ export default function LearnServeForm({
     meetingLink: opportunityData?.link || "",
     whatsappLink: opportunityData?.whatsapp_link || "",
     gender: opportunityData?.gender_display?.id || "",
-    is_kuwaitis: opportunityData?.is_kuwaitis === true,
-    is_paid: opportunityData?.is_paid === true,
+    is_kuwaitis: String(opportunityData?.is_kuwaitis === true),
+    is_paid: String(opportunityData?.is_paid === true),
+    price:
+      opportunityData?.price !== null && opportunityData?.price !== undefined
+        ? String(opportunityData.price)
+        : "",
     opportunity_images: [],
     license_image: "",
     _interests: resolveInterestOptionIds(
@@ -825,14 +910,54 @@ export default function LearnServeForm({
         }
       );
 
+    /*
+     * Optional, and built from scratch rather than from `YupStringMaxLength` —
+     * that helper descends from `YupRequiredString`, so anything composed out
+     * of it stays required no matter what is chained on afterwards. The length
+     * rule still applies to whatever is actually typed.
+     *
+     * They have to be optional now that the English panels open on request:
+     * required rules on a collapsed field block submit with an error nobody
+     * can see. The API still requires both columns, so the submit falls back
+     * to the Arabic text — see `handleSubmit`.
+     */
+    const optionalTitleSchema = Yup.string()
+      .max(
+        400,
+        () =>
+          `${i18n.t("COMMON.MUST.BE.ATMOST")}400${i18n.t("COMMON.CHARACTERS")}`
+      )
+      .test(
+        "title-en-min-length",
+        () => i18n.t("COMMON.EVENT_TITLE_MIN_LENGTH"),
+        (value) => !value || value.trim().length >= 2
+      );
+    const optionalDescriptionSchema = Yup.string().test(
+      "description-en-min-length",
+      () => i18n.t("COMMON.DESCRIPTION_MIN_LENGTH"),
+      (value) => {
+        const text = richTextToPlain(value);
+        return text.length === 0 || text.length >= 10;
+      }
+    );
+
     return Yup.object({
         title_ar: titleSchema,
-        title_en: titleSchema,
+        title_en: optionalTitleSchema,
         description_ar: descriptionSchema,
-        description_en: descriptionSchema,
-        // Optional: with no due date the backend keeps registration open until
-        // the opportunity's last day (`end_date`).
+        description_en: optionalDescriptionSchema,
+        /*
+         * Required, matching volunteering. The client reverted the
+         * optional-due-date decision for volunteer opportunities first and
+         * confirmed on 2026-09-20 that development follows it — every
+         * opportunity states its own registration deadline again.
+         *
+         * `notInPast` and the before-start-date test both short-circuit on an
+         * empty value; `YupRequiredString` is what stops it being empty at all,
+         * so the ordering between them does not matter.
+         */
         dueDate: Yup.string()
+          .concat(YupRequiredString)
           .test(
             "due-date-in-future",
             i18n.t("COMMON.DATE_MUST_BE_FUTURE"),
@@ -917,15 +1042,39 @@ export default function LearnServeForm({
           then: () => YupRequiredString,
           otherwise: () => Yup.string(),
         }),
-        location_url: YupOptionalUrl,
-        location: Yup.string().when(
-          "learnServeFormat",
-          ([learnServeFormat], schema) =>
-            learnServeFormat &&
-            inPersonFormatId &&
-            String(learnServeFormat) === String(inPersonFormatId)
-              ? schema.concat(YupRequiredString)
-              : schema
+        /*
+         * "Where" can now be answered two ways — a pinned map or a pasted
+         * link — and only one is on screen at a time, so requiring `location`
+         * outright would block submit with an error attached to a field the
+         * organizer cannot see. The rule is "at least one", checked from both
+         * sides so whichever field is visible shows the message, and it only
+         * binds for an in-person opportunity.
+         *
+         * Both use `.test` rather than `Yup.when`, which would make the two
+         * fields reference each other and throw a cyclic-dependency error at
+         * schema build time — hence `learnServeFormat` read off `this.parent`.
+         */
+        location: Yup.string().test(
+          "location-provided",
+          () => i18n.t("COMMON.REQUIRED.FIELD"),
+          function (value) {
+            const isInPersonFormat =
+              !!inPersonFormatId &&
+              String(this.parent.learnServeFormat) === String(inPersonFormatId);
+            if (!isInPersonFormat) return true;
+            return Boolean(value?.trim() || this.parent.location_url?.trim());
+          }
+        ),
+        location_url: YupOptionalUrl.test(
+          "location-provided",
+          () => i18n.t("COMMON.REQUIRED.FIELD"),
+          function (value) {
+            const isInPersonFormat =
+              !!inPersonFormatId &&
+              String(this.parent.learnServeFormat) === String(inPersonFormatId);
+            if (!isInPersonFormat) return true;
+            return Boolean(value?.trim() || this.parent.location?.trim());
+          }
         ),
         meetingLink: Yup.string().when(
           "learnServeFormat",
@@ -941,6 +1090,24 @@ export default function LearnServeForm({
         // URL cannot be pasted into the contact field by mistake; the API only
         // checks it is a URL.
         whatsappLink: YupWhatsAppLink,
+        /*
+         * The API already refuses a paid opportunity with no price
+         * (`'price' => ['A price is required for a paid opportunity.']`), and
+         * until now this form never sent the field at all — so every paid
+         * development opportunity 422'd. Validated here as well so the
+         * organizer is told in the field rather than by a toast after submit.
+         */
+        price: Yup.string().when("is_paid", ([isPaid], schema) =>
+          isPaid === "true"
+            ? schema
+                .concat(YupRequiredString)
+                .test(
+                  "price-positive",
+                  () => i18n.t("COMMON.VALID_NUMBERS"),
+                  (value) => Number(value) > 0
+                )
+            : schema
+        ),
         participantsNeeded: YupNumberOnly,
         gender: Yup.string().concat(YupRequiredString),
         age: Yup.array()
@@ -1024,10 +1191,22 @@ export default function LearnServeForm({
       const formattedStartTime = `${values.startTime}:00`;
       const formattedEndTime = `${values.endTime}:00`;
 
-      formData.append("title_ar", values.title_ar);
-      formData.append("title_en", values.title_en);
+      /*
+       * The English title and description are optional in the form but
+       * required by the API, so an organizer who only wrote Arabic gets the
+       * Arabic text stored in both columns. Sending them empty would 422, and
+       * sending them blank would leave English-language screens headless.
+       */
+      const arabicTitle = values.title_ar.trim();
+      formData.append("title_ar", arabicTitle);
+      formData.append("title_en", values.title_en.trim() || arabicTitle);
       formData.append("description_ar", values.description_ar);
-      formData.append("description_en", values.description_en);
+      formData.append(
+        "description_en",
+        richTextToPlain(values.description_en)
+          ? values.description_en
+          : values.description_ar
+      );
       formData.append("start_date", formattedStartDate);
       formData.append("end_date", formattedEndDate);
       formData.append("format_id", values.learnServeFormat);
@@ -1045,13 +1224,19 @@ export default function LearnServeForm({
       formData.append("end_time", formattedEndTime);
       // The API's `boolean` validation rule only accepts 1/0 (or "1"/"0"),
       // not the literal strings "true"/"false".
-      formData.append("is_kuwaitis", values.is_kuwaitis ? "1" : "0");
-      formData.append("is_paid", values.is_paid ? "1" : "0");
+      const isPaidOpportunity = values.is_paid === "true";
+      formData.append("is_kuwaitis", values.is_kuwaitis === "true" ? "1" : "0");
+      formData.append("is_paid", isPaidOpportunity ? "1" : "0");
+      // Only meaningful when paid. On the free branch the backend nulls the
+      // column itself, so sending an empty string would just be noise.
+      if (isPaidOpportunity) {
+        formData.append("price", values.price);
+      }
       formData.append("gender_id", values.gender);
 
-      if (values.dueDate) {
-        formData.append("due_date", formatDateToYYYYMMDD(values.dueDate));
-      }
+      // Unconditional now that the field is required: the old guard existed so
+      // an edit could clear the column, and that path is gone.
+      formData.append("due_date", formatDateToYYYYMMDD(values.dueDate));
 
       values._interests.forEach((interest) => {
         formData.append("interest_ids[]", interest);
@@ -1094,9 +1279,18 @@ export default function LearnServeForm({
         formData.append(`${prefix}_is_after_completed_${index}`, "0");
       });
 
-      const sponsorIds = values.sponsors
-        .map((sponsor) => sponsor.sponsorId)
-        .filter(Boolean);
+      /*
+       * Sponsors belong to a free opportunity only: a sponsor funds something
+       * that is free to attend, while a paid one is funded by its
+       * participants. The API enforces the read side already — a paid
+       * opportunity returns `opportunity_sponsor_images: []` whatever is
+       * attached — so this drops them on the write side too, and an
+       * opportunity switched from free to paid sheds the sponsors it had
+       * rather than keeping them attached invisibly.
+       */
+      const sponsorIds = isPaidOpportunity
+        ? []
+        : values.sponsors.map((sponsor) => sponsor.sponsorId).filter(Boolean);
 
       // BE-65 — the contact belongs to the opportunity, not to its format, so
       // it is sent for in-person and online alike. Empty clears the column:
@@ -1551,6 +1745,7 @@ export default function LearnServeForm({
               const isInPerson =
                 !!inPersonFormatId &&
                 values.learnServeFormat === inPersonFormatId;
+              const isPaid = values.is_paid === "true";
 
               return (
                 <>
@@ -1632,100 +1827,82 @@ export default function LearnServeForm({
                       skipNextGeocodeRef={skipNextGeocodeRef}
                     />
 
-                    <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
-                      <Input
-                        name="title_ar"
-                        label={t("COMMON.ENTER_TITLE_AR")}
-                        type="text"
-                        maxLength={400}
-                        dir="rtl"
-                      />
-                      <Input
-                        name="title_en"
-                        label={t("COMMON.ENTER_TITLE_EN")}
-                        type="text"
-                        maxLength={400}
-                        dir="ltr"
-                      />
-                      <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
-                        <SelectInput
-                          name="learningType"
-                          label={t("COMMON.TYPE")}
-                          options={learningTypeOptions}
-                          onChange={(selectedOption) =>
-                            setFieldValue(
-                              "learningType",
-                              selectedOption?.value || ""
-                            )
-                          }
-                          // The type is fixed once an opportunity is reposted
-                          disabled={learningTypeLoading}
+                    {/*
+                      One four-column grid for the short fields, replacing the
+                      stack of flex rows this form used to be — the same grid
+                      `VolunteerForm` uses, and the order the client's mockup
+                      shows:
+                        1. title · type · format · participants needed
+                        2. due date · start date · end date · time from/to
+                        3. age · gender · meeting link · WhatsApp contact
+                        4. paid-or-free · price · certificate · nationality
+                      The pairs that read as one answer — age from/to and time
+                      from/to — each occupy a single column, which is what keeps
+                      the rows four wide. "Where" sits below the grid rather
+                      than in it, because the map picker is far taller than a
+                      field and would set the height of its whole row.
+                    */}
+                    <div className="grid grid-cols-1 gap-x-6 md:grid-cols-2 lg:grid-cols-4">
+                      {/* ---- Row 1: what it is ---- */}
+                      <div>
+                        <Input
+                          name="title_ar"
+                          label={t("COMMON.ENTER_TITLE_AR")}
+                          type="text"
+                          maxLength={400}
+                          dir="rtl"
+                          onFocus={() => setFieldTouched("title_ar", true)}
                         />
-                        <DatePickerInput
-                          name="dueDate"
-                          label={t("COMMON.DUE_DATE")}
-                          rmdpClassname="placeholder-primary-5"
-                          minDate={new Date()}
-                          showDueDate
-                        />
+                        {showEnglishTitle && (
+                          <Input
+                            name="title_en"
+                            label={t("COMMON.ENTER_TITLE_EN")}
+                            type="text"
+                            maxLength={400}
+                            dir="ltr"
+                            onFocus={() => setFieldTouched("title_en", true)}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                          onClick={() => {
+                            if (showEnglishTitle) {
+                              // Clear as well as close, so a value typed and
+                              // then dismissed can't be submitted invisibly.
+                              setFieldValue("title_en", "");
+                              setFieldTouched("title_en", false);
+                            }
+                            setEnglishTitleToggle(!showEnglishTitle);
+                          }}
+                        >
+                          {showEnglishTitle ? (
+                            <FaMinus className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <FaPlus className="h-3 w-3" aria-hidden="true" />
+                          )}
+                          {t(
+                            showEnglishTitle
+                              ? "COMMON.REMOVE_ENGLISH_TITLE"
+                              : "COMMON.ADD_ENGLISH_TITLE"
+                          )}
+                        </button>
                       </div>
-                    </div>
 
-                    <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0 xss:pt-0">
-                      <DatePickerInput
-                        name="startDate"
-                        label={t("COMMON.START_DATE")}
-                        rmdpClassname="placeholder-primary-5"
-                        minDate={new Date()}
-                      />
-                      <DatePickerInput
-                        name="endDate"
-                        label={t("COMMON.END_DATE")}
-                        rmdpClassname="placeholder-primary-5"
-                        minDate={new Date()}
-                      />
-                      <Field name="startTime">
-                        {({
-                          field,
-                        }: FieldProps<string, LearnServeFormValues>) => (
-                          <TimepickerInput
-                            label={t("COMMON.START_TIME")}
-                            className="w-full"
-                            autoSetTime={autoSetTimeOnClick}
-                            {...field}
-                          />
-                        )}
-                      </Field>
-                      <Field name="endTime">
-                        {({
-                          field,
-                        }: FieldProps<string, LearnServeFormValues>) => (
-                          <TimepickerInput
-                            label={t("COMMON.END_TIME")}
-                            className="w-full"
-                            autoSetTime={autoSetTimeOnClick}
-                            {...field}
-                          />
-                        )}
-                      </Field>
-                    </div>
-
-                    <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
-                      <AgeRange name="age" label={t("COMMON.AGE")} />
-                      <Input
-                        name="participantsNeeded"
-                        label={t("COMMON.PARTICIPANTS_NEEDED")}
-                        type="text"
-                      />
                       <SelectInput
-                        name="gender"
-                        label={t("COMMON.GENDER")}
-                        options={genderOptions}
+                        name="learningType"
+                        label={t("COMMON.TYPE")}
+                        options={learningTypeOptions}
                         onChange={(selectedOption) =>
-                          setFieldValue("gender", selectedOption?.value || "")
+                          setFieldValue(
+                            "learningType",
+                            selectedOption?.value || ""
+                          )
                         }
-                        disabled={genderLoading}
+                        // The type is fixed once an opportunity is reposted
+                        disabled={learningTypeLoading}
                       />
+
                       <SelectInput
                         name="learnServeFormat"
                         label={t("COMMON.FORMAT")}
@@ -1744,74 +1921,153 @@ export default function LearnServeForm({
                         }}
                         disabled={learnServeFormatLoading}
                       />
-                    </div>
 
-                    <div className="flex gap-6 mobilescreen:gap-0 mobilescreen:flex-col miniscreen:flex-col miniscreen:gap-0">
-                      <div className="w-full">
-                        <Input
-                          name="location"
-                          label={t("COMMON.LOCATION")}
-                          type="text"
-                          disabled={isOnline}
-                        />
-                        <Input
-                          name="location_url"
-                          label={t("COMMON.LOCATION_URL")}
-                          placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
-                          type="text"
-                          className="w-full text-left"
-                          dir="ltr"
-                        />
-                        {!isOnline && (
-                          <LocationMapPicker
-                            latitude={values.latitude}
-                            longitude={values.longitude}
-                            onPick={async (lat, lng) => {
-                              setFieldValue("latitude", lat);
-                              setFieldValue("longitude", lng);
-                              if (!values.location) {
-                                const address = await fetchAddress(
-                                  Number(lat),
-                                  Number(lng),
-                                  selectedLanguage
-                                );
-                                skipNextGeocodeRef.current = true;
-                                setFieldValue("location", address);
-                              }
-                            }}
-                          />
-                        )}
+                      <Input
+                        name="participantsNeeded"
+                        label={t("COMMON.PARTICIPANTS_NEEDED")}
+                        type="text"
+                      />
+
+                      {/* ---- Row 2: when it runs ---- */}
+                      <DatePickerInput
+                        name="dueDate"
+                        label={t("COMMON.DUE_DATE")}
+                        rmdpClassname="placeholder-primary-5"
+                        minDate={new Date()}
+                        showDueDate
+                      />
+                      <DatePickerInput
+                        name="startDate"
+                        label={t("COMMON.START_DATE")}
+                        rmdpClassname="placeholder-primary-5"
+                        minDate={new Date()}
+                      />
+                      <DatePickerInput
+                        name="endDate"
+                        label={t("COMMON.END_DATE")}
+                        rmdpClassname="placeholder-primary-5"
+                        minDate={new Date()}
+                      />
+                      <div className="flex gap-2">
+                        <Field name="startTime">
+                          {({
+                            field,
+                          }: FieldProps<string, LearnServeFormValues>) => (
+                            <TimepickerInput
+                              label={t("COMMON.START_TIME")}
+                              className="w-full"
+                              autoSetTime={autoSetTimeOnClick}
+                              {...field}
+                            />
+                          )}
+                        </Field>
+                        <Field name="endTime">
+                          {({
+                            field,
+                          }: FieldProps<string, LearnServeFormValues>) => (
+                            <TimepickerInput
+                              label={t("COMMON.END_TIME")}
+                              className="w-full"
+                              autoSetTime={autoSetTimeOnClick}
+                              {...field}
+                            />
+                          )}
+                        </Field>
                       </div>
-                      <div className="w-full">
-                        <div className="flex w-full xss:flex-col gap-6 xss:gap-0">
+
+                      {/* ---- Row 3: who it is for, and how to reach it ---- */}
+                      <AgeRange name="age" label={t("COMMON.AGE")} />
+                      <SelectInput
+                        name="gender"
+                        label={t("COMMON.GENDER")}
+                        options={genderOptions}
+                        onChange={(selectedOption) =>
+                          setFieldValue("gender", selectedOption?.value || "")
+                        }
+                        disabled={genderLoading}
+                      />
+                      <Input
+                        name="meetingLink"
+                        label={t("COMMON.MEETING.LINK")}
+                        type="text"
+                        disabled={isInPerson}
+                      />
+                      {/*
+                        BE-65 — the opportunity's own WhatsApp contact, and not
+                        the same thing as the meeting link beside it: this one
+                        is shown to everyone, while the meeting link is revealed
+                        only to registered participants. Optional, and never
+                        disabled — an in-person opportunity wants a contact just
+                        as much.
+                      */}
+                      <Input
+                        name="whatsappLink"
+                        label={t("COMMON.WHATSAPP_LINK")}
+                        type="text"
+                      />
+
+                      {/* ---- Row 4: terms ---- */}
+                      {/*
+                        Was a checkbox. A select states both answers on screen,
+                        which a lone unchecked box does not — "free" was only
+                        ever implied by the absence of a tick. Unlike the
+                        certificate and nationality fields below it, this one
+                        applies to every learn-and-serve format.
+                      */}
+                      <SelectInput
+                        name="is_paid"
+                        label={t("COMMON.PAID_OR_FREE")}
+                        options={[
+                          {
+                            label: t("COMMON.FREE_OPPORTUNITY"),
+                            value: "false",
+                          },
+                          {
+                            label: t("COMMON.PAID_OPPORTUNITY"),
+                            value: "true",
+                          },
+                        ]}
+                        onChange={(selectedOption) => {
+                          const nextIsPaid = selectedOption?.value === "true";
+                          setFieldValue("is_paid", String(nextIsPaid));
+                          if (!nextIsPaid) {
+                            // Clear as well as hide: a price left behind a
+                            // collapsed field would still be validated.
+                            setFieldValue("price", "");
+                            setFieldTouched("price", false);
+                          }
+                        }}
+                      />
+
+                      {isPaid && (
+                        <div>
                           <Input
-                            name="meetingLink"
-                            label={t("COMMON.MEETING.LINK")}
+                            name="price"
+                            label={`${t("COMMON.PRICE")} (${t(
+                              "COMMON.CURRENCY_KWD"
+                            )})`}
                             type="text"
-                            disabled={isInPerson}
+                            onFocus={() => setFieldTouched("price", true)}
                           />
                           {/*
-                            BE-65 — the opportunity's own WhatsApp contact, and
-                            not the same thing as the meeting link beside it:
-                            this one is shown to everyone, while the meeting
-                            link is revealed only to registered participants.
-                            Optional, and never disabled — an in-person
-                            opportunity wants a contact just as much.
+                            The percentage is admin-editable
+                            (`config.platform_fee_percentage`) but is not on any
+                            public endpoint, so 7 is the documented default
+                            rather than a reading of what is live — see BE-71.
+                            Interpolated so that becomes a one-line change.
                           */}
-                          <Input
-                            name="whatsappLink"
-                            label={t("COMMON.WHATSAPP_LINK")}
-                            type="text"
-                          />
+                          <p className="-mt-2 mb-4 text-xs text-secondary-102">
+                            {t("COMMON.PLATFORM_FEE_HINT", {
+                              percent: PLATFORM_FEE_PERCENT,
+                            })}
+                          </p>
                         </div>
-                      </div>
-                    </div>
+                      )}
 
-                    {/* Certificates and the Kuwaitis-only flag only apply to
-                        internships and courses */}
-                    {isInternshipOrCourse && (
-                      <div className="flex gap-6 w-1/2 mobilescreen:w-full miniscreen:w-full xss:w-full xss:flex-col xss:gap-0">
-                        <div className="w-full">
+                      {/* Certificates and nationality only apply to
+                          internships and courses */}
+                      {isInternshipOrCourse && (
+                        <div>
                           <SelectInput
                             name="certificateType"
                             label={t("COMMON.CERTIFICATE")}
@@ -1825,45 +2081,128 @@ export default function LearnServeForm({
                             disabled={certificateTypeLoading}
                           />
                           {values.certificateType === forsaCertificateId && (
-                            <div className="flex items-center mb-4">
-                              <p className="text-primary-5 xss:pl-2">
-                                <a
-                                  href="/certificate"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="border-b border-primary-5 font-bold text-lg cursor-pointer"
-                                >
-                                  {t("COMMON.PREVIEW.CERTIFICATE")}
-                                </a>
-                              </p>
+                            <div className="-mt-2 mb-4 flex items-center">
+                              <a
+                                href="/certificate"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="border-b border-primary-5 text-sm font-bold text-primary-5"
+                              >
+                                {t("COMMON.PREVIEW.CERTIFICATE")}
+                              </a>
                             </div>
                           )}
                         </div>
-                        <div className="w-full flex justify-center pb-[15px] h-[62px] xss:h-[45px] xss:justify-start xss:pl-2 items-center">
-                          <CheckBox
-                            id="is_kuwaitis"
-                            label={t("COMMON.KUWAITIS.ONLY")}
-                            checked={values.is_kuwaitis}
-                            onChange={(checked) =>
-                              setFieldValue("is_kuwaitis", checked)
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Unlike the certificate/Kuwaitis-only fields above, whether an
-                        opportunity is paid applies to every learn-and-serve format. */}
-                    <div className="w-full flex justify-start pb-[15px] h-[62px] xss:h-[45px] xss:pl-2 items-center">
-                      <CheckBox
-                        id="is_paid"
-                        label={t("COMMON.PAID_OPPORTUNITY")}
-                        checked={values.is_paid}
-                        onChange={(checked) =>
-                          setFieldValue("is_paid", checked)
-                        }
-                      />
+                      {/*
+                        Was a "Kuwaitis only" checkbox. Both answers are now
+                        stated, because an unticked box reads as "not answered
+                        yet" rather than "open to everyone". Still the same
+                        `is_kuwaitis` boolean underneath — no contract change.
+                      */}
+                      {isInternshipOrCourse && (
+                        <SelectInput
+                          name="is_kuwaitis"
+                          label={t("COMMON.OPPORTUNITY_NATIONALITY")}
+                          options={[
+                            {
+                              label: t("COMMON.ALL_NATIONALITIES"),
+                              value: "false",
+                            },
+                            {
+                              label: t("COMMON.KUWAITIS.ONLY"),
+                              value: "true",
+                            },
+                          ]}
+                          onChange={(selectedOption) =>
+                            setFieldValue(
+                              "is_kuwaitis",
+                              String(selectedOption?.value === "true")
+                            )
+                          }
+                        />
+                      )}
                     </div>
+
+                    {/*
+                      Two ways to answer one question, so only one is on screen
+                      at a time — the same pair `VolunteerForm` offers.
+                      Switching clears the side being hidden: an organiser who
+                      pins the map after pasting a link has changed their
+                      answer, and leaving the link behind would submit a
+                      location they can no longer see or correct.
+
+                      The whole block is hidden for an online opportunity, which
+                      has no physical location to give.
+                    */}
+                    {!isOnline &&
+                      (showMapPicker ? (
+                        <>
+                          <Input
+                            name="location"
+                            label={t("COMMON.LOCATION")}
+                            onFocus={() => setFieldTouched("location", true)}
+                          />
+                          <LocationMapPicker
+                            latitude={values.latitude}
+                            longitude={values.longitude}
+                            onPick={async (lat, lng) => {
+                              setFieldValue("latitude", lat);
+                              setFieldValue("longitude", lng);
+                              setFieldTouched("location", true);
+                              // A map pick is always authoritative for the
+                              // location text — overwrite whatever was there.
+                              const address = await fetchAddress(
+                                Number(lat),
+                                Number(lng),
+                                selectedLanguage
+                              );
+                              skipNextGeocodeRef.current = true;
+                              setFieldValue("location", address);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                            onClick={() => {
+                              setFieldValue("location", "");
+                              setFieldValue("latitude", "");
+                              setFieldValue("longitude", "");
+                              setFieldTouched("location", false);
+                              setMapPickerToggle(false);
+                            }}
+                          >
+                            <FaLink className="h-3 w-3" aria-hidden="true" />
+                            {t("COMMON.USE_LOCATION_LINK")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Input
+                            name="location_url"
+                            label={t("COMMON.LOCATION_URL")}
+                            placeholder={t("COMMON.LOCATION_URL_PLACEHOLDER")}
+                            dir="ltr"
+                            onFocus={() => setFieldTouched("location_url", true)}
+                          />
+                          <button
+                            type="button"
+                            className="-mt-2 mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                            onClick={() => {
+                              setFieldValue("location_url", "");
+                              setFieldTouched("location_url", false);
+                              setMapPickerToggle(true);
+                            }}
+                          >
+                            <FaMapMarkerAlt
+                              className="h-3 w-3"
+                              aria-hidden="true"
+                            />
+                            {t("COMMON.SELECT_FROM_MAPS")}
+                          </button>
+                        </>
+                      ))}
 
                     <div className="descritpionitm descritpionitm-ar">
                       <Field
@@ -1875,15 +2214,45 @@ export default function LearnServeForm({
                       />
                     </div>
 
-                    <div className="descritpionitm descritpionitm-en">
-                      <Field
-                        name="description_en"
-                        label={t("COMMON.DESCRIPTION_EN")}
-                        placeholder={t("COMMON.DESCRIPTION_EN")}
-                        component={RichTextEditor}
-                        language="en"
-                      />
-                    </div>
+                    {!showEnglishDescription && (
+                      <button
+                        type="button"
+                        className="mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                        onClick={() => setEnglishDescriptionToggle(true)}
+                      >
+                        <FaPlus className="h-3 w-3" aria-hidden="true" />
+                        {t("COMMON.ADD_ENGLISH_DESCRIPTION")}
+                      </button>
+                    )}
+
+                    {showEnglishDescription && (
+                      <>
+                        <div className="descritpionitm descritpionitm-en">
+                          <Field
+                            name="description_en"
+                            label={t("COMMON.DESCRIPTION_EN")}
+                            placeholder={t("COMMON.DESCRIPTION_EN")}
+                            component={RichTextEditor}
+                            language="en"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          className="mb-4 flex items-center gap-1 text-sm text-primary-5 underline underline-offset-2"
+                          onClick={() => {
+                            // Clear as well as close, so an editor left holding
+                            // `<p></p>` (or real text) can't be submitted from
+                            // behind a collapsed panel.
+                            setFieldValue("description_en", "");
+                            setFieldTouched("description_en", false);
+                            setEnglishDescriptionToggle(false);
+                          }}
+                        >
+                          <FaMinus className="h-3 w-3" aria-hidden="true" />
+                          {t("COMMON.REMOVE_ENGLISH_DESCRIPTION")}
+                        </button>
+                      </>
+                    )}
 
                     <TagsCheckbox
                       name="_interests"
@@ -1897,6 +2266,16 @@ export default function LearnServeForm({
                       disabled={tagsLoading}
                     />
 
+                    {/*
+                      A sponsor funds an opportunity that is free to attend; a
+                      paid one is funded by its participants, so naming a
+                      sponsor on it credits them for something they did not pay
+                      for. The API agrees on the read side —
+                      `opportunity_sponsor_images` comes back `[]` for a paid
+                      opportunity whatever is attached — and the submit drops
+                      them on the write side.
+                    */}
+                    {!isPaid && (
                     <FieldArray name="sponsors">
                       {({ push, remove }) => (
                         <div className="mb-4">
@@ -1961,6 +2340,7 @@ export default function LearnServeForm({
                         </div>
                       )}
                     </FieldArray>
+                    )}
 
                     <div className="pb-4">
                       <UploadDocument

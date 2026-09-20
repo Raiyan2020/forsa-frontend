@@ -136,6 +136,13 @@ export interface VolunteerOpportunityData {
   /** Set when an admin has reopened a window that had already closed. */
   preparation_reopened_until?: string | null;
   requires_check_in?: boolean;
+  /**
+   * BE-69 — true for the organizer and for a volunteer granted «إذن تحضير»,
+   * who may add volunteers to the opportunity and record their hours. It does
+   * *not* imply the other organizer powers, so it gates the volunteer list and
+   * nothing else.
+   */
+  can_manage_attendance?: boolean;
   is_creator?: boolean;
   /** Per-viewer: "organizer" | "sponsor" | "registered" | "attended". */
   relationship_tags?: string[] | null;
@@ -589,6 +596,11 @@ export default function VolunteerEvent({
       start_time: opportunityData?.start_time,
       end_time: opportunityData?.end_time,
       participants_needed: opportunityData?.participants_needed,
+      // BE-69 — who is looking. `can_manage_attendance` is true for the
+      // organizer and for a granted volunteer; `is_creator` separates them,
+      // since only the organizer may grant the permission on.
+      is_creator: isCreator,
+      can_manage_attendance: opportunityData?.can_manage_attendance ?? isCreator,
     });
     router.push("/volunteerlist");
   };
@@ -890,6 +902,15 @@ export default function VolunteerEvent({
    * `requires_check_in: false` and get no attendance surface at all.
    */
   const canShowScanPermission = isCreator && checkInWindow.qrEnabled;
+
+  /*
+   * BE-69 — the volunteer list is now reachable by two kinds of viewer: the
+   * organizer, and a volunteer they granted «إذن تحضير». Only the list opens
+   * up: every other control in that row keeps its own `isCreator` gate, so a
+   * holder does not inherit the organizer's QR or delegation screens.
+   */
+  const canManageAttendance =
+    isCreator || opportunityData?.can_manage_attendance === true;
 
   /**
    * BE-61 — self check-in.
@@ -1262,13 +1283,13 @@ export default function VolunteerEvent({
                 </div>
               )}
 
-              {(isCreator || canShowScanQR) && (
+              {(canManageAttendance || canShowScanQR) && (
                 <div
                   className={`w-[100%] flex flex-col items-center relative bg-[#E5E5E5] md:bottom-[50px] msscreen1:bottom-[70px] mdscreen:bottom-[75px] bottom-[50px] pt-[50px] lg:bottom-[100px] px-5 2xl:pb-[70px] lg:pb-[40px] pb-[40px] ${shouldShowOnlyMobile ? "hidden miniscreen9:flex" : ""
                     }`}
                 >
                   {/* Desktop / tablet: no Scan QR here */}
-                  {isCreator && (
+                  {canManageAttendance && (
                     <div className="flex gap-5 items-center extrasmall:gap-[10px] miniscreen9:hidden flex-wrap justify-center w-full">
                       <Button
                         variant="primary"
@@ -1313,7 +1334,7 @@ export default function VolunteerEvent({
                   )}
 
                   {/* Mobile: two rows */}
-                  {isCreator && (
+                  {canManageAttendance && (
                     <div className="hidden smallscreen1:!flex-col miniscreen9:flex miniscreen9:flex-row flex-col gap-2 w-fit min-w-[0] relative">
                       <div className="flex miniscreen9:block items-start justify-start gap-x-2 smallscreen:gap-x-2 pb-2 smallscreen1:pb-0">
                         <Button
