@@ -46,6 +46,7 @@ import { fetchAddress, fetchCoordinates, formatDateToYYYYMMDD } from "@/lib/help
 import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import { YupFlexibleUrl, YupOptionalUrl, YupNumberOnly, YupRequiredString, YupStringMaxLength, YupWhatsAppLink } from "@/features/shared/schemas";
+import { getOrganizerProfile } from "@/features/profile/services/profileApi";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";
@@ -73,13 +74,15 @@ const richTextToPlain = (value?: string | null): string =>
     .trim();
 
 /**
- * The platform's cut of a paid opportunity, shown to the publisher before they
- * set a price. The backend computes `payout_after_fee` from
- * `config.platform_fee_percentage` (defaulting to 7), but does not expose the
- * percentage on any endpoint — so this is the documented default, not a reading
- * of what is live. Raised as BE-71; when the value is exposed, read it here.
+ * Last-resort value for the platform's cut of a paid opportunity.
+ *
+ * Both live sources are wired up — `LearnServeOpportunityResource` when editing
+ * (BE-71) and `GET /organization-profile/` when creating (BE-74), and both read
+ * the same `Config::platformFeePercentage()` server-side, so they cannot
+ * disagree. This only shows if neither payload has arrived, and it matches the
+ * backend's own default for that config key.
  */
-const PLATFORM_FEE_PERCENT = 7;
+const PLATFORM_FEE_PERCENT_FALLBACK = 7;
 
 /** Payload a learn & serve card stashes before pushing to /learn-and-share-form. */
 export interface LearnServeFormNavState {
@@ -408,6 +411,21 @@ export default function LearnServeForm({
   });
 
   const opportunityData = apiResponse?.data;
+
+  /*
+   * BE-74 — the publish form's only source for the platform fee, since there is
+   * no opportunity to read it off until one exists. Shares the
+   * `["organizer-profile"]` key with the profile screens, so a publisher who
+   * has already been there pays nothing for this. `retry: false` because an
+   * account type without an organization profile should fall back to the
+   * constant quietly rather than retry a refusal three times.
+   */
+  const { data: organizerProfile } = useQuery({
+    queryKey: ["organizer-profile"],
+    queryFn: getOrganizerProfile,
+    enabled: Boolean(authToken),
+    retry: false,
+  });
 
   /*
    * The English title, the English description and the map picker are each a
@@ -871,6 +889,25 @@ export default function LearnServeForm({
     license_image_removed: false,
     primary_language: selectedLanguage || "en",
   };
+
+  /*
+   * The fee note under the price field, from whichever payload can answer.
+   *
+   * Editing reads it off the opportunity (BE-71); creating has no opportunity
+   * yet, so it comes from the publisher's own profile (BE-74). Both are
+   * `Config::platformFeePercentage()` on the server, so the number is the same
+   * either way — this is only about which payload is available when.
+   *
+   * A `typeof === "number"` test rather than `||` or `??` on its own: an admin
+   * waiving the fee to **0** is a real answer, and `0 || fallback` would quietly
+   * replace it with 7.
+   */
+  const platformFeePercent =
+    typeof opportunityData?.platform_fee_percentage === "number"
+      ? opportunityData.platform_fee_percentage
+      : typeof organizerProfile?.data?.platform_fee_percentage === "number"
+        ? organizerProfile.data.platform_fee_percentage
+        : PLATFORM_FEE_PERCENT_FALLBACK;
 
   const notInPast = (value?: string) => {
     const today = new Date();
@@ -2049,16 +2086,10 @@ export default function LearnServeForm({
                             type="text"
                             onFocus={() => setFieldTouched("price", true)}
                           />
-                          {/*
-                            The percentage is admin-editable
-                            (`config.platform_fee_percentage`) but is not on any
-                            public endpoint, so 7 is the documented default
-                            rather than a reading of what is live — see BE-71.
-                            Interpolated so that becomes a one-line change.
-                          */}
+                          {/* Live on both paths now — see `platformFeePercent`. */}
                           <p className="-mt-2 mb-4 text-xs text-secondary-102">
                             {t("COMMON.PLATFORM_FEE_HINT", {
-                              percent: PLATFORM_FEE_PERCENT,
+                              percent: platformFeePercent,
                             })}
                           </p>
                         </div>
