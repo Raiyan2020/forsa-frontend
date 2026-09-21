@@ -13,6 +13,10 @@ import { getApiErrorMessage, getApiErrorMessages } from "@/lib/api/errors";
 import AttendanceQrModal from "@/features/opportunities/components/AttendanceQrModal";
 import SelfScanModal from "@/features/opportunities/components/SelfScanModal";
 import {
+  opportunityNationalityFrom,
+  opportunityNationalityLabel,
+} from "@/data/Constants";
+import {
   issueLearnServeAttendanceCode,
   learnServeSelfScan,
 } from "@/features/opportunities/services/selfCheckIn";
@@ -118,6 +122,12 @@ export interface LearnServeOpportunityData {
   is_registered?: boolean;
   is_attended?: boolean;
   is_kuwaitis?: boolean;
+  /**
+   * BE-77 — the four-way audience that replaces `is_kuwaitis`. Absent
+   * until the backend ships it; `opportunityNationalityFrom` falls back
+   * to the boolean, so this page reads correctly either way.
+   */
+  opportunity_nationality?: string | null;
   /**
    * `false` for workshops and consultations: their hours still count towards the
    * statistics, but nobody checks anyone in — the backend marks registrants
@@ -1548,9 +1558,10 @@ export default function LearnServeDetails({
                         alt=""
                       />
                       <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                        {opportunityData?.is_kuwaitis === true
-                          ? t("COMMON.KUWAITIS.ONLY")
-                          : t("COMMON.ALL.NATIONALITY")}
+                        {opportunityNationalityLabel(
+                          opportunityNationalityFrom(opportunityData ?? {}),
+                          selectedLanguage
+                        )}
                       </p>
                     </div>
                   </div>

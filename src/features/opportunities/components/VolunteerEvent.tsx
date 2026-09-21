@@ -45,6 +45,11 @@ import {
   toNumber,
 } from "@/lib/helpers";
 import { getCheckInCountdown, getCheckInWindow } from "@/features/opportunities/checkInWindow";
+import { getSelfCheckOutWindow } from "@/features/opportunities/selfCheckOutWindow";
+import {
+  opportunityNationalityFrom,
+  opportunityNationalityLabel,
+} from "@/data/Constants";
 import { interestLabel, normalizeInterests } from "@/lib/interests";
 import {
   canToggleRegistration,
@@ -96,7 +101,12 @@ export interface VolunteerOpportunityData {
    * consecutive range. When it is, `start_date`/`end_date` are merely the
    * first and last of those days — the opportunity does not run in between.
    */
-  time_slots?: { id?: number; date?: string }[];
+  time_slots?: {
+    id?: number;
+    date?: string;
+    start_time?: string;
+    end_time?: string;
+  }[];
   start_time: string;
   end_time: string;
   location_en?: string;
@@ -128,6 +138,12 @@ export interface VolunteerOpportunityData {
     checked_out_at?: string | null;
     next_action?: "in" | "out" | "done" | null;
   } | null;
+  /**
+   * BE-75 — when the departure scan stops being accepted, two hours past the
+   * session's scheduled end. Not sent yet; until it is, the deadline is
+   * derived from `end_time` locally. See `selfCheckOutWindow.ts`.
+   */
+  self_check_out_closes_at?: string | null;
   manual_attendance_enabled?: boolean;
   preparation_valid_until?: string | null;
   /** Hour-precise end of the check-in window; prefer it over the date-only field. */
@@ -153,6 +169,12 @@ export interface VolunteerOpportunityData {
   rejected_reason?: string | null;
   is_public?: boolean;
   is_kuwaitis?: boolean;
+  /**
+   * BE-77 — the four-way audience that replaces `is_kuwaitis`. Absent
+   * until the backend ships it; `opportunityNationalityFrom` falls back
+   * to the boolean, so this page reads correctly either way.
+   */
+  opportunity_nationality?: string | null;
   is_supports_disabled?: boolean;
   is_relief?: boolean;
   is_urgent?: boolean;
@@ -940,11 +962,66 @@ export default function VolunteerEvent({
     selfAttendance?.next_action === "in" || selfAttendance?.next_action === "out"
       ? selfAttendance.next_action
       : null;
+  /**
+   * The departure scan closes two hours after the session's scheduled end —
+   * an opportunity running 5 → 9 accepts it until 11.
+   *
+   * Anchored on `checked_in_at`, so a session ending at 23:00 still accepts a
+   * 00:30 scan; anchoring on today would move the deadline onto the wrong day
+   * at midnight and lock the volunteer out mid-grace-period.
+   *
+   * This gate is the button's, not the record's: the backend accepts a
+   * departure scan any time that day (BE-75 asks it to enforce the same two
+   * hours, and to stop crediting the grace period as worked time). Hiding the
+   * button is therefore honest UI, not security.
+   */
+  const selfCheckOutWindow = getSelfCheckOutWindow(opportunityData, {
+    checkedInAt: selfAttendance?.checked_in_at,
+  });
+  const isDepartureScan = nextSelfScanDirection === "out";
+  const departureWindowClosed = isDepartureScan && selfCheckOutWindow.hasClosed;
+  const departureClosesAtLabel =
+    selfCheckOutWindow.closesAt?.format("hh:mm A") ?? "";
+  /*
+   * The hours stop at the scheduled end even though the scan is accepted for
+   * two hours past it (BE-75 C). Said next to the deadline, because a
+   * volunteer told only "you have until 11" reasonably reads it as "scanning
+   * at 10:45 pays until 10:45" — and then queries the four hours on their
+   * certificate.
+   */
+  const departureCountedUntilLabel =
+    selfCheckOutWindow.sessionEndsAt?.format("hh:mm A") ?? "";
+
   const canSelfScan =
-    !isCreator && Boolean(selfAttendance) && nextSelfScanDirection !== null;
+    !isCreator &&
+    Boolean(selfAttendance) &&
+    nextSelfScanDirection !== null &&
+    !departureWindowClosed;
 
   const handleSelfScan = async (code: string) => {
     if (!nextSelfScanDirection) return;
+
+    /*
+     * Re-checked here, not just at render: nothing re-renders this page on a
+     * timer, so a volunteer who opened it at 10:00 and scans at 11:05 would
+     * otherwise be looking at a button the deadline has already retired.
+     * Resolving rather than throwing closes the camera — re-scanning cannot
+     * help once the window is shut.
+     */
+    if (nextSelfScanDirection === "out") {
+      const freshWindow = getSelfCheckOutWindow(opportunityData, {
+        checkedInAt: selfAttendance?.checked_in_at,
+      });
+      if (freshWindow.hasClosed) {
+        toast.error(
+          t("COMMON.CHECK_OUT_GRACE_EXPIRED", {
+            time: freshWindow.closesAt?.format("hh:mm A") ?? "",
+          })
+        );
+        return;
+      }
+    }
+
     try {
       await selfScanMutation.mutateAsync({
         code,
@@ -1268,18 +1345,43 @@ export default function VolunteerEvent({
               {/* BE-61 — the volunteer's own scanner. Deliberately outside the
                   block below, which is gated on being the creator or a
                   delegated scanner; this one belongs to the participant. */}
-              {canSelfScan && (
-                <div className="flex w-full justify-center px-5 pb-10">
-                  <Button
-                    variant="primary"
-                    size="medium"
-                    onClick={() => setShowSelfScan(true)}
-                    className="w-full max-w-[320px] !rounded-[20px]"
-                  >
-                    {nextSelfScanDirection === "in"
-                      ? t("COMMON.SCAN_CHECK_IN_QR")
-                      : t("COMMON.SCAN_CHECK_OUT_QR")}
-                  </Button>
+              {(canSelfScan || departureWindowClosed) && (
+                <div className="flex w-full flex-col items-center gap-2 px-5 pb-10">
+                  {canSelfScan && (
+                    <Button
+                      variant="primary"
+                      size="medium"
+                      onClick={() => setShowSelfScan(true)}
+                      className="w-full max-w-[320px] !rounded-[20px]"
+                    >
+                      {nextSelfScanDirection === "in"
+                        ? t("COMMON.SCAN_CHECK_IN_QR")
+                        : t("COMMON.SCAN_CHECK_OUT_QR")}
+                    </Button>
+                  )}
+
+                  {/* The deadline is said out loud while the grace period is
+                      still running. A volunteer who knows they have until 11
+                      does not need to be told at 11:01 that they missed it. */}
+                  {canSelfScan && isDepartureScan && departureClosesAtLabel && (
+                    <p className="max-w-[420px] text-center text-sm text-secondary-102">
+                      {t("COMMON.CHECK_OUT_GRACE_UNTIL", {
+                        time: departureClosesAtLabel,
+                        endTime: departureCountedUntilLabel,
+                      })}
+                    </p>
+                  )}
+
+                  {/* Missed it. The record is still open — an organizer can
+                      close it by hand — so the message points there rather
+                      than leaving a checked-in volunteer with no next step. */}
+                  {departureWindowClosed && (
+                    <p className="max-w-[420px] text-center text-sm font-semibold text-[#D32F2F]">
+                      {t("COMMON.CHECK_OUT_GRACE_EXPIRED", {
+                        time: departureClosesAtLabel,
+                      })}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1887,9 +1989,10 @@ export default function VolunteerEvent({
                         alt=""
                       />
                       <p className="2xl:text-xl lg:text-base text-base font-bold text-primary-5">
-                        {opportunityData?.is_kuwaitis === true
-                          ? t("COMMON.KUWAITIS.ONLY")
-                          : t("COMMON.ALL.NATIONALITY")}
+                        {opportunityNationalityLabel(
+                          opportunityNationalityFrom(opportunityData ?? {}),
+                          selectedLanguage
+                        )}
                       </p>
                     </div>
 

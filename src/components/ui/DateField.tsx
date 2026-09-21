@@ -357,7 +357,7 @@ const DatePickerInput = forwardRef<HTMLInputElement, DatePickerProps>(
             {showDueDate ? (
               <>
                 <Image
-                  src={asset("homepage/duedate.svg")}
+                  src={asset("homepage/dateicon.svg")}
                   alt=""
                   width={20}
                   height={20}

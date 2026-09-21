@@ -47,6 +47,13 @@ import { normalizeInterests, resolveInterestOptionIds } from "@/lib/interests";
 import { NAV_STATE_KEYS, useConsumedNavState } from "@/lib/navigationState";
 import { YupFlexibleUrl, YupOptionalUrl, YupNumberOnly, YupRequiredString, YupStringMaxLength, YupWhatsAppLink } from "@/features/shared/schemas";
 import { getOrganizerProfile } from "@/features/profile/services/profileApi";
+import {
+  OPPORTUNITY_NATIONALITY_FIELD_LIVE,
+  opportunityNationalityFrom,
+  opportunityNationalityOptions,
+  opportunityNationalityToLegacyFlag,
+  type OpportunityNationality,
+} from "@/data/Constants";
 import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useTimeSlotsStore } from "@/store/timeSlotsStore";
@@ -123,7 +130,7 @@ interface LearnServeFormValues {
    * rendered as `SelectInput`, which binds through Formik by name and matches
    * the field value against its option values. Converted back at submit.
    */
-  is_kuwaitis: string;
+  opportunity_nationality: string;
   is_paid: string;
   /** Kept as a string: it is a text input, and "" is how "not answered" reads. */
   price: string;
@@ -859,7 +866,9 @@ export default function LearnServeForm({
     meetingLink: opportunityData?.link || "",
     whatsappLink: opportunityData?.whatsapp_link || "",
     gender: opportunityData?.gender_display?.id || "",
-    is_kuwaitis: String(opportunityData?.is_kuwaitis === true),
+    opportunity_nationality: opportunityNationalityFrom(
+      opportunityData ?? {}
+    ),
     is_paid: String(opportunityData?.is_paid === true),
     price:
       opportunityData?.price !== null && opportunityData?.price !== undefined
@@ -1262,7 +1271,20 @@ export default function LearnServeForm({
       // The API's `boolean` validation rule only accepts 1/0 (or "1"/"0"),
       // not the literal strings "true"/"false".
       const isPaidOpportunity = values.is_paid === "true";
-      formData.append("is_kuwaitis", values.is_kuwaitis === "true" ? "1" : "0");
+      /*
+       * BE-77: the four-way audience. The new key is only sent once the
+       * backend accepts it — `RejectsUnknownWriteKeys` 422s the whole form
+       * otherwise — and `is_kuwaitis` goes alongside it either way, so an
+       * older API and an updated one both get an answer they understand.
+       */
+      const nationality = values.opportunity_nationality as OpportunityNationality;
+      if (OPPORTUNITY_NATIONALITY_FIELD_LIVE) {
+        formData.append("opportunity_nationality", nationality);
+      }
+      formData.append(
+        "is_kuwaitis",
+        opportunityNationalityToLegacyFlag(nationality) ? "1" : "0"
+      );
       formData.append("is_paid", isPaidOpportunity ? "1" : "0");
       // Only meaningful when paid. On the free branch the backend nulls the
       // column itself, so sending an empty string would just be noise.
@@ -2127,29 +2149,27 @@ export default function LearnServeForm({
                       )}
 
                       {/*
-                        Was a "Kuwaitis only" checkbox. Both answers are now
-                        stated, because an unticked box reads as "not answered
-                        yet" rather than "open to everyone". Still the same
-                        `is_kuwaitis` boolean underneath — no contract change.
+                        Was a "Kuwaitis only" checkbox, then a two-way select.
+                        Now the client's four-way audience (BE-77): «الجميع»
+                        plus the three groups that partition everyone.
                       */}
                       {isInternshipOrCourse && (
                         <SelectInput
-                          name="is_kuwaitis"
+                          name="opportunity_nationality"
                           label={t("COMMON.OPPORTUNITY_NATIONALITY")}
-                          options={[
-                            {
-                              label: t("COMMON.ALL_NATIONALITIES"),
-                              value: "false",
-                            },
-                            {
-                              label: t("COMMON.KUWAITIS.ONLY"),
-                              value: "true",
-                            },
-                          ]}
+                          options={opportunityNationalityOptions.map(
+                            (option) => ({
+                              label:
+                                selectedLanguage === "ar"
+                                  ? option.name_ar
+                                  : option.name_en,
+                              value: option.value,
+                            })
+                          )}
                           onChange={(selectedOption) =>
                             setFieldValue(
-                              "is_kuwaitis",
-                              String(selectedOption?.value === "true")
+                              "opportunity_nationality",
+                              String(selectedOption?.value ?? "all")
                             )
                           }
                         />
@@ -2379,6 +2399,10 @@ export default function LearnServeForm({
                         label={t("COMMON.UPLOAD_IMAGE")}
                         accept="image/jpeg, image/png"
                         multiple
+                        /* One image per opportunity — the picker, the previews and the
+                           submitted array are all capped at one. `multiple` stays so the
+                           value keeps its array shape; `singleFileArray` is the cap. */
+                        singleFileArray
                         setFieldValue={setFieldValue}
                         existingFiles={modifiedOpportunityImages.map((file) => ({
                           id: file.id,

@@ -325,7 +325,7 @@ const CropModal: React.FC<CropModalProps> = ({
         </p>
       </div>
 
-      <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden mx-auto" style={{ paddingTop: getCropperPaddingTop() }}>
+      <div className="relative w-[50%] bg-gray-100 h-[400px] rounded-lg overflow-hidden mx-auto" >
         <div style={{ position: 'absolute', inset: 0, backgroundColor: '#f3f4f6' }}>
           <Cropper
             image={imageSrc}
@@ -591,12 +591,23 @@ const UploadDocument: React.FC<UploadInputProps> = ({
             <div className="text-sm text-primary-5 mt-2 p-2 rounded-lg">
               <p>{t("COMMON.CROP_INFO")}</p>
               {cropDisplayMode === "opportunity" && <p className="mt-1 text-xs">{t("COMMON.CROP_FRAME_INFO")}</p>}
+              {/* Said before the picker opens, not after three files are
+                  silently dropped. */}
+              {singleFileArray && <p className="mt-1 text-xs font-semibold">{t("COMMON.SINGLE_IMAGE_ONLY")}</p>}
             </div>
           )}
 
           {showUploadButton && (
             <>
-              <input id={`${name}-input`} type="file" multiple={multiple} accept={accept} className="hidden" onChange={handleFileChange} ref={fileInputRef} />
+              {/*
+                `singleFileArray` keeps the field's value an array — the forms
+                submit `new_*_images_0`, so the shape must not change — while
+                allowing exactly one entry. The OS picker must therefore not
+                offer multi-select: `handleFileChange` already slices to the
+                first file, so a user who shift-selects four would otherwise
+                watch three vanish with no explanation.
+              */}
+              <input id={`${name}-input`} type="file" multiple={multiple && !singleFileArray} accept={accept} className="hidden" onChange={handleFileChange} ref={fileInputRef} />
               <div className="flex justify-center pt-4">
                 <Button type="button" variant="secondarys" size="medium" onClick={() => document.getElementById(`${name}-input`)?.click()}>
                   {t("COMMON.UPLOAD")}

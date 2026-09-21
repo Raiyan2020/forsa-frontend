@@ -149,18 +149,121 @@ export const nationalityResidencyValueFrom = (
     : "non_kuwaiti_resident";
 };
 
-export const nationalityFilterOptions = [
+/**
+ * Who an opportunity is open to. Replaces the `is_kuwaitis` boolean, which
+ * could only say "Kuwaitis only" or "everyone".
+ *
+ * The three specific values partition the whole population — every person is
+ * exactly one of them — so `all` is the union of the other three rather than a
+ * fourth group. That is why it leads the list: it is the default and the
+ * broadest.
+ */
+export const OPPORTUNITY_NATIONALITY_VALUES = [
+  "all",
+  "kuwaitis",
+  "non_kuwaiti_arabic",
+  "non_arabic",
+] as const;
+
+export type OpportunityNationality =
+  (typeof OPPORTUNITY_NATIONALITY_VALUES)[number];
+
+export const opportunityNationalityOptions: {
+  value: OpportunityNationality;
+  name_en: string;
+  name_ar: string;
+}[] = [
+  { value: "all", name_en: "All nationalities", name_ar: "كل الجنسيات" },
+  { value: "kuwaitis", name_en: "Kuwaitis", name_ar: "كويتيين" },
   {
-    value: "kuwaitis",
-    name_en: "Kuwaitis",
-    name_ar: "كويتيين",
+    value: "non_kuwaiti_arabic",
+    name_en: "Non-Kuwaiti Arabic speakers",
+    name_ar: "غير كويتي ناطق بالعربية",
   },
   {
-    value: "other",
-    name_en: "All",
-    name_ar: "الجميع",
+    value: "non_arabic",
+    name_en: "Non-Arabic speakers",
+    name_ar: "غير ناطق بالعربية",
   },
 ];
+
+/**
+ * BE-77 has not shipped. Two things break if the frontend acts as though it
+ * had:
+ *
+ * 1. `RejectsUnknownWriteKeys` turns any unrecognised write key into a 422, so
+ *    sending `opportunity_nationality` today fails the whole publish form.
+ * 2. The list endpoints understand `opportunity_nationality=kuwaitis` and
+ *    `=non-kuwaitis` only. An unknown value is ignored silently and the list
+ *    comes back unfiltered — a wrong answer that looks like a right one, which
+ *    is worse in a filter than in a form.
+ *
+ * Flip this to `true` the day the backend accepts and returns the field. The
+ * forms will start sending it and the filter will offer all four values; no
+ * other change is needed.
+ */
+export const OPPORTUNITY_NATIONALITY_FIELD_LIVE = false;
+
+export const opportunityNationalityLabel = (
+  value: string | null | undefined,
+  language: string
+): string => {
+  const option =
+    opportunityNationalityOptions.find((entry) => entry.value === value) ??
+    opportunityNationalityOptions[0];
+
+  return language === "ar" ? option.name_ar : option.name_en;
+};
+
+/**
+ * Reads the audience off a payload that may or may not carry the new field.
+ * Until BE-77 lands, `is_kuwaitis` is all there is: `true` means Kuwaitis
+ * only, `false` meant "everyone" and still does.
+ */
+export const opportunityNationalityFrom = (item: {
+  opportunity_nationality?: string | null;
+  is_kuwaitis?: boolean | null;
+}): OpportunityNationality => {
+  const value = item?.opportunity_nationality;
+  if (
+    value &&
+    (OPPORTUNITY_NATIONALITY_VALUES as readonly string[]).includes(value)
+  ) {
+    return value as OpportunityNationality;
+  }
+
+  return item?.is_kuwaitis === true ? "kuwaitis" : "all";
+};
+
+/**
+ * The legacy boolean to send alongside (or instead of) the new field.
+ *
+ * Only `kuwaitis` maps cleanly. The two new audiences both *exclude* Kuwaitis,
+ * and the boolean has no way to say that — `false` is the closest truthful
+ * answer ("not restricted to Kuwaitis") and is what they collapse to until
+ * BE-77 gives them a column of their own.
+ */
+export const opportunityNationalityToLegacyFlag = (
+  value: OpportunityNationality
+): boolean => value === "kuwaitis";
+
+export const nationalityFilterOptions = OPPORTUNITY_NATIONALITY_FIELD_LIVE
+  ? opportunityNationalityOptions
+  : [
+      {
+        value: "kuwaitis",
+        name_en: "Kuwaitis",
+        name_ar: "كويتيين",
+      },
+      {
+        // The API filters on `kuwaitis` / `non-kuwaitis` and ignores anything
+        // else, so this value deliberately matches neither branch: "All" is
+        // implemented as "apply no nationality filter".
+        value: "other",
+        name_en: "All",
+        name_ar: "الجميع",
+      },
+    ];
 
 export const healthConcernOptions = [
   {

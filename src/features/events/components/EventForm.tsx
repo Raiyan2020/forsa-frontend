@@ -1221,6 +1221,10 @@ export default function EventForm({
                       label={t("COMMON.UPLOAD_IMAGE")}
                       accept="image/jpeg, image/png"
                       multiple
+                      /* One image per event — the picker, the previews and the
+                         submitted array are all capped at one. `multiple` stays so the
+                         value keeps its array shape; `singleFileArray` is the cap. */
+                      singleFileArray
                       setFieldValue={setFieldValue}
                       existingFiles={modifiedEventImages.map((file) => ({
                         id: file.id,

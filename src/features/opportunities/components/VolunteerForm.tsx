@@ -41,9 +41,14 @@ import { getAllOrganizations } from "@/features/shared/services/directory";
 import { submitToleratingInterestIds } from "@/features/shared/interestIdsFallback";
 import { resubmitVolunteerOpportunity } from "@/features/opportunities/services/registrations";
 import {
+  OPPORTUNITY_NATIONALITY_FIELD_LIVE,
   VOLUNTEER_CATEGORY_WITH_BENEFICIARIES,
+  opportunityNationalityFrom,
+  opportunityNationalityOptions,
+  opportunityNationalityToLegacyFlag,
   opportunityPrivacyOptions,
   volunteerCategoryOptions,
+  type OpportunityNationality,
 } from "@/data/Constants";
 import { getApiErrorMessages } from "@/lib/api/errors";
 import i18n from "@/lib/i18n/config";
@@ -103,6 +108,8 @@ interface VolunteerFormValues {
   sponsors: { sponsorId: string; position: number }[];
   volunteerCategory: string;
   beneficiariesCount: string;
+  /** BE-77 — the four-way audience that replaced the "Kuwaitis only" tick. */
+  opportunity_nationality: string;
 }
 
 interface VolunteerFormProps {
@@ -492,7 +499,6 @@ export default function VolunteerForm({
 
     setSelectedCheckBoxes([
       ...(opportunityData.is_relief ? ["relief"] : []),
-      ...(opportunityData.is_kuwaitis ? ["kuwaitis"] : []),
       ...(opportunityData.is_urgent ? ["urgent"] : []),
       ...(opportunityData.is_emergency ? ["emergency"] : []),
       ...(opportunityData.is_supports_disabled ? ["disabled"] : []),
@@ -717,6 +723,7 @@ export default function VolunteerForm({
     ),
     opportunity_images: [],
     license_image: "",
+    opportunity_nationality: opportunityNationalityFrom(opportunityData ?? {}),
     isPrivate: id
       ? opportunityData?.is_public === false
         ? "private"
@@ -998,9 +1005,18 @@ export default function VolunteerForm({
     { resetForm }: FormikHelpers<VolunteerFormValues>
   ) => {
     try {
+      /*
+       * BE-77: the audience left the tick-box set and became its own select,
+       * so it is read from the form value rather than from
+       * `selectedCheckBoxes`. The new key only goes on the wire once the
+       * backend accepts it — `RejectsUnknownWriteKeys` 422s the whole publish
+       * on an unrecognised key — while `is_kuwaitis` is sent either way.
+       */
+      const nationality = values.opportunity_nationality as OpportunityNationality;
+
       const checkboxValues = {
         is_relief: selectedCheckBoxes.includes("relief"),
-        is_kuwaitis: selectedCheckBoxes.includes("kuwaitis"),
+        is_kuwaitis: opportunityNationalityToLegacyFlag(nationality),
         is_urgent: selectedCheckBoxes.includes("urgent"),
         // Emergency priority is independent of the "Outside Kuwait"
         // (`is_relief`) classification — it only drives the badge and the
@@ -1098,6 +1114,10 @@ export default function VolunteerForm({
         // not the literal strings "true"/"false".
         formData.append(key, value ? "1" : "0");
       });
+
+      if (OPPORTUNITY_NATIONALITY_FIELD_LIVE) {
+        formData.append("opportunity_nationality", nationality);
+      }
 
       values._interests.forEach((interest) => {
         formData.append("interest_ids[]", interest);
@@ -1586,6 +1606,32 @@ export default function VolunteerForm({
                       }
                       disabled={genderLoading}
                     />
+                    {/*
+                      BE-77 — was a «كويتيين فقط» tick among the flags at the
+                      bottom of the form. It is not a flag: it is one answer
+                      chosen from four, and it belongs with age and gender,
+                      which are the other two "who is this for" questions. An
+                      unticked box also read as "not answered yet" rather than
+                      "open to everyone", which the explicit «كل الجنسيات»
+                      fixes.
+                    */}
+                    <SelectInput
+                      name="opportunity_nationality"
+                      label={t("COMMON.OPPORTUNITY_NATIONALITY")}
+                      options={opportunityNationalityOptions.map((option) => ({
+                        label:
+                          selectedLanguage === "ar"
+                            ? option.name_ar
+                            : option.name_en,
+                        value: option.value,
+                      }))}
+                      onChange={(selectedOption) =>
+                        setFieldValue(
+                          "opportunity_nationality",
+                          String(selectedOption?.value ?? "all")
+                        )
+                      }
+                    />
                     <Input
                       name="link"
                       label={t("COMMON.WHATSAPP_LINK")}
@@ -1683,14 +1729,6 @@ export default function VolunteerForm({
                   )}
 
                   <div className="flex 2xl:gap-[143px] laptopitm:gap-[100px] lg:gap-[100px] miniscreen:gap-[85px] miniscreen7:gap-[95px] miniscreen6:gap-[120px] msscreen1:gap-[140px] justify-center mobilescreen:gap-1 mobilescreen:flex-col mb-4 mobilescreen:mb-4 checkbox-container">
-                    <CheckBox
-                      id="kuwaitis"
-                      label={t("COMMON.KUWAITIS.ONLY")}
-                      checked={selectedCheckBoxes.includes("kuwaitis")}
-                      onChange={(checked) =>
-                        handleCheckboxChange("kuwaitis", checked)
-                      }
-                    />
                     <CheckBox
                       id="disabled"
                       label={t("COMMON.SUPPORTS_DISABLED")}
@@ -1862,6 +1900,10 @@ export default function VolunteerForm({
                       label={t("COMMON.UPLOAD_IMAGE")}
                       accept="image/jpeg, image/png"
                       multiple
+                      /* One image per opportunity — the picker, the previews and the
+                         submitted array are all capped at one. `multiple` stays so the
+                         value keeps its array shape; `singleFileArray` is the cap. */
+                      singleFileArray
                       setFieldValue={setFieldValue}
                       existingFiles={modifiedOpportunityImages.map((file) => ({
                         id: file.id,

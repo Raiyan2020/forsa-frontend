@@ -295,16 +295,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div>
           <EditorContent
             editor={editor}
-            className={`p-3 min-h-[100px] text-primary-5 placeholder:text-primary-5 placeholder:text-lg pt-0 ${
-              selectedLanguage === "ar" ? "text-right" : "text-left"
-            }`}
+            className={`p-3 min-h-[100px] text-primary-5 placeholder:text-primary-5 placeholder:text-lg pt-0 `}
           />
         </div>
       </div>
       <label
-        className={`absolute transition-all duration-200 text-primary-5 font-medium ${
-          selectedLanguage === "ar" ? "right-[15px]" : "left-[15px]"
-        } ${
+        className={`absolute transition-all duration-200 text-primary-5 font-medium start-[15px]
+          ${
           isFocused || hasContent ? "top-[2px] text-sm px-1" : "top-10 text-base"
         }`}
       >

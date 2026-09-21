@@ -263,7 +263,7 @@ const BirthDateField = forwardRef<HTMLInputElement, DatePickerProps>(
             }}
           >
             {showDueDate ? (
-              <img src="/assets/homepage/duedate.svg" alt="due date" />
+              <img src="/assets/homepage/dateicon.svg" alt="due date" />
             ) : (
               <img src="/assets/homepage/dateicon.svg" alt="date" />
             )}
