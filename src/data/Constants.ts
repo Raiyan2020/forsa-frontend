@@ -150,6 +150,44 @@ export const nationalityResidencyValueFrom = (
 };
 
 /**
+ * BE-77 — the individual's own «ناطق بالعربية» answer, the signal the two
+ * language-based audiences are matched against.
+ *
+ * Deliberately three-valued and optional. Unanswered is a real state: the
+ * backend treats `null` as passing every audience, so nobody is refused over
+ * a question we never asked them, and forcing a yes/no here would turn that
+ * into a false answer instead of a missing one.
+ */
+export const speaksArabicOptions = [
+  { value: "", name_en: "Prefer not to say", name_ar: "أفضّل عدم التحديد" },
+  { value: "true", name_en: "Yes", name_ar: "نعم" },
+  { value: "false", name_en: "No", name_ar: "لا" },
+];
+
+/**
+ * Whether to ask at all, given the combined nationality/residency choice.
+ *
+ * A Kuwaiti is an Arabic speaker by definition, and the backend's
+ * `OpportunityNationality::matches()` resolves the flag to `true` for them
+ * whatever the column says. Asking anyway would be a question whose answer is
+ * discarded — so it is only put to non-Kuwaitis, exactly where it carries
+ * information.
+ */
+export const speaksArabicApplies = (
+  nationalityResidencyValue: string
+): boolean =>
+  Boolean(nationalityResidencyValue) && nationalityResidencyValue !== "kuwaiti";
+
+/** Form string → what the API wants. `undefined` means "leave unanswered". */
+export const speaksArabicToPayload = (value: string): boolean | undefined =>
+  value === "true" ? true : value === "false" ? false : undefined;
+
+/** Stored value → form string, for the edit screens. */
+export const speaksArabicValueFrom = (
+  value: boolean | null | undefined
+): string => (value === true ? "true" : value === false ? "false" : "");
+
+/**
  * Who an opportunity is open to. Replaces the `is_kuwaitis` boolean, which
  * could only say "Kuwaitis only" or "everyone".
  *
@@ -188,21 +226,16 @@ export const opportunityNationalityOptions: {
 ];
 
 /**
- * BE-77 has not shipped. Two things break if the frontend acts as though it
- * had:
+ * BE-77 shipped in backend commit `994f562`: the publish endpoints validate
+ * `opportunity_nationality` (so `RejectsUnknownWriteKeys` lets it through),
+ * both resources return it, and the list filter accepts all four values.
  *
- * 1. `RejectsUnknownWriteKeys` turns any unrecognised write key into a 422, so
- *    sending `opportunity_nationality` today fails the whole publish form.
- * 2. The list endpoints understand `opportunity_nationality=kuwaitis` and
- *    `=non-kuwaitis` only. An unknown value is ignored silently and the list
- *    comes back unfiltered — a wrong answer that looks like a right one, which
- *    is worse in a filter than in a form.
- *
- * Flip this to `true` the day the backend accepts and returns the field. The
- * forms will start sending it and the filter will offer all four values; no
- * other change is needed.
+ * Kept as a named constant rather than deleted because `is_kuwaitis` is still
+ * accepted and returned for one release — this is the switch that says which
+ * of the two we treat as authoritative, and it is the thing to flip back if
+ * the rollout has to be undone.
  */
-export const OPPORTUNITY_NATIONALITY_FIELD_LIVE = false;
+export const OPPORTUNITY_NATIONALITY_FIELD_LIVE = true;
 
 export const opportunityNationalityLabel = (
   value: string | null | undefined,
@@ -247,8 +280,33 @@ export const opportunityNationalityToLegacyFlag = (
   value: OpportunityNationality
 ): boolean => value === "kuwaitis";
 
-export const nationalityFilterOptions = OPPORTUNITY_NATIONALITY_FIELD_LIVE
-  ? opportunityNationalityOptions
+/**
+ * The audience filter on the opportunity lists.
+ *
+ * `""` leads and is not one of the audience values: the API filters
+ * `opportunity_nationality=all` down to opportunities published *for*
+ * everyone, which is a narrower result than "do not filter by audience". The
+ * old list conflated the two — its "All" row sent `other`, a value the API
+ * matches nowhere, so it happened to clear the filter. Now that all four
+ * values do something, the clear option has to be its own row or there is no
+ * way back to an unfiltered list from inside the dropdown.
+ */
+export const nationalityFilterOptions: {
+  value: string;
+  name_en: string;
+  name_ar: string;
+}[] = OPPORTUNITY_NATIONALITY_FIELD_LIVE
+  ? [
+      { value: "", name_en: "All", name_ar: "الكل" },
+      {
+        value: "all",
+        name_en: "Open to everyone",
+        name_ar: "مفتوحة للجميع",
+      },
+      ...opportunityNationalityOptions.filter(
+        (option) => option.value !== "all"
+      ),
+    ]
   : [
       {
         value: "kuwaitis",

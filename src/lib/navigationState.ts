@@ -69,8 +69,40 @@ export function getNavState<T>(key: NavStateKey): T | null {
  */
 export function takeNavState<T>(key: NavStateKey): T | null {
   const value = getNavState<T>(key);
-  if (value !== null) clearNavState(key);
+  if (value !== null) {
+    consumedThisPageLoad.set(key, value);
+    clearNavState(key);
+  }
   return value;
+}
+
+/**
+ * What `takeNavState` has removed since this page was loaded.
+ *
+ * Module-level on purpose: it is wiped by the very reload it exists to
+ * survive, which is exactly the lifetime we want. A value only goes back into
+ * sessionStorage when something explicitly asks for it below.
+ */
+const consumedThisPageLoad = new Map<NavStateKey, unknown>();
+
+/**
+ * Put back every payload consumed during this page load, immediately before a
+ * deliberate reload of the same URL.
+ *
+ * `takeNavState` clears on read so that a later visit to `/volunteer-form`
+ * with no payload is a clean "create" rather than a stale edit. A reload is
+ * the one case where that is wrong: it is the *same* visit, and the screen
+ * needs its payload a second time. Without this, switching language on a
+ * repost form would come back as a blank create form and the target would be
+ * silently gone.
+ *
+ * It is not a general "undo": nothing calls it on navigation, so the
+ * clear-on-read guarantee is untouched everywhere else.
+ */
+export function restoreConsumedNavState(): void {
+  consumedThisPageLoad.forEach((value, key) => {
+    setNavState(key, value);
+  });
 }
 
 export function clearNavState(key: NavStateKey): void {

@@ -46,6 +46,9 @@ import {
   findNationalityResidency,
   nationalityNeedsPassport,
   nationalityResidencyOptions,
+  speaksArabicApplies,
+  speaksArabicOptions,
+  speaksArabicToPayload,
 } from "@/data/Constants";
 
 function DobWatcher({
@@ -146,6 +149,8 @@ function IndividualRegistrationFormComponent() {
      * `nationality` + `residency_status` pair.
      */
     nationality: "",
+    /** BE-77 — optional; only asked of non-Kuwaitis. */
+    speaks_arabic: "",
     emergency_contact_name: "",
     emergency_contact_phone: "",
     emergency_contact_country_code: "",
@@ -264,6 +269,16 @@ function IndividualRegistrationFormComponent() {
         phone_number: values.phone_number,
         nationality: residency?.nationality ?? "",
         residency_status: residency?.residency_status ?? "",
+        /*
+         * BE-77. `undefined` drops the key from the JSON body entirely, which
+         * is what "unanswered" has to look like on the wire: the column is
+         * nullable and a null passes every audience. Sending `false` for a
+         * blank answer would quietly bar the volunteer from Arabic-audience
+         * opportunities.
+         */
+        speaks_arabic: speaksArabicApplies(values.nationality)
+          ? speaksArabicToPayload(values.speaks_arabic)
+          : undefined,
         civil_id: usesPassport ? "" : values.civil_id,
         passport_number: usesPassport ? values.passport_number : "",
         user_type: "volunteer",
@@ -601,6 +616,12 @@ function IndividualRegistrationFormComponent() {
                         } else {
                           setFieldValue("passport_number", "");
                         }
+                        // The Arabic question disappears for a Kuwaiti, so
+                        // drop any answer given before the switch rather than
+                        // submitting one the user can no longer see.
+                        if (!speaksArabicApplies(value)) {
+                          setFieldValue("speaks_arabic", "");
+                        }
                       }}
                     />
                     {nationalityNeedsPassport(values.nationality) ? (
@@ -617,6 +638,31 @@ function IndividualRegistrationFormComponent() {
                         label={t("COMMON.CIVIL_ID")}
                         maxLength={12}
                         digitsOnly
+                      />
+                    )}
+                    {/*
+                      BE-77 — asked only of non-Kuwaitis, who are the only
+                      people the answer says anything new about. Optional: it
+                      decides which language-targeted opportunities are open,
+                      and leaving it blank opens all of them.
+                    */}
+                    {speaksArabicApplies(values.nationality) && (
+                      <SelectInput
+                        name="speaks_arabic"
+                        label={t("COMMON.SPEAKS_ARABIC")}
+                        options={speaksArabicOptions.map((item) => ({
+                          label:
+                            selectedLanguage === "ar"
+                              ? item.name_ar
+                              : item.name_en,
+                          value: item.value,
+                        }))}
+                        onChange={(selectedOption) =>
+                          setFieldValue(
+                            "speaks_arabic",
+                            selectedOption?.value || ""
+                          )
+                        }
                       />
                     )}
                   </div>

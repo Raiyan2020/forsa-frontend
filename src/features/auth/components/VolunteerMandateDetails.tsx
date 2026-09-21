@@ -27,6 +27,9 @@ import {
   findNationalityResidency,
   nationalityNeedsPassport,
   nationalityResidencyOptions,
+  speaksArabicApplies,
+  speaksArabicOptions,
+  speaksArabicToPayload,
 } from "@/data/Constants";
 import { cn } from "@/lib/helpers";
 import { YupCivilId, YupPhoneNumber, YupRequiredString, YupStringMaxLength, createPhoneNumberSchema } from "@/features/shared/schemas";
@@ -67,6 +70,8 @@ interface MandateFormValues {
   passport_number: string;
   /** Combined nationality/residency choice; split into API fields on submit. */
   nationality: string;
+  /** BE-77 — "" | "true" | "false"; blank stays unanswered on the wire. */
+  speaks_arabic: string;
   termsAccepted: boolean;
   emergency_contact_name: string;
   emergency_contact_phone: string;
@@ -189,6 +194,8 @@ export default function VolunteerMandateDetails({
       civil_id: "",
       passport_number: "",
       nationality: "",
+      /** BE-77 — optional; only asked of non-Kuwaitis. */
+      speaks_arabic: "",
       termsAccepted: false,
       emergency_contact_name: "",
       emergency_contact_phone: "",
@@ -347,6 +354,18 @@ export default function VolunteerMandateDetails({
         civil_id: usesPassport ? "" : values.civil_id,
         passport_number: usesPassport ? values.passport_number : "",
       };
+
+      // BE-77 — same rule as the email signup form: the key is present only
+      // when there is a real answer, because null means "passes every
+      // audience" and `false` does not.
+      const speaksArabic = speaksArabicApplies(values.nationality)
+        ? speaksArabicToPayload(values.speaks_arabic)
+        : undefined;
+      if (speaksArabic === undefined) {
+        delete profile.speaks_arabic;
+      } else {
+        profile.speaks_arabic = speaksArabic;
+      }
       delete profile.termsAccepted;
       const finalUserData = {
         ...userData,
@@ -519,6 +538,9 @@ export default function VolunteerMandateDetails({
                           } else {
                             setFieldValue("passport_number", "");
                           }
+                          if (!speaksArabicApplies(value)) {
+                            setFieldValue("speaks_arabic", "");
+                          }
                         }}
                       />
                       {nationalityNeedsPassport(values.nationality) ? (
@@ -535,6 +557,27 @@ export default function VolunteerMandateDetails({
                           label={t("COMMON.CIVIL_ID")}
                           maxLength={12}
                           digitsOnly
+                        />
+                      )}
+                      {/* BE-77 — see the email signup form; same optional
+                          question, asked only where it carries information. */}
+                      {speaksArabicApplies(values.nationality) && (
+                        <SelectInput
+                          name="speaks_arabic"
+                          label={t("COMMON.SPEAKS_ARABIC")}
+                          options={speaksArabicOptions.map((item) => ({
+                            label:
+                              selectedLanguage === "ar"
+                                ? item.name_ar
+                                : item.name_en,
+                            value: item.value,
+                          }))}
+                          onChange={(selectedOption) =>
+                            setFieldValue(
+                              "speaks_arabic",
+                              selectedOption?.value || ""
+                            )
+                          }
                         />
                       )}
                     </div>

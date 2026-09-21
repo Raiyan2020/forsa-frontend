@@ -12,6 +12,7 @@ function ChevronDownIcon({ className }: { className?: string }) {
   );
 }
 import apiClient from "@/lib/api/client";
+import { restoreConsumedNavState } from "@/lib/navigationState";
 import i18n from "@/lib/i18n/config";
 import { useTranslation } from "react-i18next";
 
@@ -30,9 +31,14 @@ const LanguageSelection = () => {
 
 
   const handleSelect = async (languageCode: string) => {
+    setIsOpen(false);
+
+    // The menu only ever offers the other language, but a no-op reload is a
+    // bad enough experience to guard against anyway.
+    if (languageCode === language) return;
+
     setLanguage(languageCode);
     i18n.changeLanguage(languageCode);
-    setIsOpen(false);
 
     // If user is logged in, update preferred language on backend
     if (user?.id) {
@@ -44,6 +50,29 @@ const LanguageSelection = () => {
         // Silently ignore — language still switches locally
       }
     }
+
+    /*
+     * Reload the page in the new language.
+     *
+     * Three things about the timing and the method:
+     *
+     * - It runs *after* the account call settles. Reloading first aborts the
+     *   in-flight request and the preference never reaches the server, so the
+     *   next sign-in comes back in the old language.
+     * - It is a full reload, not `router.refresh()`. Refresh re-renders the
+     *   Server Components but keeps the React Query cache, and the cache is
+     *   where the stale text lives: query keys that do not include the
+     *   language still hold strings the backend localized under the previous
+     *   `x-lang` header, and would serve them until `staleTime` expires.
+     * - `restoreConsumedNavState()` first, because `takeNavState` clears its
+     *   payload on read. Without it, switching language on a repost form
+     *   would come back as an empty create form with the target gone.
+     *
+     * The persisted language is already on disk: Zustand's `persist`
+     * middleware writes to localStorage synchronously inside `setLanguage`.
+     */
+    restoreConsumedNavState();
+    window.location.reload();
   };
 
   useEffect(() => {

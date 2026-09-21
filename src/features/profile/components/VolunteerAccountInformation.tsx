@@ -32,6 +32,10 @@ import {
   nationalityNeedsPassport,
   nationalityResidencyOptions,
   nationalityResidencyValueFrom,
+  speaksArabicApplies,
+  speaksArabicOptions,
+  speaksArabicToPayload,
+  speaksArabicValueFrom,
   occupationOptions,
   socialMediaOptions,
 } from "@/data/Constants";
@@ -122,6 +126,8 @@ interface CombinedFormValues {
   gender: string;
   /** Combined nationality/residency choice; split into API fields on submit. */
   nationality: string;
+  /** BE-77 — "" | "true" | "false"; blank stays unanswered on the wire. */
+  speaks_arabic: string;
   dob: string;
   civil_id: string;
   passport_number: string;
@@ -369,7 +375,10 @@ export default function VolunteerAccountInformation() {
       volunteerProfile?.data?.residency_status ??
         accountData?.data?.residency_status
     ),
-    dob: volunteerProfile?.data?.dob ?? "",
+
+    speaks_arabic: speaksArabicValueFrom(
+      volunteerProfile?.data?.speaks_arabic ?? accountData?.data?.speaks_arabic
+    ),    dob: volunteerProfile?.data?.dob ?? "",
     civil_id: volunteerProfile?.data?.civil_id ?? "",
     passport_number: volunteerProfile?.data?.passport_number ?? "",
     emergency_contact_name: accountData?.data?.emergency_contact_name ?? "",
@@ -733,6 +742,18 @@ export default function VolunteerAccountInformation() {
         residency_status: residency?.residency_status ?? "",
         civil_id: usesPassport ? "" : values.civil_id,
         passport_number: usesPassport ? values.passport_number : "",
+        /*
+         * BE-77. The key is added only when there is a real answer — an
+         * absent key leaves the nullable column alone, and `hasProfileChanges`
+         * below diffs every key it finds, so a permanently-`undefined` one
+         * would report a change on every save. Clearing an answer back to
+         * unanswered is therefore not offered, which is the safer default:
+         * nothing silently erases a stated one.
+         */
+        ...(speaksArabicApplies(values.nationality) &&
+        speaksArabicToPayload(values.speaks_arabic) !== undefined
+          ? { speaks_arabic: speaksArabicToPayload(values.speaks_arabic) }
+          : {}),
         ...socialMediaFields,
         // Only send a real date when one is provided
         dob: values.dob ? formatDateToYYYYMMDD(values.dob) : null,
@@ -1136,8 +1157,34 @@ export default function VolunteerAccountInformation() {
                           } else {
                             setFieldValue("passport_number", "");
                           }
+                          if (!speaksArabicApplies(value)) {
+                            setFieldValue("speaks_arabic", "");
+                          }
                         }}
                       />
+                      {/* BE-77 — the answer the language-targeted audiences
+                          are matched against. Non-Kuwaitis only: a Kuwaiti is
+                          resolved as an Arabic speaker server-side whatever
+                          this column says. */}
+                      {speaksArabicApplies(values.nationality) && (
+                        <SelectInput
+                          name="speaks_arabic"
+                          label={t("COMMON.SPEAKS_ARABIC")}
+                          options={speaksArabicOptions.map((item) => ({
+                            label:
+                              selectedLanguage === "ar"
+                                ? item.name_ar
+                                : item.name_en,
+                            value: item.value,
+                          }))}
+                          onChange={(selectedOption) =>
+                            setFieldValue(
+                              "speaks_arabic",
+                              selectedOption?.value || ""
+                            )
+                          }
+                        />
+                      )}
                     </div>
 
                     <div className="flex mobilescreen:flex-col gap-4 mobilescreen:gap-0 selectfiled">

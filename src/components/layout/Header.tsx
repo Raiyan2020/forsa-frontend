@@ -145,8 +145,17 @@ const Header = () => {
           )}
         </button>
       </span>
+      {/*
+        The menu is anchored left in both directions now that the account
+        group is pinned to the left of the header. It used to be `right-0` in
+        LTR, which was correct while the avatar sat at the far right — the
+        menu opened inwards. From the left it would open outwards instead and
+        a 245px panel would run off the edge of the viewport. RTL already
+        anchored left for exactly this reason; the two cases have simply
+        become the same case.
+      */}
       {dropdownOpen === "profile" && (
-        <ul className="absolute cursor-pointer right-0 rtl:left-0 rtl:right-auto mt-2 bg-white shadow-[0px_4px_8px_3px_#00000026] rounded-[15px] py-2 top-[75px] laptop:top-[58px] lg:top-[60px] w-[245px] rtl:w-[260px] dropdown-menu z-50">
+        <ul className="absolute cursor-pointer left-0 mt-2 bg-white shadow-[0px_4px_8px_3px_#00000026] rounded-[15px] py-2 top-[75px] laptop:top-[58px] lg:top-[60px] w-[245px] rtl:w-[260px] dropdown-menu z-50">
           {isVolunteerUser ? (
             <>
               <DropdownItem
@@ -235,7 +244,18 @@ const Header = () => {
       className="bg-white w-full z50 sticky top-0"
       onMouseLeave={() => setDropdownOpen(null)}
     >
-      <div className="2xl:w-[83%] laptopmain:w-[88%] laptop:w-[87%] lg:w-[90%] laptopitm:w-[90%] w-[90%] container-fluid mx-auto flex justify-between items-center 2xl:py-10 2xl:pb-[30px] laptop:py-5 laptopmain:py-4 lg:py-5 py-5 mobilescreen:py-3 mobilescreen:pb-1">
+      {/*
+        `ltr:flex-row-reverse` pins the header's physical layout: the logo sits
+        on the right and the notification / language / profile group on the
+        left, in Arabic *and* in English.
+
+        RTL already lays out that way on its own, so only the English side is
+        reversed — which is why the variant is `ltr:` rather than a hardcoded
+        `flex-row-reverse` that would flip Arabic back the wrong way. Source
+        order is untouched, so the DOM still reads logo → nav → account for
+        screen readers and keyboard tabbing.
+      */}
+      <div className="2xl:w-[83%] laptopmain:w-[88%] laptop:w-[87%] lg:w-[90%] laptopitm:w-[90%] w-[90%] container-fluid mx-auto flex ltr:flex-row-reverse justify-between items-center 2xl:py-10 2xl:pb-[30px] laptop:py-5 laptopmain:py-4 lg:py-5 py-5 mobilescreen:py-3 mobilescreen:pb-1">
         {/* Logo */}
         <div>
           <Link href="/" onClick={close}>

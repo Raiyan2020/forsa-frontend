@@ -83,24 +83,7 @@ export default function VolunteerListToolbar({
           the permission, but only its owner hands it out.
         */}
         <div className="flex flex-wrap justify-center gap-4 extrasmall:gap-2">
-          <Button
-            onClick={onSendCertificates}
-            variant="primary"
-            size="medium"
-            disabled={sendCertificatesDisabled}
-            className="extrasmall:!w-[115px]"
-          >
-            {t("COMMON.SEND_CERTIFICATES")}
-          </Button>
-          <Button
-            onClick={onOpenRoleModal}
-            variant="primary"
-            size="medium"
-            className="extrasmall:!w-[115px]"
-          >
-            {t("COMMON.ADD_ROLE")}
-          </Button>
-          <Button
+           <Button
             onClick={onOpenAddVolunteer}
             variant="primary"
             size="medium"
@@ -108,6 +91,14 @@ export default function VolunteerListToolbar({
             className="extrasmall:!w-[115px]"
           >
             {t("COMMON.ADD_VOLUNTEER")}
+          </Button>
+           <Button
+            onClick={onOpenRoleModal}
+            variant="primary"
+            size="medium"
+            className="extrasmall:!w-[115px]"
+          >
+            {t("COMMON.ADD_ROLE")}
           </Button>
           {onOpenAttendancePermission && (
             <Button
@@ -119,6 +110,16 @@ export default function VolunteerListToolbar({
               {t("COMMON.ATTENDANCE_PERMISSION")}
             </Button>
           )}
+          <Button
+            onClick={onSendCertificates}
+            variant="primary"
+            size="medium"
+            disabled={sendCertificatesDisabled}
+            className="extrasmall:!w-[115px]"
+          >
+            {t("COMMON.SEND_CERTIFICATES")}
+          </Button>   
+          
         </div>
       </div>
 
@@ -155,17 +156,7 @@ export default function VolunteerListToolbar({
 
       <div className="mobilescreen:w-[100%] flex justify-center pt-4 pb-12">
         <div className="flex flex-col lg:flex-row gap-4 items-center justify-center w-full max-w-5xl">
-          <Button
-            variant="primary"
-            size="medium"
-            className="w-full lg:w-auto shrink-0 gap-2"
-            onClick={onDownloadSheet}
-            disabled={downloadDisabled}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/voluneteerevent/downloadsheet.svg" alt="" />
-            {t("COMMON.SHEET")}
-          </Button>
+         
           {opportunity_start_date && opportunity_end_date && (
             <div className="w-full lg:w-auto flex-1">
               <DateRangePicker
@@ -183,6 +174,17 @@ export default function VolunteerListToolbar({
               onSearchChange={onSearchChange}
             />
           </div>
+           <Button
+            variant="primary"
+            size="medium"
+            className="w-full lg:w-auto shrink-0 gap-2 flex-shrink-0 justify-center px-4"
+            onClick={onDownloadSheet}
+            disabled={downloadDisabled}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/assets/voluneteerevent/downloadsheet.svg" alt="" />
+            {t("COMMON.SHEET")}
+          </Button>
         </div>
       </div>
     </>
