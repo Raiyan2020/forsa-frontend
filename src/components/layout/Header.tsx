@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useLanguageStore } from "@/store/languageStore";
 import { useNotificationStore } from "@/store/notificationStore";
 import LanguageSelection from "@/components/shared/LanguageSelection";
+import AttendanceScanButton from "@/components/layout/AttendanceScanButton";
 
 // Inline SVGs instead of react-icons — avoids icon library chunks in the layout bundle
 function CloseIcon({ className }: { className?: string }) {
@@ -416,6 +417,9 @@ const Header = () => {
 
         {/* Desktop Buttons */}
         <div className={`hidden mediumscreen:flex items-center ${language === "ar" ? "gap-4" : "space-x-4"}`}>
+          {/* Only participants scan — an organizer displays the printed code.
+              The button renders nothing unless a session is live right now. */}
+          <AttendanceScanButton enabled={isVolunteer} />
           {(isVolunteer || isOrganizer) && <NotificationBadge />}
           <LanguageSelection />
           {!isLoggedIn ? (
@@ -431,6 +435,8 @@ const Header = () => {
 
         {/* Mobile Menu Button */}
         <div className="mediumscreen:hidden flex gap-5 items-center">
+          {/* Mobile is where scanning actually happens — same gate, smaller icon. */}
+          <AttendanceScanButton enabled={isVolunteer} mobile />
           {(isVolunteer || isOrganizer) && <NotificationBadge mobile />}
           <LanguageSelection />
           <button

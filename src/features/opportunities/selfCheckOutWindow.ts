@@ -40,6 +40,12 @@ export interface SelfCheckOutScheduleSource {
 }
 
 export interface SelfCheckOutWindow {
+  /**
+   * Scheduled start of that session. Null when it cannot be derived — either
+   * no `start_time` was published, or the deadline came from the server and
+   * carries no start with it. The navbar scanner opens an hour before this.
+   */
+  sessionStartsAt: moment.Moment | null;
   /** Scheduled end of the session the pending check-out belongs to. */
   sessionEndsAt: moment.Moment | null;
   /** Last moment the departure code may be scanned, or null when unknown. */
@@ -91,6 +97,7 @@ export function getSelfCheckOutWindow(
   }: { checkedInAt?: string | null; now?: moment.Moment } = {}
 ): SelfCheckOutWindow {
   const open: SelfCheckOutWindow = {
+    sessionStartsAt: null,
     sessionEndsAt: null,
     closesAt: null,
     isOpen: true,
@@ -105,6 +112,9 @@ export function getSelfCheckOutWindow(
     if (serverClosesAt.isValid()) {
       const hasClosed = now.isAfter(serverClosesAt);
       return {
+        // The server sends a deadline, not a schedule — the session's start is
+        // not recoverable from it, and guessing one would be worse than null.
+        sessionStartsAt: null,
         sessionEndsAt: serverClosesAt
           .clone()
           .subtract(SELF_CHECK_OUT_GRACE_HOURS, "hours"),
@@ -144,5 +154,5 @@ export function getSelfCheckOutWindow(
     .add(SELF_CHECK_OUT_GRACE_HOURS, "hours");
   const hasClosed = now.isAfter(closesAt);
 
-  return { sessionEndsAt, closesAt, isOpen: !hasClosed, hasClosed };
+  return { sessionStartsAt, sessionEndsAt, closesAt, isOpen: !hasClosed, hasClosed };
 }

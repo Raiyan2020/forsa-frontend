@@ -137,13 +137,15 @@ export interface VolunteerOpportunityData {
     checked_in_at?: string | null;
     checked_out_at?: string | null;
     next_action?: "in" | "out" | "done" | null;
+    /**
+     * BE-75 B — when the departure scan stops being accepted: the session's
+     * scheduled end plus the configured grace period. Non-null only while a
+     * check-out is pending. Prefer it over deriving the deadline locally —
+     * `self_check_out_grace_hours` is an admin-editable config row, so a
+     * client-side constant can silently disagree with the server.
+     */
+    self_check_out_closes_at?: string | null;
   } | null;
-  /**
-   * BE-75 — when the departure scan stops being accepted, two hours past the
-   * session's scheduled end. Not sent yet; until it is, the deadline is
-   * derived from `end_time` locally. See `selfCheckOutWindow.ts`.
-   */
-  self_check_out_closes_at?: string | null;
   manual_attendance_enabled?: boolean;
   preparation_valid_until?: string | null;
   /** Hour-precise end of the check-in window; prefer it over the date-only field. */
@@ -970,12 +972,20 @@ export default function VolunteerEvent({
    * 00:30 scan; anchoring on today would move the deadline onto the wrong day
    * at midnight and lock the volunteer out mid-grace-period.
    *
-   * This gate is the button's, not the record's: the backend accepts a
-   * departure scan any time that day (BE-75 asks it to enforce the same two
-   * hours, and to stop crediting the grace period as worked time). Hiding the
-   * button is therefore honest UI, not security.
+   * Since BE-75 B the server sends the deadline itself on `self_attendance`,
+   * and it wins outright — it is computed from the admin-editable
+   * `self_check_out_grace_hours`, which the local fallback cannot see. The
+   * derivation below it stays as the answer for a payload that predates the
+   * field or has no check-out pending.
    */
-  const selfCheckOutWindow = getSelfCheckOutWindow(opportunityData, {
+  const selfCheckOutSource = useMemo(
+    () => ({
+      ...opportunityData,
+      self_check_out_closes_at: selfAttendance?.self_check_out_closes_at ?? null,
+    }),
+    [opportunityData, selfAttendance?.self_check_out_closes_at]
+  );
+  const selfCheckOutWindow = getSelfCheckOutWindow(selfCheckOutSource, {
     checkedInAt: selfAttendance?.checked_in_at,
   });
   const isDepartureScan = nextSelfScanDirection === "out";
@@ -1009,7 +1019,7 @@ export default function VolunteerEvent({
      * help once the window is shut.
      */
     if (nextSelfScanDirection === "out") {
-      const freshWindow = getSelfCheckOutWindow(opportunityData, {
+      const freshWindow = getSelfCheckOutWindow(selfCheckOutSource, {
         checkedInAt: selfAttendance?.checked_in_at,
       });
       if (freshWindow.hasClosed) {

@@ -40,15 +40,35 @@ export const getVolunteerAttendanceCodes = (
   apiClient.get(`/volunteer-opportunities/${id}/attendance-qr/`).then((r) => r.data);
 
 /**
- * The volunteer's own scan. `direction` is not guesswork — the server looks the
- * code up in the column that matches it, so an IN code sent as `"out"` reads as
- * an invalid code. Drive it from `self_attendance.next_action`.
+ * The volunteer's own scan.
+ *
+ * **`direction` is optional (BE-78 B).** Omit it and the server resolves the
+ * scanned string against both code columns and takes the direction from
+ * whichever matched — which is the honest reading, since the two columns hold
+ * distinct values and the code has always identified its own direction. A
+ * caller that does not already know whether this is an arrival or a departure
+ * (the navbar scanner) should leave it out rather than guess.
+ *
+ * Passing it explicitly still narrows the lookup to that one column, so an IN
+ * code sent as `"out"` reads as an invalid code. The detail page passes it
+ * because it holds `self_attendance.next_action` anyway.
  */
 export const volunteerSelfScan = (payload: {
   code: string;
-  direction: "in" | "out";
-}): Promise<ApiResponse<unknown>> =>
+  direction?: "in" | "out";
+}): Promise<ApiResponse<VolunteerSelfScanResult>> =>
   apiClient.post("/volunteer-attendance/self-scan/", payload).then((r) => r.data);
+
+/**
+ * What a scan returns. `checked_out_at` is the direction the server settled on,
+ * read back: non-null means the departure was just recorded.
+ */
+export interface VolunteerSelfScanResult {
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  self_check_out_closes_at?: string | null;
+  total_hours?: number | string | null;
+}
 
 // ─── Learn & serve: one code, last day, two hours ────────────────────────────
 
