@@ -846,6 +846,7 @@
   "COMMON.NO_VOLUNTEERS_FOUND": "No volunteers found",
   "COMMON.SELECTED_VOLUNTEERS": "Selected",
   "COMMON.SEARCH_VOLUNTEERS": "Search",
+  "COMMON.SEARCH_VOLUNTEERS_BY_IDENTITY": "Search by name, civil ID, passport or phone",
   "COMMON.CONFIRM_DELETE": "Confirm Delete",
   "COMMON.UNREGISTER_VOLUNTEER": "Unregister Volunteer",
   "COMMON.DELETE_VOLUNTEER_CONFIRMATION": "Are you sure you want to unregister this volunteer ?",

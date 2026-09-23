@@ -200,7 +200,7 @@ export default function AddVolunteersModal({
           />
           <input
             type="text"
-            placeholder={t("COMMON.SEARCH_VOLUNTEERS")}
+            placeholder={t("COMMON.SEARCH_VOLUNTEERS_BY_IDENTITY")}
             className="flex-1 outline-none bg-transparent px-2 2xl:text-[25px] lg:text-lg xss:text-base laptopmain:text-xl lg:w-auto md:w-[150px] w-[150px] placeholder:text-[#181822CC]/80"
             onChange={(event) => setSearchVolunteerTerm(event.target.value)}
           />
@@ -250,6 +250,23 @@ export default function AddVolunteersModal({
                     volunteer.user_id || volunteer.user?.id || volunteer.id
                   );
                   const isSelected = selectedVolunteers.includes(volunteerId);
+                  /*
+                   * `/available-volunteers/` serves `VolunteerProfileWithUserResource`,
+                   * which has no top-level `full_name` — the name lives on the
+                   * nested `user`. Reading `volunteer.full_name` alone is why
+                   * the list showed emails with no names at all.
+                   */
+                  const name =
+                    volunteer.user?.full_name ||
+                    volunteer.full_name ||
+                    volunteer.nickname ||
+                    "";
+                  // Whichever identifier the organizer might have searched by.
+                  const identifiers = [
+                    volunteer.civil_id || volunteer.user?.civil_id,
+                    volunteer.passport_number,
+                    volunteer.phone_number || volunteer.user?.phone_number,
+                  ].filter(Boolean);
 
                   return (
                     <div
@@ -269,7 +286,7 @@ export default function AddVolunteersModal({
                               "/assets/profile/org_profile.svg"
                             )
                           }
-                          alt={volunteer.full_name}
+                          alt={name}
                           className="w-12 h-12 rounded-full object-cover"
                         />
                       </div>
@@ -285,12 +302,12 @@ export default function AddVolunteersModal({
                               )
                             }
                           >
-                            {volunteer.full_name}
+                            {name}
                           </span>
                         </div>
-                        {(volunteer.civil_id || volunteer.user?.civil_id) && (
-                          <div className="text-xs text-gray-500">
-                            {volunteer.civil_id || volunteer.user?.civil_id}
+                        {identifiers.length > 0 && (
+                          <div className="text-xs text-gray-500" dir="ltr">
+                            {identifiers.join(" · ")}
                           </div>
                         )}
                         <div className="text-sm text-gray-500">

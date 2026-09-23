@@ -124,7 +124,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               meta.touched && meta.error
                 ? "border-red-500"
                 : "border-[#29246D1A]/10",
-              selectedLanguage === "ar" ? "text-right" : "text-left",
+              // selectedLanguage === "ar" ? "text-right" : "text-left",
               endAdornment && "pr-10 rtl:pr-3 rtl:pl-10",
               className
             )}

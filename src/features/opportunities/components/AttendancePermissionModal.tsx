@@ -40,6 +40,8 @@ interface PermissionRow {
   full_name?: string;
   email?: string;
   phone_number?: string;
+  civil_id?: string | null;
+  passport_number?: string | null;
   profile_pic?: string | null;
   gender_display?: { value_en?: string | null } | null;
   attendance_permission_id?: number;
@@ -123,6 +125,9 @@ export default function AttendancePermissionModal({
     name: row.full_name || row.user?.full_name || "",
     email: row.email || "",
     phone: row.phone_number || "",
+    identifiers: [row.civil_id, row.passport_number, row.phone_number].filter(
+      (value): value is string => Boolean(value)
+    ),
     pic: row.profile_pic || row.user?.profile_pic || "",
     genderEn:
       row.gender_display?.value_en || row.user?.gender_display?.value_en || "",
@@ -258,7 +263,7 @@ export default function AttendancePermissionModal({
             <input
               type="text"
               value={search}
-              placeholder={t("COMMON.SEARCH_VOLUNTEERS")}
+              placeholder={t("COMMON.SEARCH_VOLUNTEERS_BY_IDENTITY")}
               className="flex-1 bg-transparent px-2 text-base outline-none placeholder:text-[#181822]/80"
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -307,6 +312,12 @@ export default function AttendancePermissionModal({
                       />
                       <span className="flex-grow">
                         <span className="block font-medium">{it.name}</span>
+                        {/* Whichever identifier the organizer searched by. */}
+                        {it.identifiers.length > 0 && (
+                          <span className="block text-xs text-gray-500" dir="ltr">
+                            {it.identifiers.join(" · ")}
+                          </span>
+                        )}
                         {it.email && (
                           <span className="block text-sm text-gray-500">
                             {it.email}

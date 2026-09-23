@@ -256,7 +256,6 @@ const OpportunityScheduleDates = ({ minDate }: { minDate?: Date }) => {
         />
       </div>
 
-
       {showError && (
         <div className="mt-1 text-sm text-red-500">
           {(errors.scheduleDates as string) ||

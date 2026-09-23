@@ -835,6 +835,7 @@
   "COMMON.NO_VOLUNTEERS_FOUND": "لا يوجد متطوعين متاحين",
   "COMMON.SELECTED_VOLUNTEERS": "مختار",
   "COMMON.SEARCH_VOLUNTEERS": "ابحث",
+  "COMMON.SEARCH_VOLUNTEERS_BY_IDENTITY": "ابحث بالاسم أو الرقم المدني أو الجواز أو الهاتف",
   "COMMON.CONFIRM_DELETE": "تأكيد الحذف",
   "COMMON.UNREGISTER_VOLUNTEER": "إلغاء تسجيل",
   "COMMON.DELETE_VOLUNTEER_CONFIRMATION": "هل أنت متأكد من عمليه إلغاء تسجيل هذا المتطوع؟",
