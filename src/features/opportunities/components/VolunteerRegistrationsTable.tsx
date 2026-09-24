@@ -9,6 +9,7 @@ import { RiDeleteBin5Fill } from "react-icons/ri";
 import Table from "@/components/ui/Table";
 import { getDefaultProfileImage } from "@/lib/helpers";
 import { useLanguageStore } from "@/store/languageStore";
+import type { AttendanceScheduleSource } from "../attendanceHours";
 import AttendanceHoursCell from "./AttendanceHoursCell";
 import RegistrationSelectCell from "./RegistrationSelectCell";
 import {
@@ -33,6 +34,8 @@ interface VolunteerRegistrationsTableProps {
   opportunity_start_date: string | undefined;
   opportunity_start_time: string | undefined;
   opportunity_end_time: string | undefined;
+  /** Each day's session, for capping and pre-filling the hours field. */
+  schedule: AttendanceScheduleSource;
   selectedAttendance: string[];
   selectAllAttendance: boolean;
   onSelectAllAttendanceChange: () => void;
@@ -54,7 +57,8 @@ interface VolunteerRegistrationsTableProps {
   onSaveHours: (
     attendanceId: string | number,
     key: string,
-    rawValue: string
+    rawValue: string,
+    maxHours?: number | null
   ) => Promise<void>;
   isSavingHours: boolean;
   resolveAttendanceRecord: (
@@ -83,6 +87,7 @@ export default function VolunteerRegistrationsTable({
   opportunity_start_date,
   opportunity_start_time,
   opportunity_end_time,
+  schedule,
   selectedAttendance,
   selectAllAttendance,
   onSelectAllAttendanceChange,
@@ -331,6 +336,7 @@ export default function VolunteerRegistrationsTable({
                 <AttendanceHoursCell
                   rowData={rowData}
                   selectedDate={selectedDate}
+                  schedule={schedule}
                   editingHoursKey={editingHoursKey}
                   setEditingHoursKey={setEditingHoursKey}
                   hoursDraft={hoursDraft}

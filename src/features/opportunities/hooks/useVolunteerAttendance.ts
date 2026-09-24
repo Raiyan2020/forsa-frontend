@@ -316,15 +316,27 @@ export function useVolunteerAttendance({
     setSelectAllAttendanceMode(false);
   };
 
-  /** Inline hours correction — works on manual and QR records alike. */
+  /**
+   * Inline hours correction — works on manual and QR records alike.
+   *
+   * `maxHours` is the most the day may carry — arrival → two hours past the
+   * session's end (`maxCreditableHours`). Null when the schedule is unknown,
+   * which falls back to the old 0–24 range rather than blocking the edit.
+   */
   const handleSaveHours = async (
     attendanceId: string | number,
     key: string,
-    rawValue: string
+    rawValue: string,
+    maxHours: number | null = null
   ) => {
     const hours = Number(rawValue);
-    if (!rawValue.trim() || Number.isNaN(hours) || hours < 0 || hours > 24) {
-      toast.error(t("COMMON.ATTENDANCE_HOURS_RANGE"));
+    const ceiling = maxHours ?? 24;
+    if (!rawValue.trim() || Number.isNaN(hours) || hours < 0 || hours > ceiling) {
+      toast.error(
+        maxHours != null
+          ? t("COMMON.ATTENDANCE_HOURS_MAX", { max: maxHours })
+          : t("COMMON.ATTENDANCE_HOURS_RANGE")
+      );
       return;
     }
 
@@ -336,6 +348,7 @@ export function useVolunteerAttendance({
       setSessionAttendance((previous) => ({
         ...previous,
         [key]: {
+          ...previous[key],
           id: attendanceId,
           total_hours: response?.data?.total_hours ?? hours,
         },

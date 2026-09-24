@@ -127,6 +127,7 @@ export default function AttendancePanel({ data, view }: AttendancePanelProps) {
       end_date: data.end_date,
       start_time: data.start_time,
       end_time: data.end_time,
+      time_slots: data.time_slots,
       participants_needed: data.participants_needed,
       // BE-69 — who is looking. `can_manage_attendance` covers the organizer
       // and a granted volunteer; `is_creator` separates them, since only the

@@ -96,6 +96,14 @@ export default function VolunteerList() {
   const opportunity_start_time = navState?.start_time;
   const opportunity_end_time = navState?.end_time;
   const participants_needed = navState?.participants_needed;
+  const schedule = useMemo(
+    () => ({
+      start_time: navState?.start_time,
+      end_time: navState?.end_time,
+      time_slots: navState?.time_slots,
+    }),
+    [navState]
+  );
 
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -450,6 +458,7 @@ export default function VolunteerList() {
               opportunity_start_date={opportunity_start_date}
               opportunity_start_time={opportunity_start_time}
               opportunity_end_time={opportunity_end_time}
+              schedule={schedule}
               selectedAttendance={attendance.selectedAttendance}
               selectAllAttendance={attendance.selectAllAttendance}
               onSelectAllAttendanceChange={() =>

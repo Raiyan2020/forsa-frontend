@@ -18,6 +18,16 @@ export interface VolunteerListState {
   end_date?: string;
   start_time?: string;
   end_time?: string;
+  /**
+   * Per-day schedule, for opportunities on separate days. The hours field
+   * reads it to cap each day at that day's own length (see `attendanceHours.ts`).
+   */
+  time_slots?: {
+    date?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    hours?: number | null;
+  }[];
   participants_needed?: number;
   // Check-in window fields, forwarded verbatim so this screen can render the
   // countdown and lock the controls without refetching the opportunity.
@@ -52,6 +62,12 @@ export interface VolunteerListState {
 export interface AttendanceRecordRef {
   id: string | number;
   total_hours?: number | null;
+  /** A check-in with no check-out is a forgotten departure scan. */
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  /** BE-91 — the day's cap and the arrival → end default, once sent. */
+  max_hours?: number | null;
+  suggested_hours?: number | null;
 }
 
 /** The attendance-carrying fields a registration row might expose. */
@@ -73,7 +89,22 @@ export interface AttendanceEntry {
   total_hours?: number | null;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
+  /** BE-91 — not sent yet; derived locally until it is. */
+  max_hours?: number | null;
+  suggested_hours?: number | null;
 }
+
+/** Everything a record ref keeps from an entry. */
+const toRecordRef = (
+  entry: AttendanceEntry & { id: string | number }
+): AttendanceRecordRef => ({
+  id: entry.id,
+  total_hours: entry.total_hours ?? null,
+  checked_in_at: entry.checked_in_at ?? null,
+  checked_out_at: entry.checked_out_at ?? null,
+  max_hours: entry.max_hours ?? null,
+  suggested_hours: entry.suggested_hours ?? null,
+});
 
 /** One volunteer's outcome from a fanned-out manual check-in. */
 export interface ManualAttendanceResult {
@@ -114,7 +145,7 @@ export function readAttendanceRecord(
         entry?.date === apiDate
     );
     if (match?.id != null) {
-      return { id: match.id, total_hours: match.total_hours ?? null };
+      return toRecordRef({ ...match, id: match.id });
     }
   }
 
@@ -124,7 +155,7 @@ export function readAttendanceRecord(
     single?.id != null &&
     (single.attended_date ?? single.attendance_date ?? single.date) === apiDate
   ) {
-    return { id: single.id, total_hours: single.total_hours ?? null };
+    return toRecordRef({ ...single, id: single.id });
   }
   if (row?.attendance_id != null && row?.attendance_date === apiDate) {
     return { id: row.attendance_id, total_hours: row.total_hours ?? null };
